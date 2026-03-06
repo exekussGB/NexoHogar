@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.household
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -10,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.nexohogar.R
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.databinding.FragmentHouseholdBinding
+import com.nexohogar.presentation.MainActivity
 
 class HouseholdFragment : Fragment(R.layout.fragment_household) {
 
@@ -41,7 +43,12 @@ class HouseholdFragment : Fragment(R.layout.fragment_household) {
     private fun setupRecyclerView() {
         adapter = HouseholdAdapter { household ->
             viewModel.selectHousehold(household.id)
-            Toast.makeText(context, "Seleccionado: ${household.name}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Hogar seleccionado: ${household.name}", Toast.LENGTH_SHORT).show()
+            
+            // 🔥 Navegar a MainActivity (Dashboard)
+            val intent = Intent(requireContext(), MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
         }
         binding.rvHouseholds.layoutManager = LinearLayoutManager(context)
         binding.rvHouseholds.adapter = adapter

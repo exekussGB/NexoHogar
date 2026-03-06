@@ -5,11 +5,9 @@ import android.content.Context
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.network.AuthApi
-import com.nexohogar.data.repository.AuthRepositoryImpl
-import com.nexohogar.data.repository.HouseholdRepositoryImpl
-import com.nexohogar.domain.repository.AuthRepository
-import com.nexohogar.domain.repository.HouseholdRepository
+import com.nexohogar.data.network.*
+import com.nexohogar.data.repository.*
+import com.nexohogar.domain.repository.*
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -77,17 +75,49 @@ object ServiceLocator {
             .build()
     }
 
-    private val authApi: AuthApi by lazy {
+    val authApi: AuthApi by lazy {
         retrofit.create(AuthApi::class.java)
     }
 
-    // --- Repositories (Exponiendo interfaces de Dominio) ---
+    val dashboardApi: DashboardApi by lazy {
+        retrofit.create(DashboardApi::class.java)
+    }
 
+    val accountsApi: AccountsApi by lazy {
+        retrofit.create(AccountsApi::class.java)
+    }
+
+    val transactionsApi: TransactionsApi by lazy {
+        retrofit.create(TransactionsApi::class.java)
+    }
+
+    val transactionDetailApi: TransactionDetailApi by lazy {
+        retrofit.create(TransactionDetailApi::class.java)
+    }
+
+    // --- Repositories (Exponiendo interfaces de Dominio) ---
+    
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(authApi)
+        AuthRepositoryImpl(authApi, sessionManager)
     }
 
     val householdRepository: HouseholdRepository by lazy {
         HouseholdRepositoryImpl(authApi, tenantContext)
+    }
+
+    val dashboardRepository: DashboardRepository by lazy {
+        DashboardRepositoryImpl(dashboardApi)
+    }
+
+    val accountsRepository: AccountsRepository by lazy {
+        AccountsRepositoryImpl(accountsApi)
+    }
+
+    val transactionsRepository: TransactionsRepository by lazy {
+        TransactionsRepositoryImpl(transactionsApi)
+    }
+
+    val transactionDetailRepository: TransactionDetailRepository by lazy {
+        TransactionDetailRepositoryImpl(transactionDetailApi)
     }
 }
