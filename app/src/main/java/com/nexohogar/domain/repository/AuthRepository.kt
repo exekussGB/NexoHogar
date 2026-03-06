@@ -8,4 +8,6 @@ import com.nexohogar.domain.model.UserSession
  */
 interface AuthRepository {
     suspend fun login(email: String, password: String): AppResult<UserSession>
+    suspend fun logout()
+    fun getCurrentSession(): UserSession?
 }
