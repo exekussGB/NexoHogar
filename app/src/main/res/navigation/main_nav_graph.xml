@@ -32,7 +32,15 @@
         <action
             android:id="@+id/action_transactionsFragment_to_transactionDetailFragment"
             app:destination="@id/transactionDetailFragment" />
+        <action
+            android:id="@+id/action_transactionsFragment_to_addTransactionFragment"
+            app:destination="@id/addTransactionFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/addTransactionFragment"
+        android:name="com.nexohogar.presentation.addtransaction.AddTransactionFragment"
+        android:label="Nuevo Movimiento" />
 
     <fragment
         android:id="@+id/transactionDetailFragment"
