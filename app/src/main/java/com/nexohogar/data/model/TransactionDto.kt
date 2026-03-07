@@ -4,14 +4,14 @@ import com.google.gson.annotations.SerializedName
 import com.nexohogar.domain.model.Transaction
 
 /**
- * Data Transfer Object for Transaction from Supabase view.
- * Updated to handle nulls from the database.
+ * DTO para la respuesta de Supabase.
+ * Permite nulos para manejar de forma segura datos incompletos de la base de datos.
  */
 data class TransactionDto(
     @SerializedName("id")
-    val id: String,
+    val id: String?,
     @SerializedName("type")
-    val type: String,
+    val type: String?,
     @SerializedName("description")
     val description: String?,
     @SerializedName("transaction_date")
@@ -23,16 +23,16 @@ data class TransactionDto(
 )
 
 /**
- * Mapper extension to convert DTO to Domain model.
- * Handles null values safely.
+ * Mapper defensivo: Convierte el DTO (inseguro) al modelo de Dominio (seguro).
+ * Garantiza que el dominio nunca reciba un nulo en campos críticos.
  */
 fun TransactionDto.toDomain(): Transaction {
     return Transaction(
-        id = id,
-        type = type,
-        description = description,
-        transactionDate = transactionDate,
-        amountClp = amountClp,
+        id = id ?: "",
+        type = type ?: "expense",
+        description = description ?: "",
+        transactionDate = transactionDate ?: "",
+        amountClp = amountClp ?: 0.0,
         status = status ?: "pending"
     )
 }

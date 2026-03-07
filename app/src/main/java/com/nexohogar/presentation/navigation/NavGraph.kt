@@ -1,6 +1,7 @@
 package com.nexohogar.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -9,6 +10,8 @@ import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
+import com.nexohogar.presentation.addtransaction.AddTransactionScreen
+import com.nexohogar.presentation.addtransaction.AddTransactionViewModel
 import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
@@ -19,6 +22,8 @@ import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
@@ -26,6 +31,7 @@ sealed class Screen(val route: String) {
     object Dashboard : Screen("dashboard")
     object Accounts : Screen("accounts")
     object Transactions : Screen("transactions")
+    object AddTransaction : Screen("add_transaction")
     object TransactionDetail : Screen("transaction_detail/{transactionId}") {
         fun createRoute(transactionId: String) = "transaction_detail/$transactionId"
     }
@@ -92,7 +98,24 @@ fun NavGraph(
                 viewModel = viewModel,
                 onTransactionClick = { transaction ->
                     navController.navigate(Screen.TransactionDetail.createRoute(transaction.id))
+                },
+                onAddTransactionClick = {
+                    navController.navigate(Screen.AddTransaction.route)
                 }
+            )
+        }
+
+        composable(Screen.AddTransaction.route) {
+            val viewModel: AddTransactionViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        return AddTransactionViewModel(transactionsRepository, tenantContext) as T
+                    }
+                }
+            )
+            AddTransactionScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
