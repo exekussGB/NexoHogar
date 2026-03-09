@@ -57,20 +57,27 @@ class TransactionsViewModel(
      * Creates a new transaction via Supabase RPC.
      */
     fun createTransaction(
-        accountId: String,
+        accountId: String?,
         amount: Double,
         description: String?
     ) {
+        if (accountId.isNullOrBlank()) {
+            _uiState.value = TransactionsUiState.Error("Validation error: accountId cannot be null")
+            return
+        }
+
         viewModelScope.launch {
             try {
                 val householdId = tenantContext.requireHouseholdId()
                 val request = CreateTransactionRequest(
-                    p_household_id = householdId,
-                    p_account_id = accountId,
-                    p_amount = amount,
-                    p_type = "expense",
-                    p_description = description,
-                    p_transaction_date = LocalDate.now().toString()
+                    householdId = householdId,
+                    type = "expense",
+                    accountId = accountId,
+                    toAccountId = null,
+                    amountClp = amount,
+                    categoryId = null,
+                    description = description,
+                    transactionDate = LocalDate.now().toString()
                 )
 
                 when (repository.createTransaction(request)) {

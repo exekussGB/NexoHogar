@@ -2,6 +2,7 @@ package com.nexohogar.domain.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.model.CreateTransactionRequest
+import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Transaction
 
 /**
@@ -13,4 +14,6 @@ interface TransactionsRepository {
     suspend fun createTransaction(
         request: CreateTransactionRequest
     ): AppResult<Unit>
+
+    suspend fun getAccounts(householdId: String): AppResult<List<Account>>
 }

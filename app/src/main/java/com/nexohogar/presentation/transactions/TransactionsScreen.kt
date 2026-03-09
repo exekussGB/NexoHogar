@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -99,16 +98,16 @@ fun TransactionItem(
 ) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
     
-    val icon = when (transaction.type.lowercase()) {
-        "income" -> Icons.Default.ArrowUpward
-        "expense" -> Icons.Default.ArrowDownward
-        else -> Icons.Default.SyncAlt
+    val icon = if (transaction.amount < 0) {
+        Icons.Default.ArrowDownward
+    } else {
+        Icons.Default.ArrowUpward
     }
     
-    val iconColor = when (transaction.type.lowercase()) {
-        "income" -> Color(0xFF4CAF50)
-        "expense" -> Color(0xFFF44336)
-        else -> MaterialTheme.colorScheme.secondary
+    val iconColor = if (transaction.amount < 0) {
+        Color(0xFFF44336)
+    } else {
+        Color(0xFF4CAF50)
     }
 
     Card(
@@ -138,19 +137,19 @@ fun TransactionItem(
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.description.ifBlank { "Sin descripción" },
+                    text = transaction.description?.ifBlank { "Sin descripción" } ?: "Sin descripción",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = transaction.transactionDate.ifBlank { "Fecha no disponible" },
+                    text = transaction.createdAt.ifBlank { "Fecha no disponible" },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
             Text(
-                text = clpFormat.format(transaction.amountClp),
+                text = clpFormat.format(transaction.amount),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = iconColor
