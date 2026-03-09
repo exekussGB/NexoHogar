@@ -1,7 +1,8 @@
 package com.nexohogar.data.network
 
+import com.nexohogar.data.model.AccountDto
 import com.nexohogar.data.model.CreateTransactionRequest
-import com.nexohogar.data.model.TransactionDto
+import com.nexohogar.data.remote.dto.TransactionResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -13,14 +14,20 @@ import retrofit2.http.Query
  */
 interface TransactionsApi {
 
-    @GET("rest/v1/v_movements")
+    @GET("rest/v1/transactions")
     suspend fun getTransactions(
-        @Query("household_id") householdIdFilter: String,
-        @Query("order") order: String = "transaction_date.desc"
-    ): Response<List<TransactionDto>>
+        @Query("household_id") householdId: String,
+        @Query("select") select: String = "id,description,amount,created_at,account_id",
+        @Query("order") order: String = "created_at.desc"
+    ): Response<List<TransactionResponse>>
 
-    @POST("rest/v1/rpc/create_transaction_v1")
+    @POST("rest/v1/rpc/create_transaction")
     suspend fun createTransaction(
         @Body request: CreateTransactionRequest
     ): Response<Unit>
+
+    @GET("rest/v1/accounts")
+    suspend fun getAccounts(
+        @Query("household_id") householdFilter: String
+    ): Response<List<AccountDto>>
 }

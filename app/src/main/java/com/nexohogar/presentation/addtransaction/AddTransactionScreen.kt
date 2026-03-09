@@ -2,15 +2,19 @@ package com.nexohogar.presentation.addtransaction
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.nexohogar.domain.model.Account
 import com.nexohogar.presentation.components.LoadingOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -19,19 +23,20 @@ fun AddTransactionScreen(
     viewModel: AddTransactionViewModel,
     onNavigateBack: () -> Unit
 ) {
-    var accountId by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(uiState) {
-        if (uiState is AddTransactionUiState.Success) {
-            Toast.makeText(context, "Movimiento creado con éxito", Toast.LENGTH_SHORT).show()
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) {
+            Toast.makeText(context, "Movimiento guardado con éxito", Toast.LENGTH_SHORT).show()
             onNavigateBack()
-        } else if (uiState is AddTransactionUiState.Error) {
-            Toast.makeText(context, (uiState as AddTransactionUiState.Error).message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
         }
     }
 
@@ -50,49 +55,142 @@ fun AddTransactionScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                OutlinedTextField(
-                    value = accountId,
-                    onValueChange = { accountId = it },
-                    label = { Text("ID de Cuenta") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Monto") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Descripción (opcional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Button(
-                    onClick = {
-                        val amountValue = amount.toDoubleOrNull() ?: 0.0
-                        viewModel.createTransaction(accountId, amountValue, description)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState !is AddTransactionUiState.Loading
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (uiState.paymentAccounts.isEmpty() && uiState.categories.isEmpty() && !uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No se encontraron cuentas o categorías.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text("Crear movimiento")
+                    // Selector de Tipo de Transacción
+                    TransactionTypeSelector(
+                        selectedType = uiState.type,
+                        onTypeSelected = { viewModel.onTypeChange(it) }
+                    )
+
+                    // Dropdown Cuenta de Pago (Activos/Pasivos)
+                    AccountDropdown(
+                        label = "Cuenta de Pago",
+                        accounts = uiState.paymentAccounts,
+                        selectedAccount = uiState.selectedPaymentAccount,
+                        onAccountSelected = { viewModel.onPaymentAccountSelected(it) }
+                    )
+
+                    // Dropdown Categoría (Ingresos/Gastos)
+                    AccountDropdown(
+                        label = "Categoría",
+                        accounts = uiState.categories,
+                        selectedAccount = uiState.selectedCategory,
+                        onAccountSelected = { viewModel.onCategorySelected(it) }
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.amount,
+                        onValueChange = { viewModel.onAmountChange(it) },
+                        label = { Text("Monto") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.description,
+                        onValueChange = { viewModel.onDescriptionChange(it) },
+                        label = { Text("Descripción (opcional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Button(
+                        onClick = { viewModel.saveTransaction() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isLoading && 
+                                 uiState.selectedPaymentAccount != null && 
+                                 uiState.selectedCategory != null &&
+                                 uiState.amount.isNotBlank()
+                    ) {
+                        Text("Guardar Movimiento")
+                    }
                 }
             }
 
-            if (uiState is AddTransactionUiState.Loading) {
+            if (uiState.isLoading) {
                 LoadingOverlay()
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionTypeSelector(
+    selectedType: TransactionType,
+    onTypeSelected: (TransactionType) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TransactionType.values().forEach { type ->
+            FilterChip(
+                selected = selectedType == type,
+                onClick = { onTypeSelected(type) },
+                label = { Text(if (type == TransactionType.EXPENSE) "Gasto" else "Ingreso") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AccountDropdown(
+    label: String,
+    accounts: List<Account>,
+    selectedAccount: Account?,
+    onAccountSelected: (Account) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedAccount?.name ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            accounts.forEach { account ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(account.name)
+                            Text(account.type, style = MaterialTheme.typography.bodySmall)
+                        }
+                    },
+                    onClick = {
+                        onAccountSelected(account)
+                        expanded = false
+                    }
+                )
             }
         }
     }

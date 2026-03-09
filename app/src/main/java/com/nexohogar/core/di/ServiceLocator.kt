@@ -2,13 +2,13 @@ package com.nexohogar.core.di
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.nexohogar.core.network.AuthInterceptor
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -44,17 +44,8 @@ object ServiceLocator {
 
     // --- Network ---
 
-    private val authInterceptor = Interceptor { chain ->
-        val originalRequest = chain.request()
-        val builder = originalRequest.newBuilder()
-            .addHeader("apikey", SupabaseConfig.API_KEY)
-            .addHeader("Content-Type", "application/json")
-
-        sessionManager.fetchAuthToken()?.let { token ->
-            builder.addHeader("Authorization", "Bearer $token")
-        }
-
-        chain.proceed(builder.build())
+    private val authInterceptor: AuthInterceptor by lazy {
+        AuthInterceptor(sessionManager)
     }
 
     private val okHttpClient: OkHttpClient by lazy {
@@ -114,7 +105,11 @@ object ServiceLocator {
     }
 
     val transactionsRepository: TransactionsRepository by lazy {
-        TransactionsRepositoryImpl(transactionsApi)
+        TransactionsRepositoryImpl(
+            api = transactionsApi,
+            accountsApi = accountsApi,
+            sessionManager = sessionManager
+        )
     }
 
     val transactionDetailRepository: TransactionDetailRepository by lazy {

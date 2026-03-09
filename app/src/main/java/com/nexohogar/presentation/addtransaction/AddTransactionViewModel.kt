@@ -5,66 +5,136 @@ import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.model.CreateTransactionRequest
+import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.repository.TransactionsRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/**
- * ViewModel for the Add Transaction screen.
- */
+data class AddTransactionUiState(
+    val type: TransactionType = TransactionType.EXPENSE,
+    val paymentAccounts: List<Account> = emptyList(),
+    val categories: List<Account> = emptyList(),
+    val selectedPaymentAccount: Account? = null,
+    val selectedCategory: Account? = null,
+    val amount: String = "",
+    val description: String = "",
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val isSuccess: Boolean = false
+)
+
 class AddTransactionViewModel(
     private val repository: TransactionsRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<AddTransactionUiState>(AddTransactionUiState.Idle)
+    private val _uiState = MutableStateFlow(AddTransactionUiState())
     val uiState: StateFlow<AddTransactionUiState> = _uiState.asStateFlow()
 
-    fun createTransaction(
-        accountId: String,
-        amount: Double,
-        description: String?
-    ) {
-        if (accountId.isBlank() || amount <= 0) {
-            _uiState.value = AddTransactionUiState.Error("Datos inválidos")
+    init {
+        loadInitialData()
+    }
+
+    private fun loadInitialData() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val householdId = tenantContext.getCurrentHouseholdId() ?: run {
+                _uiState.update { it.copy(error = "No se ha seleccionado un hogar.", isLoading = false) }
+                return@launch
+            }
+            
+            when (val result = repository.getAccounts(householdId)) {
+                is AppResult.Success -> {
+                    val accounts = result.data
+                    val paymentAccounts = accounts.filter {
+                        it.type == "ASSET" || it.type == "LIABILITY"
+                    }
+                    val categories = accounts.filter {
+                        it.type == "EXPENSE" || it.type == "INCOME"
+                    }
+                    _uiState.update {
+                        it.copy(
+                            paymentAccounts = paymentAccounts,
+                            categories = categories,
+                            isLoading = false
+                        )
+                    }
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(error = result.message, isLoading = false) }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun onTypeChange(type: TransactionType) {
+        _uiState.update { it.copy(type = type) }
+    }
+
+    fun onPaymentAccountSelected(account: Account) {
+        _uiState.update { it.copy(selectedPaymentAccount = account) }
+    }
+
+    fun onCategorySelected(category: Account) {
+        _uiState.update { it.copy(selectedCategory = category) }
+    }
+
+    fun onAmountChange(amount: String) {
+        _uiState.update { it.copy(amount = amount) }
+    }
+
+    fun onDescriptionChange(description: String) {
+        _uiState.update { it.copy(description = description) }
+    }
+
+    fun saveTransaction() {
+        val currentState = _uiState.value
+        val paymentAccount = currentState.selectedPaymentAccount ?: run {
+            _uiState.update { it.copy(error = "Selecciona una cuenta de pago") }
+            return
+        }
+        val category = currentState.selectedCategory ?: run {
+            _uiState.update { it.copy(error = "Selecciona una categoría") }
+            return
+        }
+        val amountValue = currentState.amount.toDoubleOrNull() ?: run {
+            _uiState.update { it.copy(error = "Monto inválido") }
             return
         }
 
-        _uiState.value = AddTransactionUiState.Loading
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        
         viewModelScope.launch {
             try {
                 val householdId = tenantContext.requireHouseholdId()
                 val request = CreateTransactionRequest(
-                    p_household_id = householdId,
-                    p_account_id = accountId,
-                    p_amount = amount,
-                    p_type = "expense",
-                    p_description = description,
-                    p_transaction_date = LocalDate.now().toString()
+                    householdId = householdId,
+                    type = currentState.type.name.lowercase(),
+                    accountId = paymentAccount.id,
+                    amountClp = amountValue,
+                    categoryId = category.id,
+                    description = currentState.description,
+                    transactionDate = LocalDate.now().toString()
                 )
 
                 when (val result = repository.createTransaction(request)) {
                     is AppResult.Success -> {
-                        _uiState.value = AddTransactionUiState.Success
+                        _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                     }
                     is AppResult.Error -> {
-                        _uiState.value = AddTransactionUiState.Error(result.message)
+                        _uiState.update { it.copy(isLoading = false, error = result.message) }
                     }
                     else -> {}
                 }
             } catch (e: Exception) {
-                _uiState.value = AddTransactionUiState.Error(e.message ?: "Error inesperado")
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Error inesperado") }
             }
         }
     }
-}
-
-sealed interface AddTransactionUiState {
-    object Idle : AddTransactionUiState
-    object Loading : AddTransactionUiState
-    object Success : AddTransactionUiState
-    data class Error(val message: String) : AddTransactionUiState
+    
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
 }

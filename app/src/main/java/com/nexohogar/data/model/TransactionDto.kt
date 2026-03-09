@@ -1,7 +1,6 @@
 package com.nexohogar.data.model
 
 import com.google.gson.annotations.SerializedName
-import com.nexohogar.domain.model.Transaction
 
 /**
  * DTO para la respuesta de Supabase.
@@ -21,22 +20,3 @@ data class TransactionDto(
     @SerializedName("status")
     val status: String?
 )
-
-/**
- * Mapper defensivo: Convierte el DTO (inseguro) al modelo de Dominio (seguro).
- * Garantiza que el dominio nunca reciba un nulo en campos críticos.
- */
-fun TransactionDto.toDomain(): Transaction {
-    return Transaction(
-        id = id ?: "",
-        type = type ?: "expense",
-        description = description ?: "",
-        transactionDate = transactionDate ?: "",
-        amountClp = amountClp ?: 0.0,
-        status = status ?: "pending"
-    )
-}
-
-fun List<TransactionDto>.toDomain(): List<Transaction> {
-    return this.map { it.toDomain() }
-}
