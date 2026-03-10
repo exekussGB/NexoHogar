@@ -3,6 +3,7 @@ package com.nexohogar.data.repository
 import android.util.Log
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
+import com.nexohogar.data.mapper.toDomain
 import com.nexohogar.data.model.CreateTransactionRequest
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.network.TransactionsApi
@@ -29,6 +30,8 @@ class TransactionsRepositoryImpl(
             val response = api.getTransactions("eq.$householdId")
 
             if (!response.isSuccessful) {
+                val error = response.errorBody()?.string()
+                Log.e("TRANSACTIONS_API", "HTTP ${response.code()} -> ${error ?: "unknown error"}")
                 return AppResult.Error("Error loading transactions")
             }
 
@@ -39,7 +42,7 @@ class TransactionsRepositoryImpl(
                 Transaction(
                     id = dto.id,
                     accountId = dto.account_id,
-                    amount = dto.amount,
+                    amount = dto.amount_clp, // Corregido mapping a amount_clp
                     description = dto.description,
                     createdAt = dto.created_at
                 )
@@ -59,6 +62,7 @@ class TransactionsRepositoryImpl(
                 AppResult.Success(Unit)
             } else {
                 val errorBody = response.errorBody()?.string()
+                Log.e("TRANSACTIONS_API", "RPC Error ${response.code()} -> $errorBody")
                 AppResult.Error("Error al crear transacción: $errorBody")
             }
         } catch (e: Exception) {
@@ -87,9 +91,9 @@ class TransactionsRepositoryImpl(
                 }
                 AppResult.Success(domainAccounts)
             } else {
-                val errorMsg = "Error al obtener cuentas: ${response.code()}"
-                Log.e("ACCOUNTS_FETCH", errorMsg)
-                AppResult.Error(errorMsg)
+                val errorMsg = response.errorBody()?.string()
+                Log.e("ACCOUNTS_FETCH", "HTTP ${response.code()} -> $errorMsg")
+                AppResult.Error("Error al obtener cuentas: $errorMsg")
             }
         } catch (e: Exception) {
             Log.e("ACCOUNTS_FETCH", "Error de red", e)

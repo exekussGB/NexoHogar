@@ -17,7 +17,7 @@ interface TransactionsApi {
     @GET("rest/v1/transactions")
     suspend fun getTransactions(
         @Query("household_id") householdId: String,
-        @Query("select") select: String = "id,description,amount,created_at,account_id",
+        @Query("select") select: String = "id,description,amount_clp,created_at,account_id,household_id,type",
         @Query("order") order: String = "created_at.desc"
     ): Response<List<TransactionResponse>>
 
