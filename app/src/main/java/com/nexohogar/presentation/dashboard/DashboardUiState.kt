@@ -1,12 +1,13 @@
 package com.nexohogar.presentation.dashboard
 
+import com.nexohogar.data.model.MonthlyTrendDto
 import com.nexohogar.domain.model.DashboardSummary
+import com.nexohogar.domain.model.Transaction
 
-/**
- * UI State for the Dashboard screen.
- */
-sealed interface DashboardUiState {
-    object Loading : DashboardUiState
-    data class Success(val summary: DashboardSummary) : DashboardUiState
-    data class Error(val message: String) : DashboardUiState
-}
+data class DashboardUiState(
+    val summary: DashboardSummary? = null,
+    val trends: List<MonthlyTrendDto> = emptyList(),
+    val recentTransactions: List<Transaction> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)

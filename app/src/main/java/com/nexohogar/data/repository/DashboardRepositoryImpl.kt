@@ -22,7 +22,8 @@ class DashboardRepositoryImpl(
             if (response.isSuccessful) {
                 val list = response.body()
                 if (!list.isNullOrEmpty()) {
-                    AppResult.Success(list.first().toDomain())
+                    val dto = list.first()
+                    AppResult.Success(dto.toDomain())
                 } else {
                     AppResult.Error("No dashboard data found for this household")
                 }

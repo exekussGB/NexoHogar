@@ -1,22 +1,27 @@
 package com.nexohogar.presentation
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import com.nexohogar.R
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.navigation.compose.rememberNavController
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.RetrofitClient
+import com.nexohogar.presentation.navigation.NavGraph
+import com.nexohogar.presentation.theme.NexoHogarTheme
 
-/**
- * Actividad principal que aloja el NavHostFragment para la navegación entre fragmentos.
- */
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // 🔥 Inicialización del SessionManager para el RetrofitClient
+
         val sessionManager = SessionManager(this)
         RetrofitClient.sessionManager = sessionManager
 
-        setContentView(R.layout.activity_main)
+        setContent {
+            NexoHogarTheme {
+                val navController = rememberNavController()
+                NavGraph(navController = navController)
+            }
+        }
     }
 }

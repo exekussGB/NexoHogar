@@ -47,6 +47,7 @@ fun NavGraph(
     val dashboardRepository = ServiceLocator.dashboardRepository
     val accountsRepository = ServiceLocator.accountsRepository
     val transactionsRepository = ServiceLocator.transactionsRepository
+    val categoriesRepository = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
     val tenantContext = ServiceLocator.tenantContext
 
@@ -79,11 +80,31 @@ fun NavGraph(
         }
 
         composable(Screen.Dashboard.route) {
-            val viewModel = DashboardViewModel(dashboardRepository, tenantContext)
+            val viewModel: DashboardViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return DashboardViewModel(
+                            dashboardRepository,
+                            transactionsRepository,
+                            tenantContext
+                        ) as T
+                    }
+                }
+            )
             DashboardScreen(
                 viewModel = viewModel,
-                onAccountsClick = { navController.navigate(Screen.Accounts.route) },
-                onTransactionsClick = { navController.navigate(Screen.Transactions.route) }
+                onTransactionClick = { transactionId ->
+                    navController.navigate(
+                        Screen.TransactionDetail.createRoute(transactionId)
+                    )
+                },
+                onSeeAllClick = {
+                    navController.navigate(Screen.Transactions.route)
+                },
+                onCreateTransaction = { type ->
+                    navController.navigate(Screen.AddTransaction.route)
+                }
             )
         }
 
@@ -109,7 +130,12 @@ fun NavGraph(
             val viewModel: AddTransactionViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        return AddTransactionViewModel(transactionsRepository, tenantContext) as T
+                        @Suppress("UNCHECKED_CAST")
+                        return AddTransactionViewModel(
+                            transactionsRepository,
+                            categoriesRepository,
+                            tenantContext
+                        ) as T
                     }
                 }
             )
