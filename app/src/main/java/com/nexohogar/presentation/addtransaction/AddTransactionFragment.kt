@@ -24,6 +24,7 @@ class AddTransactionFragment : Fragment() {
                 @Suppress("UNCHECKED_CAST")
                 return AddTransactionViewModel(
                     ServiceLocator.transactionsRepository,
+                    ServiceLocator.categoriesRepository,
                     ServiceLocator.tenantContext
                 ) as T
             }

@@ -1,11 +1,11 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.model.AccountDto
 import com.nexohogar.data.model.CreateTransactionRequest
 import com.nexohogar.data.remote.dto.TransactionResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -21,13 +21,12 @@ interface TransactionsApi {
         @Query("order") order: String = "created_at.desc"
     ): Response<List<TransactionResponse>>
 
+    @Headers(
+        "Content-Type: application/json",
+        "Prefer: params=single-object"
+    )
     @POST("rest/v1/rpc/create_transaction")
     suspend fun createTransaction(
         @Body request: CreateTransactionRequest
     ): Response<Unit>
-
-    @GET("rest/v1/accounts")
-    suspend fun getAccounts(
-        @Query("household_id") householdFilter: String
-    ): Response<List<AccountDto>>
 }

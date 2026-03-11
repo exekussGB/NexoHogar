@@ -86,6 +86,10 @@ object ServiceLocator {
         retrofit.create(TransactionDetailApi::class.java)
     }
 
+    val categoriesApi: CategoriesApi by lazy {
+        retrofit.create(CategoriesApi::class.java)
+    }
+
     // --- Repositories (Exponiendo interfaces de Dominio) ---
     
     val authRepository: AuthRepository by lazy {
@@ -114,5 +118,9 @@ object ServiceLocator {
 
     val transactionDetailRepository: TransactionDetailRepository by lazy {
         TransactionDetailRepositoryImpl(transactionDetailApi)
+    }
+
+    val categoriesRepository: CategoriesRepository by lazy {
+        CategoriesRepositoryImpl(categoriesApi)
     }
 }

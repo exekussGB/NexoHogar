@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.Account
+import com.nexohogar.domain.model.Category
 import com.nexohogar.presentation.components.LoadingOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +25,7 @@ fun AddTransactionScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val categories by viewModel.filteredCategories.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(uiState.isSuccess) {
@@ -56,7 +58,7 @@ fun AddTransactionScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (uiState.paymentAccounts.isEmpty() && uiState.categories.isEmpty() && !uiState.isLoading) {
+            if (uiState.paymentAccounts.isEmpty() && categories.isEmpty() && !uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "No se encontraron cuentas o categorías.",
@@ -87,11 +89,11 @@ fun AddTransactionScreen(
                     )
 
                     // Dropdown Categoría (Ingresos/Gastos)
-                    AccountDropdown(
+                    CategoryDropdown(
                         label = "Categoría",
-                        accounts = uiState.categories,
-                        selectedAccount = uiState.selectedCategory,
-                        onAccountSelected = { viewModel.onCategorySelected(it) }
+                        categories = categories,
+                        selectedCategory = uiState.selectedCategory,
+                        onCategorySelected = { viewModel.onCategorySelected(it) }
                     )
 
                     OutlinedTextField(
@@ -188,6 +190,60 @@ fun AccountDropdown(
                     },
                     onClick = {
                         onAccountSelected(account)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryDropdown(
+    label: String,
+    categories: List<Category>,
+    selectedCategory: Category?,
+    onCategorySelected: (Category) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedCategory?.name ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(category.name)
+                            Text(
+                                text = when (category.type) {
+                                    "expense" -> "Gasto"
+                                    "income" -> "Ingreso"
+                                    else -> category.type
+                                },
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    },
+                    onClick = {
+                        onCategorySelected(category)
                         expanded = false
                     }
                 )
