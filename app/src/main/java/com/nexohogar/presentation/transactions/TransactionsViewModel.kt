@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.model.CreateTransactionRequest
+import com.nexohogar.data.remote.dto.CreateTransactionRequest
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.domain.repository.TransactionsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +58,7 @@ class TransactionsViewModel(
      */
     fun createTransaction(
         accountId: String?,
-        amount: Double,
+        amount: Long,
         description: String?
     ) {
         if (accountId.isNullOrBlank()) {
@@ -70,14 +70,13 @@ class TransactionsViewModel(
             try {
                 val householdId = tenantContext.requireHouseholdId()
                 val request = CreateTransactionRequest(
-                    householdId = householdId,
-                    type = "expense",
-                    accountId = accountId,
-                    toAccountId = null,
-                    amountClp = amount,
-                    categoryId = null,
-                    description = description,
-                    transactionDate = LocalDate.now().toString()
+                    pHouseholdId = householdId,
+                    pType = "expense",
+                    pAccountId = accountId,
+                    pAmountClp = amount,
+                    pCategoryId = null,
+                    pDescription = description ?: "",
+                    pTransactionDate = LocalDate.now().toString()
                 )
 
                 when (repository.createTransaction(request)) {

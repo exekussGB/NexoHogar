@@ -21,12 +21,22 @@ import com.nexohogar.presentation.components.LoadingOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
+    transactionType: String,
     viewModel: AddTransactionViewModel,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val categories by viewModel.filteredCategories.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(key1 = transactionType) {
+        val type = when (transactionType) {
+            "income" -> TransactionType.INCOME
+            "transfer" -> TransactionType.TRANSFER
+            else -> TransactionType.EXPENSE
+        }
+        viewModel.onTypeChange(type)
+    }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
@@ -42,10 +52,21 @@ fun AddTransactionScreen(
         }
     }
 
+    val title = when (uiState.type) {
+        TransactionType.INCOME -> "Nuevo Ingreso"
+        TransactionType.EXPENSE -> "Nuevo Gasto"
+        TransactionType.TRANSFER -> "Traspaso entre Cuentas"
+    }
+
+    val accountLabel = when (uiState.type) {
+        TransactionType.INCOME -> "Cuenta Destino"
+        else -> "Cuenta Origen"
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nuevo Movimiento") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -58,10 +79,10 @@ fun AddTransactionScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (uiState.paymentAccounts.isEmpty() && categories.isEmpty() && !uiState.isLoading) {
+            if (uiState.paymentAccounts.isEmpty() && !uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No se encontraron cuentas o categorías.",
+                        text = "Crea una cuenta antes de agregar movimientos.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -74,27 +95,33 @@ fun AddTransactionScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Selector de Tipo de Transacción
-                    TransactionTypeSelector(
-                        selectedType = uiState.type,
-                        onTypeSelected = { viewModel.onTypeChange(it) }
-                    )
-
-                    // Dropdown Cuenta de Pago (Activos/Pasivos)
+                    // Cuenta Origen / Pago
                     AccountDropdown(
-                        label = "Cuenta de Pago",
+                        label = accountLabel,
                         accounts = uiState.paymentAccounts,
                         selectedAccount = uiState.selectedPaymentAccount,
                         onAccountSelected = { viewModel.onPaymentAccountSelected(it) }
                     )
 
-                    // Dropdown Categoría (Ingresos/Gastos)
-                    CategoryDropdown(
-                        label = "Categoría",
-                        categories = categories,
-                        selectedCategory = uiState.selectedCategory,
-                        onCategorySelected = { viewModel.onCategorySelected(it) }
-                    )
+                    // Mostrar Cuenta Destino si es transferencia
+                    if (uiState.type == TransactionType.TRANSFER) {
+                        AccountDropdown(
+                            label = "Cuenta Destino",
+                            accounts = uiState.paymentAccounts,
+                            selectedAccount = uiState.selectedToAccount,
+                            onAccountSelected = { viewModel.onToAccountSelected(it) }
+                        )
+                    }
+
+                    // Mostrar Categoría si NO es transferencia
+                    if (uiState.type != TransactionType.TRANSFER) {
+                        CategoryDropdown(
+                            label = "Categoría",
+                            categories = categories,
+                            selectedCategory = uiState.selectedCategory,
+                            onCategorySelected = { viewModel.onCategorySelected(it) }
+                        )
+                    }
 
                     OutlinedTextField(
                         value = uiState.amount,
@@ -111,13 +138,19 @@ fun AddTransactionScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    val isButtonEnabled = remember(uiState) {
+                        val common = uiState.selectedPaymentAccount != null && uiState.amount.isNotBlank()
+                        if (uiState.type == TransactionType.TRANSFER) {
+                            common && uiState.selectedToAccount != null
+                        } else {
+                            common && uiState.selectedCategory != null
+                        }
+                    }
+
                     Button(
                         onClick = { viewModel.saveTransaction() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isLoading && 
-                                 uiState.selectedPaymentAccount != null && 
-                                 uiState.selectedCategory != null &&
-                                 uiState.amount.isNotBlank()
+                        enabled = !uiState.isLoading && isButtonEnabled
                     ) {
                         Text("Guardar Movimiento")
                     }
@@ -127,26 +160,6 @@ fun AddTransactionScreen(
             if (uiState.isLoading) {
                 LoadingOverlay()
             }
-        }
-    }
-}
-
-@Composable
-fun TransactionTypeSelector(
-    selectedType: TransactionType,
-    onTypeSelected: (TransactionType) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TransactionType.values().forEach { type ->
-            FilterChip(
-                selected = selectedType == type,
-                onClick = { onTypeSelected(type) },
-                label = { Text(if (type == TransactionType.EXPENSE) "Gasto" else "Ingreso") },
-                modifier = Modifier.weight(1f)
-            )
         }
     }
 }
@@ -182,12 +195,7 @@ fun AccountDropdown(
         ) {
             accounts.forEach { account ->
                 DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(account.name)
-                            Text(account.type, style = MaterialTheme.typography.bodySmall)
-                        }
-                    },
+                    text = { Text(account.name) },
                     onClick = {
                         onAccountSelected(account)
                         expanded = false

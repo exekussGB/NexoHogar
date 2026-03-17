@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.model.CreateTransactionRequest
+import com.nexohogar.data.remote.dto.CreateTransactionRequest
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.repository.CategoriesRepository
@@ -13,10 +13,12 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+@Deprecated("Use AddMovementViewModel instead")
 data class AddTransactionUiState(
     val type: TransactionType = TransactionType.EXPENSE,
     val paymentAccounts: List<Account> = emptyList(),
     val selectedPaymentAccount: Account? = null,
+    val selectedToAccount: Account? = null,
     val selectedCategory: Category? = null,
     val amount: String = "",
     val description: String = "",
@@ -25,6 +27,7 @@ data class AddTransactionUiState(
     val isSuccess: Boolean = false
 )
 
+@Deprecated("Use AddMovementViewModel instead")
 class AddTransactionViewModel(
     private val repository: TransactionsRepository,
     private val categoriesRepository: CategoriesRepository,
@@ -38,11 +41,10 @@ class AddTransactionViewModel(
 
     val filteredCategories: StateFlow<List<Category>> = 
         combine(_categories, _uiState) { categories, state ->
-            categories.filter { category ->
-                when (state.type) {
-                    TransactionType.EXPENSE -> category.type == "expense"
-                    TransactionType.INCOME -> category.type == "income"
-                }
+            when (state.type) {
+                TransactionType.EXPENSE -> categories.filter { it.type == "expense" }
+                TransactionType.INCOME -> categories.filter { it.type == "income" }
+                TransactionType.TRANSFER -> emptyList()
             }
         }.stateIn(
             viewModelScope,
@@ -101,11 +103,15 @@ class AddTransactionViewModel(
 
     fun onTypeChange(type: TransactionType) {
         // Al cambiar el tipo, reseteamos la categoría seleccionada para evitar inconsistencias
-        _uiState.update { it.copy(type = type, selectedCategory = null) }
+        _uiState.update { it.copy(type = type, selectedCategory = null, selectedToAccount = null) }
     }
 
     fun onPaymentAccountSelected(account: Account) {
         _uiState.update { it.copy(selectedPaymentAccount = account) }
+    }
+
+    fun onToAccountSelected(account: Account) {
+        _uiState.update { it.copy(selectedToAccount = account) }
     }
 
     fun onCategorySelected(category: Category) {
@@ -122,17 +128,32 @@ class AddTransactionViewModel(
 
     fun saveTransaction() {
         val currentState = _uiState.value
+        
+        // Validaciones comunes
         val paymentAccount = currentState.selectedPaymentAccount ?: run {
-            _uiState.update { it.copy(error = "Selecciona una cuenta de pago") }
+            _uiState.update { it.copy(error = "Selecciona una cuenta") }
             return
         }
-        val category = currentState.selectedCategory ?: run {
-            _uiState.update { it.copy(error = "Selecciona una categoría") }
-            return
-        }
-        val amountValue = currentState.amount.toDoubleOrNull() ?: run {
+        val amountValue = currentState.amount.toLongOrNull() ?: run {
             _uiState.update { it.copy(error = "Monto inválido") }
             return
+        }
+
+        // Validaciones específicas
+        if (currentState.type == TransactionType.TRANSFER) {
+            if (currentState.selectedToAccount == null) {
+                _uiState.update { it.copy(error = "Selecciona cuenta destino") }
+                return
+            }
+            if (currentState.selectedPaymentAccount.id == currentState.selectedToAccount.id) {
+                _uiState.update { it.copy(error = "Las cuentas deben ser diferentes") }
+                return
+            }
+        } else {
+            if (currentState.selectedCategory == null) {
+                _uiState.update { it.copy(error = "Selecciona una categoría") }
+                return
+            }
         }
 
         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -141,13 +162,13 @@ class AddTransactionViewModel(
             try {
                 val householdId = tenantContext.requireHouseholdId()
                 val request = CreateTransactionRequest(
-                    householdId = householdId,
-                    type = currentState.type.name.lowercase(),
-                    accountId = paymentAccount.id,
-                    amountClp = amountValue,
-                    categoryId = category.id,
-                    description = currentState.description,
-                    transactionDate = LocalDate.now().toString()
+                    pHouseholdId = householdId,
+                    pType = currentState.type.name.lowercase(),
+                    pAccountId = paymentAccount.id,
+                    pAmountClp = amountValue,
+                    pCategoryId = currentState.selectedCategory?.id,
+                    pDescription = currentState.description,
+                    pTransactionDate = LocalDate.now().toString()
                 )
 
                 when (val result = repository.createTransaction(request)) {

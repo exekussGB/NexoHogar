@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.household
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,11 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexohogar.domain.model.Household
 import com.nexohogar.presentation.components.LoadingOverlay
 
@@ -25,13 +26,15 @@ fun HouseholdScreen(
     viewModel: HouseholdViewModel,
     onHouseholdSelected: () -> Unit
 ) {
-    val state by viewModel.householdState.observeAsState(HouseholdState.Loading)
-    val context = LocalContext.current
-
-    // Cargar households al iniciar la pantalla
-    LaunchedEffect(Unit) {
-        viewModel.fetchHouseholds()
+    val state by viewModel.householdState.collectAsStateWithLifecycle()
+    
+    // Log para diagnosticar el estado recibido en la UI
+    Log.d("HF_UI", "State actual: $state")
+    if (state is HouseholdState.Success) {
+        Log.d("HF_UI", "Households recibidos: ${(state as HouseholdState.Success).households}")
     }
+
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
