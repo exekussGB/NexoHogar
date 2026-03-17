@@ -3,11 +3,11 @@ package com.nexohogar.data.repository
 import android.util.Log
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.mapper.toDomain
-import com.nexohogar.data.model.CreateTransactionRequest
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.network.TransactionsApi
 import com.nexohogar.data.remote.dto.AccountResponse
+import com.nexohogar.data.remote.dto.CreateTransactionRequest
+import com.nexohogar.data.remote.dto.CreateTransferRequest
 import com.nexohogar.data.remote.dto.TransactionResponse
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Transaction
@@ -15,7 +15,6 @@ import com.nexohogar.domain.repository.TransactionsRepository
 
 /**
  * Implementación del repositorio de transacciones.
- * Maneja la lógica de movimientos y la obtención de cuentas para el selector.
  */
 class TransactionsRepositoryImpl(
     private val api: TransactionsApi,
@@ -42,7 +41,7 @@ class TransactionsRepositoryImpl(
                 Transaction(
                     id = dto.id,
                     accountId = dto.account_id,
-                    amount = dto.amount_clp, // Corregido mapping a amount_clp
+                    amount = dto.amount_clp,
                     description = dto.description,
                     createdAt = dto.created_at
                 )
@@ -62,11 +61,28 @@ class TransactionsRepositoryImpl(
                 AppResult.Success(Unit)
             } else {
                 val errorBody = response.errorBody()?.string()
-                Log.e("TRANSACTIONS_API", "RPC Error ${response.code()} -> $errorBody")
-                AppResult.Error("Error al crear transacción: $errorBody")
+                Log.e("TransactionsRepository", "Error creating transaction: $errorBody")
+                AppResult.Error("Error al crear transacción")
             }
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error desconocido")
+            Log.e("TransactionsRepository", "Error creating transaction", e)
+            AppResult.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    override suspend fun createTransfer(request: CreateTransferRequest): AppResult<Unit> {
+        return try {
+            val response = api.createTransfer(request)
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("TransactionsRepository", "Error creating transfer: $errorBody")
+                AppResult.Error("Error al crear transferencia")
+            }
+        } catch (e: Exception) {
+            Log.e("TransactionsRepository", "Error creating transfer", e)
+            AppResult.Error(e.message ?: "Unknown error")
         }
     }
 
@@ -84,9 +100,9 @@ class TransactionsRepositoryImpl(
                     Account(
                         id = dto.id,
                         name = dto.name,
-                        type = "ASSET", // Valor por defecto ya que AccountResponse no tiene account_type
-                        balance = dto.balance,
-                        householdId = dto.household_id
+                        type = dto.accountType ?: "ASSET",
+                        balance = dto.balance ?: 0.0,
+                        householdId = dto.householdId
                     )
                 }
                 AppResult.Success(domainAccounts)

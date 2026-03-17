@@ -1,14 +1,14 @@
 package com.nexohogar.presentation.household
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.repository.HouseholdRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -20,10 +20,17 @@ class HouseholdViewModel(
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
-    private val _householdState = MutableLiveData<HouseholdState>(HouseholdState.Loading)
-    val householdState: LiveData<HouseholdState> = _householdState
+    private val _householdState = MutableStateFlow<HouseholdState>(HouseholdState.Loading)
+    val householdState: StateFlow<HouseholdState> = _householdState
+
+    init {
+        fetchHouseholds()
+    }
 
     fun fetchHouseholds() {
+        Log.d("HF_DEBUG", "fetchHouseholds() llamado")
+        Log.d("HF_DEBUG", "token = ${sessionManager.fetchAuthToken()}")
+
         if (sessionManager.fetchAuthToken() == null) {
             _householdState.value = HouseholdState.Error("No hay sesión activa")
             return
@@ -32,15 +39,15 @@ class HouseholdViewModel(
         _householdState.value = HouseholdState.Loading
 
         viewModelScope.launch {
-            Log.d("HouseholdViewModel", "Iniciando fetch de households...")
+            Log.d("HF_DEBUG", "Llamando repository.getHouseholds()")
             
             when (val result = repository.getHouseholds()) {
                 is AppResult.Success -> {
-                    Log.d("HouseholdViewModel", "Fetch exitoso: ${result.data.size} hogares")
+                    Log.d("HF_DEBUG", "Resultado repository: $result")
                     _householdState.value = HouseholdState.Success(result.data)
                 }
                 is AppResult.Error -> {
-                    Log.e("HouseholdViewModel", "Error: ${result.message}")
+                    Log.d("HF_DEBUG", "Resultado repository: $result")
                     _householdState.value = HouseholdState.Error(result.message)
                 }
                 is AppResult.Loading -> {}

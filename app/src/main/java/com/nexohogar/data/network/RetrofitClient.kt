@@ -1,5 +1,7 @@
 package com.nexohogar.data.network
 
+import android.util.Log
+import com.google.gson.GsonBuilder
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.data.local.SessionManager
 import okhttp3.Interceptor
@@ -12,7 +14,6 @@ object RetrofitClient {
 
     private const val BASE_URL = "https://REMOVED.supabase.co/"
 
-    // ⚠️ NECESITAMOS SESSION MANAGER
     lateinit var sessionManager: SessionManager
 
     private val logging = HttpLoggingInterceptor().apply {
@@ -22,15 +23,19 @@ object RetrofitClient {
     private val supabaseInterceptor = Interceptor { chain ->
 
         val originalRequest = chain.request()
+
         val builder = originalRequest.newBuilder()
             .addHeader("apikey", SupabaseConfig.API_KEY)
+            .addHeader("Content-Type", "application/json")
 
-        // 🔥 AGREGAMOS TOKEN SI EXISTE
         val token = sessionManager.fetchAuthToken()
+        Log.d("HF_DEBUG", "Token enviado: $token")
+
         if (!token.isNullOrEmpty()) {
             builder.addHeader("Authorization", "Bearer $token")
         }
 
+        Log.d("HF_DEBUG", "Request URL: ${originalRequest.url}")
         chain.proceed(builder.build())
     }
 
@@ -39,12 +44,23 @@ object RetrofitClient {
         .addInterceptor(logging)
         .build()
 
-    val instance: AuthApi by lazy {
+    private val retrofit: Retrofit by lazy {
+        val gson = GsonBuilder()
+            .serializeNulls()
+            .create()
+
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-            .create(AuthApi::class.java)
+    }
+
+    val authApi: AuthApi by lazy {
+        retrofit.create(AuthApi::class.java)
+    }
+
+    val transactionsApi: TransactionsApi by lazy {
+        retrofit.create(TransactionsApi::class.java)
     }
 }

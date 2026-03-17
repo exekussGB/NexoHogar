@@ -4,20 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.model.CreateTransactionRequest
+import com.nexohogar.data.remote.dto.CreateTransactionRequest
+import com.nexohogar.data.remote.dto.CreateTransferRequest
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.repository.CategoriesRepository
 import com.nexohogar.domain.repository.TransactionsRepository
+import com.nexohogar.presentation.addtransaction.TransactionType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 data class AddMovementUiState(
-    val type: MovementType = MovementType.EXPENSE,
-    val paymentAccounts: List<Account> = emptyList(),
-    val categories: List<Category> = emptyList(),
-    val selectedAccount: Account? = null,
+    val type: TransactionType = TransactionType.EXPENSE,
+    val accounts: List<Account> = emptyList(),
+    val selectedFromAccount: Account? = null,
     val selectedToAccount: Account? = null,
     val selectedCategory: Category? = null,
     val amount: String = "",
@@ -36,12 +37,23 @@ class AddMovementViewModel(
     private val _uiState = MutableStateFlow(AddMovementUiState())
     val uiState: StateFlow<AddMovementUiState> = _uiState.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+
+    val filteredCategories: StateFlow<List<Category>> = 
+        combine(_categories, _uiState) { categories, state ->
+            when (state.type) {
+                TransactionType.EXPENSE -> categories.filter { it.type == "expense" }
+                TransactionType.INCOME -> categories.filter { it.type == "income" }
+                TransactionType.TRANSFER -> emptyList()
+            }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+
     init {
         loadInitialData()
-    }
-
-    fun setMovementType(type: MovementType) {
-        _uiState.update { it.copy(type = type, selectedCategory = null, selectedToAccount = null) }
     }
 
     private fun loadInitialData() {
@@ -49,53 +61,110 @@ class AddMovementViewModel(
             _uiState.update { it.copy(isLoading = true) }
             val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
             
-            // Cargar cuentas
             val accountsResult = transactionsRepository.getAccounts(householdId)
-            // Cargar categorías
             val categoriesResult = categoriesRepository.getCategories(householdId)
 
             if (accountsResult is AppResult.Success && categoriesResult is AppResult.Success) {
                 _uiState.update { 
                     it.copy(
-                        paymentAccounts = accountsResult.data.filter { a -> a.type == "ASSET" || a.type == "LIABILITY" },
-                        categories = categoriesResult.data,
+                        accounts = accountsResult.data,
                         isLoading = false
                     )
                 }
+                _categories.value = categoriesResult.data
             } else {
-                _uiState.update { it.copy(isLoading = false, error = "Error al cargar datos") }
+                _uiState.update { it.copy(isLoading = false, error = "Error al cargar datos iniciales") }
             }
         }
     }
 
-    fun onAccountSelected(account: Account) { _uiState.update { it.copy(selectedAccount = account) } }
-    fun onToAccountSelected(account: Account) { _uiState.update { it.copy(selectedToAccount = account) } }
-    fun onCategorySelected(category: Category) { _uiState.update { it.copy(selectedCategory = category) } }
-    fun onAmountChange(amount: String) { _uiState.update { it.copy(amount = amount) } }
-    fun onDescriptionChange(desc: String) { _uiState.update { it.copy(description = desc) } }
+    fun onTypeChange(type: TransactionType) {
+        _uiState.update { 
+            it.copy(
+                type = type, 
+                selectedCategory = null, 
+                selectedToAccount = null 
+            ) 
+        }
+    }
 
-    fun saveMovement() {
+    fun onFromAccountSelected(account: Account) {
+        _uiState.update { it.copy(selectedFromAccount = account) }
+    }
+
+    fun onToAccountSelected(account: Account) {
+        _uiState.update { it.copy(selectedToAccount = account) }
+    }
+
+    fun onCategorySelected(category: Category) {
+        _uiState.update { it.copy(selectedCategory = category) }
+    }
+
+    fun onAmountChange(amount: String) {
+        _uiState.update { it.copy(amount = amount) }
+    }
+
+    fun onDescriptionChange(description: String) {
+        _uiState.update { it.copy(description = description) }
+    }
+
+    fun saveTransaction() {
         val state = _uiState.value
-        val amountValue = state.amount.toDoubleOrNull() ?: return
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
         
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val request = CreateTransactionRequest(
-                householdId = tenantContext.requireHouseholdId(),
-                type = state.type.name.lowercase(),
-                accountId = state.selectedAccount?.id ?: "",
-                toAccountId = state.selectedToAccount?.id,
-                amountClp = amountValue,
-                categoryId = state.selectedCategory?.id,
-                description = state.description,
-                transactionDate = LocalDate.now().toString()
-            )
+        val amountLong = state.amount.toLongOrNull()
+        if (state.selectedFromAccount == null || amountLong == null) {
+            _uiState.update { it.copy(error = "Datos incompletos") }
+            return
+        }
 
-            when (transactionsRepository.createTransaction(request)) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            
+            val result = if (state.type == TransactionType.TRANSFER) {
+                if (state.selectedToAccount == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Seleccione cuenta destino") }
+                    return@launch
+                }
+                if (state.selectedFromAccount.id == state.selectedToAccount.id) {
+                    _uiState.update { it.copy(isLoading = false, error = "Cuentas deben ser distintas") }
+                    return@launch
+                }
+                
+                val request = CreateTransferRequest(
+                    householdId = householdId,
+                    fromAccountId = state.selectedFromAccount.id,
+                    toAccountId = state.selectedToAccount.id,
+                    amountClp = amountLong
+                )
+                transactionsRepository.createTransfer(request)
+            } else {
+                if (state.selectedCategory == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Seleccione categoría") }
+                    return@launch
+                }
+                
+                val request = CreateTransactionRequest(
+                    pHouseholdId = householdId,
+                    pType = state.type.name.lowercase(),
+                    pAccountId = state.selectedFromAccount.id,
+                    pAmountClp = amountLong,
+                    pCategoryId = state.selectedCategory.id,
+                    pDescription = state.description.ifBlank { null },
+                    pTransactionDate = LocalDate.now().toString()
+                )
+                transactionsRepository.createTransaction(request)
+            }
+
+            when (result) {
                 is AppResult.Success -> _uiState.update { it.copy(isLoading = false, isSuccess = true) }
-                is AppResult.Error -> _uiState.update { it.copy(isLoading = false, error = "Error al guardar") }
+                is AppResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 else -> {}
             }
         }
+    }
+    
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }
