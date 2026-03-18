@@ -16,13 +16,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
+import com.nexohogar.presentation.addmovement.AddMovementViewModel
+import com.nexohogar.presentation.addmovement.TransactionType
 import com.nexohogar.presentation.components.LoadingOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
     transactionType: String,
-    viewModel: AddTransactionViewModel,
+    viewModel: AddMovementViewModel,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -79,7 +81,7 @@ fun AddTransactionScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (uiState.paymentAccounts.isEmpty() && !uiState.isLoading) {
+            if (uiState.accounts.isEmpty() && !uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "Crea una cuenta antes de agregar movimientos.",
@@ -98,16 +100,16 @@ fun AddTransactionScreen(
                     // Cuenta Origen / Pago
                     AccountDropdown(
                         label = accountLabel,
-                        accounts = uiState.paymentAccounts,
-                        selectedAccount = uiState.selectedPaymentAccount,
-                        onAccountSelected = { viewModel.onPaymentAccountSelected(it) }
+                        accounts = uiState.accounts,
+                        selectedAccount = uiState.selectedFromAccount,
+                        onAccountSelected = { viewModel.onFromAccountSelected(it) }
                     )
 
                     // Mostrar Cuenta Destino si es transferencia
                     if (uiState.type == TransactionType.TRANSFER) {
                         AccountDropdown(
                             label = "Cuenta Destino",
-                            accounts = uiState.paymentAccounts,
+                            accounts = uiState.accounts,
                             selectedAccount = uiState.selectedToAccount,
                             onAccountSelected = { viewModel.onToAccountSelected(it) }
                         )
@@ -139,7 +141,7 @@ fun AddTransactionScreen(
                     )
 
                     val isButtonEnabled = remember(uiState) {
-                        val common = uiState.selectedPaymentAccount != null && uiState.amount.isNotBlank()
+                        val common = uiState.selectedFromAccount != null && uiState.amount.isNotBlank()
                         if (uiState.type == TransactionType.TRANSFER) {
                             common && uiState.selectedToAccount != null
                         } else {

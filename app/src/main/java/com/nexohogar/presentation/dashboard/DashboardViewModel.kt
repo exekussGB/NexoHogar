@@ -52,10 +52,19 @@ class DashboardViewModel(
                         emptyList()
                     }
 
+                    // Cargar tendencia mensual
+                    val monthlyResult = dashboardRepository.getMonthlyBalance(householdId)
+                    val monthly = if (monthlyResult is AppResult.Success) {
+                        monthlyResult.data
+                    } else {
+                        emptyList()
+                    }
+
                     _uiState.update {
                         it.copy(
                             summary = summaryResult.data,
                             recentTransactions = recent,
+                            monthlyBalance = monthly,
                             isLoading = false
                         )
                     }

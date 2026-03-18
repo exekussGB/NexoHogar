@@ -43,7 +43,8 @@ class TransactionsRepositoryImpl(
                     accountId = dto.account_id,
                     amount = dto.amount_clp,
                     description = dto.description,
-                    createdAt = dto.created_at
+                    createdAt = dto.created_at,
+                    type = dto.type
                 )
             }
 

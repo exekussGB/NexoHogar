@@ -15,9 +15,7 @@ class TransactionDetailRepositoryImpl(
 
     override suspend fun getTransactionEntries(transactionId: String): AppResult<List<TransactionEntry>> {
         return try {
-            val filter = "eq.$transactionId"
-            val response = api.getTransactionEntries(filter)
-            
+            val response = api.getTransactionDetail(idFilter = "eq.$transactionId")
             if (response.isSuccessful) {
                 val body = response.body() ?: emptyList()
                 AppResult.Success(body.toDomain())

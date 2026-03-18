@@ -1,9 +1,10 @@
 package com.nexohogar.presentation.addtransaction
 
 /**
- * Define los tipos de transacciones financieras soportadas.
+ * @deprecated Use com.nexohogar.presentation.addmovement.TransactionType instead
  */
-enum class TransactionType {
+@Deprecated("Use com.nexohogar.presentation.addmovement.TransactionType")
+enum class OldTransactionType {
     EXPENSE,
     INCOME,
     TRANSFER
