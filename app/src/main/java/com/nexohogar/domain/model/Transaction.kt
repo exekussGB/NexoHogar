@@ -9,5 +9,6 @@ data class Transaction(
     val description: String?,
     val amount: Double,
     val accountId: String,
-    val createdAt: String
+    val createdAt: String,
+    val type: String
 )

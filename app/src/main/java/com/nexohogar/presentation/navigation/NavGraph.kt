@@ -11,13 +11,15 @@ import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 import com.nexohogar.presentation.addtransaction.AddTransactionScreen
-import com.nexohogar.presentation.addtransaction.AddTransactionViewModel
+import com.nexohogar.presentation.addmovement.AddMovementViewModel
 import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.login.LoginScreen
 import com.nexohogar.presentation.login.LoginViewModel
+import com.nexohogar.presentation.register.RegisterScreen
+import com.nexohogar.presentation.register.RegisterViewModel
 import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
@@ -27,6 +29,7 @@ import androidx.lifecycle.ViewModelProvider
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
+    object Register : Screen("register")
     object Household : Screen("household")
     object Dashboard : Screen("dashboard")
     object Accounts : Screen("accounts")
@@ -72,13 +75,33 @@ fun NavGraph(
 
             val viewModel = LoginViewModel(authRepository, sessionManager)
 
-            LoginScreen(viewModel = viewModel) {
-
-                navController.navigate(Screen.Household.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
+            LoginScreen(
+                viewModel = viewModel,
+                onNavigateToRegister = {
+                    navController.navigate(Screen.Register.route)
+                },
+                onLoginSuccess = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
                 }
+            )
+        }
 
-            }
+        composable(Screen.Register.route) {
+            val viewModel = RegisterViewModel(authRepository, sessionManager)
+
+            RegisterScreen(
+                viewModel = viewModel,
+                onNavigateToLogin = {
+                    navController.popBackStack()
+                },
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(Screen.Household.route) {
@@ -172,12 +195,12 @@ fun NavGraph(
                 backStackEntry.arguments?.getString("type")
                     ?: "expense"
 
-            val viewModel: AddTransactionViewModel = viewModel(
+            val viewModel: AddMovementViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
 
                         @Suppress("UNCHECKED_CAST")
-                        return AddTransactionViewModel(
+                        return AddMovementViewModel(
                             transactionsRepository,
                             categoriesRepository,
                             tenantContext
@@ -205,8 +228,14 @@ fun NavGraph(
             val transactionId =
                 backStackEntry.arguments?.getString("transactionId") ?: ""
 
-            val viewModel =
-                TransactionDetailViewModel(transactionDetailRepository)
+            val viewModel: TransactionDetailViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return TransactionDetailViewModel(transactionDetailRepository) as T
+                    }
+                }
+            )
 
             TransactionDetailScreen(
                 transactionId = transactionId,

@@ -9,5 +9,7 @@ data class CreateTransferRequest(
     @SerializedName("household_id") val householdId: String,
     @SerializedName("from_account_id") val fromAccountId: String,
     @SerializedName("to_account_id") val toAccountId: String,
-    @SerializedName("amount_clp") val amountClp: Long
+    @SerializedName("amount_clp") val amountClp: Long,
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("transaction_date") val transactionDate: String
 )

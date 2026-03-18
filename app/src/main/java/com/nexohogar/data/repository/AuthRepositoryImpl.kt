@@ -5,6 +5,7 @@ import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.mapper.toDomain
 import com.nexohogar.data.model.LoginRequest
 import com.nexohogar.data.network.AuthApi
+import com.nexohogar.data.remote.dto.RegisterRequest
 import com.nexohogar.domain.model.UserSession
 import com.nexohogar.domain.repository.AuthRepository
 
@@ -36,6 +37,37 @@ class AuthRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error("Error de conexión: ${e.message}")
+        }
+    }
+
+    override suspend fun register(email: String, password: String, name: String): Result<Unit> {
+        return try {
+            val request = RegisterRequest(
+                email = email,
+                password = password,
+                data = mapOf("full_name" to name)
+            )
+            val response = authApi.register(request)
+            if (response.isSuccessful) {
+                val body = response.body()
+                val domainSession = body?.toDomain()
+                
+                if (domainSession != null) {
+                    sessionManager.saveSession(domainSession)
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("No se recibió token de acceso"))
+                }
+            } else {
+                val errorMsg = when (response.code()) {
+                    422 -> "El correo ya está registrado o es inválido"
+                    400 -> "Datos inválidos"
+                    else -> "Error al registrar (${response.code()})"
+                }
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

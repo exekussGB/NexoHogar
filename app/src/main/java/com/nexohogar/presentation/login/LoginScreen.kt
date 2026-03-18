@@ -14,20 +14,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nexohogar.presentation.components.LoadingOverlay
 
-/**
- * UI de la pantalla de Login usando Jetpack Compose.
- */
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit   // <-- nuevo parámetro
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val state by viewModel.loginState.observeAsState(LoginState.Idle)
     val context = LocalContext.current
 
-    // Efecto para reaccionar a cambios de estado
     LaunchedEffect(state) {
         if (state is LoginState.Success) {
             onLoginSuccess()
@@ -77,9 +74,18 @@ fun LoginScreen(
             ) {
                 Text("Iniciar Sesión")
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Botón de registro ──────────────────────────────────
+            TextButton(
+                onClick = onNavigateToRegister,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("¿No tienes cuenta? Regístrate")
+            }
         }
 
-        // Mostrar overlay de carga si el estado es Loading
         if (state is LoginState.Loading) {
             LoadingOverlay()
         }

@@ -9,6 +9,7 @@ import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.repository.CategoriesRepository
 import com.nexohogar.domain.repository.TransactionsRepository
+import com.nexohogar.presentation.addmovement.TransactionType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate

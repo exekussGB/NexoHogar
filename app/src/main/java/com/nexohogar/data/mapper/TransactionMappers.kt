@@ -13,7 +13,8 @@ fun TransactionResponse.toDomain(): Transaction {
         description = description,
         amount = amount_clp,
         accountId = account_id,
-        createdAt = created_at
+        createdAt = created_at,
+        type = type
     )
 }
 

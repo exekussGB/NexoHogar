@@ -10,7 +10,6 @@ import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.repository.CategoriesRepository
 import com.nexohogar.domain.repository.TransactionsRepository
-import com.nexohogar.presentation.addtransaction.TransactionType
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -41,10 +40,10 @@ class AddMovementViewModel(
 
     val filteredCategories: StateFlow<List<Category>> = 
         combine(_categories, _uiState) { categories, state ->
-            when (state.type) {
-                TransactionType.EXPENSE -> categories.filter { it.type == "expense" }
-                TransactionType.INCOME -> categories.filter { it.type == "income" }
-                TransactionType.TRANSFER -> emptyList()
+            when (state.type.name) {
+                "EXPENSE" -> categories.filter { it.type == "expense" }
+                "INCOME" -> categories.filter { it.type == "income" }
+                else -> emptyList()
             }
         }.stateIn(
             viewModelScope,
@@ -121,7 +120,7 @@ class AddMovementViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             
-            val result = if (state.type == TransactionType.TRANSFER) {
+            val result = if (state.type.name == "TRANSFER") {
                 if (state.selectedToAccount == null) {
                     _uiState.update { it.copy(isLoading = false, error = "Seleccione cuenta destino") }
                     return@launch
@@ -130,17 +129,25 @@ class AddMovementViewModel(
                     _uiState.update { it.copy(isLoading = false, error = "Cuentas deben ser distintas") }
                     return@launch
                 }
-                
+
                 val request = CreateTransferRequest(
                     householdId = householdId,
                     fromAccountId = state.selectedFromAccount.id,
                     toAccountId = state.selectedToAccount.id,
-                    amountClp = amountLong
+                    amountClp = amountLong,
+                    description = state.description.ifBlank { null },
+                    transactionDate = LocalDate.now().toString()
                 )
                 transactionsRepository.createTransfer(request)
             } else {
                 if (state.selectedCategory == null) {
                     _uiState.update { it.copy(isLoading = false, error = "Seleccione categoría") }
+                    return@launch
+                }
+
+                val categoryId = state.selectedCategory.id.takeIf { it.isNotBlank() }
+                if (categoryId == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Categoría sin ID válido") }
                     return@launch
                 }
                 
@@ -149,7 +156,7 @@ class AddMovementViewModel(
                     pType = state.type.name.lowercase(),
                     pAccountId = state.selectedFromAccount.id,
                     pAmountClp = amountLong,
-                    pCategoryId = state.selectedCategory.id,
+                    pCategoryId = categoryId,
                     pDescription = state.description.ifBlank { null },
                     pTransactionDate = LocalDate.now().toString()
                 )

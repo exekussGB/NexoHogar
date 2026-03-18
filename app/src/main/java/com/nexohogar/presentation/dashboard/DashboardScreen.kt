@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.dashboard
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,15 +11,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.Transaction
+import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
@@ -32,6 +43,19 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshDashboard()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
@@ -53,7 +77,7 @@ fun DashboardScreen(
 
             // 2. MonthlyChart (Gráfico de barras)
             item {
-                MonthlyChart()
+                MonthlyChart(monthlyData = uiState.monthlyBalance)
             }
 
             // 3. QuickActionsRow (Acciones rápidas)
@@ -147,26 +171,106 @@ private fun SummaryInfo(
 }
 
 @Composable
-fun MonthlyChart() {
+fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
+    val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun",
+                            "Jul","Ago","Sep","Oct","Nov","Dic")
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.BarChart,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Tendencia Mensual",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val hasData = monthlyData.any { it.net != 0L }
+
+            if (!hasData) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.BarChart,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            text = "Sin movimientos aún",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                return@Column
+            }
+
+            val positiveColor = Color(0xFF4CAF50)
+            val negativeColor = Color(0xFFF44336)
+            val labelColor    = Color(0xFF757575)
+
+            val maxAbs = monthlyData.maxOf { Math.abs(it.net) }.takeIf { it > 0 } ?: 1L
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+            ) {
+                val count       = monthlyData.size
+                val totalWidth  = size.width
+                val totalHeight = size.height
+                val barAreaH    = totalHeight * 0.72f   // zona de barras
+                val baselineY   = totalHeight * 0.72f   // línea cero
+                val labelY      = totalHeight - 4f
+
+                val slotWidth   = totalWidth / count
+                val barWidth    = slotWidth * 0.5f
+
+                // Línea base
+                drawLine(
+                    color  = Color(0xFFBDBDBD),
+                    start  = Offset(0f, baselineY),
+                    end    = Offset(totalWidth, baselineY),
+                    strokeWidth = 1.5f
                 )
-                Text(
-                    text = "Tendencia Mensual (Próximamente)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                monthlyData.forEachIndexed { i, item ->
+                    val centerX  = slotWidth * i + slotWidth / 2f
+                    val barLeft  = centerX - barWidth / 2f
+                    val fraction = item.net.toFloat() / maxAbs.toFloat()
+                    val barH     = Math.abs(fraction) * barAreaH * 0.85f
+                    val color    = if (item.net >= 0) positiveColor else negativeColor
+
+                    val topY = if (item.net >= 0) baselineY - barH else baselineY
+                    drawRect(
+                        color    = color,
+                        topLeft  = Offset(barLeft, topY),
+                        size     = Size(barWidth, barH),
+                        alpha    = if (i == monthlyData.size - 1) 1f else 0.75f
+                    )
+
+                    // Etiqueta del mes
+                    val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        centerX,
+                        labelY,
+                        android.graphics.Paint().apply {
+                            color       = labelColor.toArgb()
+                            textSize    = 28f
+                            textAlign   = android.graphics.Paint.Align.CENTER
+                            isAntiAlias = true
+                        }
+                    )
+                }
             }
         }
     }
@@ -302,15 +406,22 @@ fun TransactionRowItem(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val (icon, iconColor) = when (transaction.type) {
+                "income"   -> Icons.Default.ArrowDownward to Color(0xFF4CAF50)
+                "expense"  -> Icons.Default.ArrowUpward   to Color(0xFFF44336)
+                "transfer" -> Icons.Default.SwapHoriz     to Color(0xFF2196F3)
+                else       -> Icons.Default.AttachMoney   to Color(0xFF9E9E9E)
+            }
+
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = if (transaction.amount >= 0) Color(0xFF4CAF50).copy(alpha = 0.1f) else Color(0xFFF44336).copy(alpha = 0.1f),
+                color = iconColor.copy(alpha = 0.1f),
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = if (transaction.amount >= 0) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    imageVector = icon,
                     contentDescription = null,
-                    tint = if (transaction.amount >= 0) Color(0xFF4CAF50) else Color(0xFFF44336),
+                    tint = iconColor,
                     modifier = Modifier.padding(8.dp)
                 )
             }
@@ -330,11 +441,18 @@ fun TransactionRowItem(
                 )
             }
             
+            val amountColor = when (transaction.type) {
+                "income"   -> Color(0xFF4CAF50)
+                "expense"  -> Color(0xFFF44336)
+                "transfer" -> Color(0xFF2196F3)
+                else       -> MaterialTheme.colorScheme.onSurface
+            }
+
             Text(
                 text = format.format(transaction.amount),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (transaction.amount >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                color = amountColor
             )
         }
     }
