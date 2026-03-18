@@ -247,11 +247,11 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                     val barLeft  = centerX - barWidth / 2f
                     val fraction = item.net.toFloat() / maxAbs.toFloat()
                     val barH     = Math.abs(fraction) * barAreaH * 0.85f
-                    val color    = if (item.net >= 0) positiveColor else negativeColor
 
+                    val barColor = if (item.net >= 0) positiveColor else negativeColor
                     val topY = if (item.net >= 0) baselineY - barH else baselineY
                     drawRect(
-                        color    = color,
+                        color    = barColor,
                         topLeft  = Offset(barLeft, topY),
                         size     = Size(barWidth, barH),
                         alpha    = if (i == monthlyData.size - 1) 1f else 0.75f
