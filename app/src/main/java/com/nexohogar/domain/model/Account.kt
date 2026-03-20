@@ -8,6 +8,6 @@ data class Account(
     val id: String,
     val name: String,
     val type: String,
-    val balance: Double,
+    val balance: Long,          // Long porque CLP no tiene decimales
     val householdId: String
 )

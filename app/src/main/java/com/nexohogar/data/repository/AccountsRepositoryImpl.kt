@@ -1,48 +1,39 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.model.AccountDto
+import com.nexohogar.data.model.toDomain
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.remote.dto.CreateAccountRequest
 import com.nexohogar.domain.model.Account
+import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
 
+/**
+ * Implementación del repositorio de cuentas.
+ * No necesita SessionManager porque AuthInterceptor inyecta el token en cada request.
+ */
 class AccountsRepositoryImpl(
-    private val accountsApi: AccountsApi,
-    private val sessionManager: SessionManager,
-    private val tenantContext: TenantContext
+    private val accountsApi: AccountsApi
 ) : AccountsRepository {
 
-    override suspend fun getAccountBalances(): AppResult<List<Account>> {
+    override suspend fun getAccountBalances(
+        householdId: String
+    ): AppResult<List<AccountBalance>> {
         return try {
-            val token = "Bearer ${sessionManager.getToken() ?: return AppResult.Error("No token")}"
-            val householdId = tenantContext.requireHouseholdId()
-            val balances = accountsApi.getAccountBalances(token, householdId)
-            val accounts = balances.map { dto ->
-                Account(
-                    id = dto.id,
-                    name = dto.name,
-                    accountType = dto.accountType,
-                    balance = dto.balance,
-                    householdId = householdId
-                )
-            }
-            AppResult.Success(accounts)
+            val dtos = accountsApi.getAccountBalances(householdId)
+            AppResult.Success(dtos.toDomain())
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error desconocido")
+            AppResult.Error(e.message ?: "Error al obtener balances")
         }
     }
 
     override suspend fun createAccount(
+        householdId: String,
         name: String,
         accountType: String,
         accountSubtype: String
     ): AppResult<Account> {
         return try {
-            val token = "Bearer ${sessionManager.getToken() ?: return AppResult.Error("No token")}"
-            val householdId = tenantContext.requireHouseholdId() // ← fix: usa requireHouseholdId() en lugar de getCurrentHouseholdId()
             val request = CreateAccountRequest(
                 name = name,
                 accountType = accountType,
@@ -50,15 +41,16 @@ class AccountsRepositoryImpl(
                 householdId = householdId,
                 isActive = true
             )
-            val response = accountsApi.createAccount(token, request)
+            val response = accountsApi.createAccount(request)
             val created = response.firstOrNull()
                 ?: return AppResult.Error("No se recibió respuesta del servidor")
+
             AppResult.Success(
                 Account(
                     id = created.id,
                     name = created.name,
-                    accountType = created.accountType,
-                    balance = created.balance?.toLong() ?: 0L,
+                    type = created.accountType ?: accountType,
+                    balance = (created.balance ?: 0.0).toLong(),
                     householdId = householdId
                 )
             )

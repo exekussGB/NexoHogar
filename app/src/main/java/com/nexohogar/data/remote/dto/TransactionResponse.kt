@@ -1,15 +1,41 @@
 package com.nexohogar.data.remote.dto
 
+import com.google.gson.annotations.SerializedName
+
 /**
- * The unified DTO for transaction responses.
- * This class matches the updated 'select' query parameters used in TransactionsApi.
+ * Datos de cuenta embebidos via PostgREST join (select=*,accounts(name,type))
+ */
+data class AccountInfo(
+    @SerializedName("name") val name: String?,
+    @SerializedName("type") val type: String?
+)
+
+/**
+ * DTO unificado para respuestas de transacciones desde Supabase.
  */
 data class TransactionResponse(
+    @SerializedName("id")
     val id: String,
+
+    @SerializedName("description")
     val description: String?,
-    val amount_clp: Double,
-    val created_at: String,
-    val account_id: String,
-    val household_id: String,
-    val type: String
+
+    @SerializedName("amount_clp")
+    val amountClp: Long,
+
+    @SerializedName("created_at")
+    val createdAt: String,
+
+    @SerializedName("account_id")
+    val accountId: String,
+
+    @SerializedName("household_id")
+    val householdId: String,
+
+    @SerializedName("type")
+    val type: String,
+
+    // Join con tabla accounts — null si la query no incluye el join
+    @SerializedName("accounts")
+    val accounts: AccountInfo? = null
 )

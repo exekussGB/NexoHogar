@@ -5,10 +5,8 @@ import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.network.TransactionsApi
-import com.nexohogar.data.remote.dto.AccountResponse
 import com.nexohogar.data.remote.dto.CreateTransactionRequest
 import com.nexohogar.data.remote.dto.CreateTransferRequest
-import com.nexohogar.data.remote.dto.TransactionResponse
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.domain.repository.TransactionsRepository
@@ -31,27 +29,26 @@ class TransactionsRepositoryImpl(
             if (!response.isSuccessful) {
                 val error = response.errorBody()?.string()
                 Log.e("TRANSACTIONS_API", "HTTP ${response.code()} -> ${error ?: "unknown error"}")
-                return AppResult.Error("Error loading transactions")
+                return AppResult.Error("Error cargando transacciones")
             }
 
-            val dtoList: List<TransactionResponse> =
-                response.body() ?: emptyList()
+            val dtoList = response.body() ?: emptyList()
 
             val result = dtoList.map { dto ->
                 Transaction(
                     id = dto.id,
-                    accountId = dto.account_id,
-                    amount = dto.amount_clp,
+                    accountId = dto.accountId,
+                    amount = dto.amountClp,         // Long directo
                     description = dto.description,
-                    createdAt = dto.created_at,
+                    createdAt = dto.createdAt,
                     type = dto.type
                 )
             }
 
-            return AppResult.Success(result)
+            AppResult.Success(result)
 
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Unknown error")
+            AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
@@ -67,7 +64,7 @@ class TransactionsRepositoryImpl(
             }
         } catch (e: Exception) {
             Log.e("TransactionsRepository", "Error creating transaction", e)
-            AppResult.Error(e.message ?: "Unknown error")
+            AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
@@ -83,35 +80,31 @@ class TransactionsRepositoryImpl(
             }
         } catch (e: Exception) {
             Log.e("TransactionsRepository", "Error creating transfer", e)
-            AppResult.Error(e.message ?: "Unknown error")
+            AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
     override suspend fun getAccounts(householdId: String): AppResult<List<Account>> {
         return try {
             Log.d("ACCOUNTS_DEBUG", "Fetching accounts for householdId=$householdId")
-            
-            val response = accountsApi.getAccounts(householdFilter = "eq.$householdId")
-            
-            if (response.isSuccessful) {
-                val body: List<AccountResponse> = response.body() ?: emptyList()
-                Log.d("ACCOUNTS_DEBUG", "Accounts returned from API: ${body.size}")
-                
-                val domainAccounts = body.map { dto ->
-                    Account(
-                        id = dto.id,
-                        name = dto.name,
-                        type = dto.accountType ?: "ASSET",
-                        balance = dto.balance ?: 0.0,
-                        householdId = dto.householdId
-                    )
-                }
-                AppResult.Success(domainAccounts)
-            } else {
-                val errorMsg = response.errorBody()?.string()
-                Log.e("ACCOUNTS_FETCH", "HTTP ${response.code()} -> $errorMsg")
-                AppResult.Error("Error al obtener cuentas: $errorMsg")
+
+            // ← CORREGIDO: parámetro correcto, sin token (AuthInterceptor lo maneja),
+            //   retorna List<AccountDto> directamente (sin Response<>)
+            val body = accountsApi.getAccounts(householdId = "eq.$householdId")
+
+            Log.d("ACCOUNTS_DEBUG", "Accounts returned from API: ${body.size}")
+
+            val domainAccounts = body.map { dto ->
+                Account(
+                    id = dto.id,
+                    name = dto.name,
+                    type = dto.accountType ?: "ASSET",
+                    balance = (dto.balance ?: 0.0).toLong(),  // Long: CLP
+                    householdId = dto.householdId
+                )
             }
+            AppResult.Success(domainAccounts)
+
         } catch (e: Exception) {
             Log.e("ACCOUNTS_FETCH", "Error de red", e)
             AppResult.Error(e.message ?: "Error de red")

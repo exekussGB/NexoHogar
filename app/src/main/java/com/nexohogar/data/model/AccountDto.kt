@@ -25,7 +25,7 @@ fun AccountDto.toDomain(): Account {
         id = id,
         name = name,
         type = accountType ?: "ASSET",
-        balance = balance ?: 0.0,
+        balance = (balance ?: 0.0).toLong(),   // convertir a Long
         householdId = householdId
     )
 }

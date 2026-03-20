@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 import com.nexohogar.domain.model.AccountBalance
 
 /**
- * DTO para el balance de cuenta proveniente de Supabase.
+ * DTO para el balance de cuenta proveniente de Supabase RPC.
  */
 data class AccountBalanceDto(
     @SerializedName("account_id")
@@ -25,7 +25,7 @@ fun AccountBalanceDto.toDomain(): AccountBalance {
         accountId = accountId,
         accountName = accountName,
         accountType = accountType,
-        movementBalance = movementBalance
+        movementBalance = movementBalance.toLong()   // convertir a Long
     )
 }
 

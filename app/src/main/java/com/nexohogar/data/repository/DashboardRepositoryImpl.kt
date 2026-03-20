@@ -3,36 +3,30 @@ package com.nexohogar.data.repository
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.model.toDomain
 import com.nexohogar.data.network.DashboardApi
+import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.repository.DashboardRepository
 
-/**
- * Implementation of DashboardRepository that fetches data from Supabase.
- */
 class DashboardRepositoryImpl(
     private val dashboardApi: DashboardApi
 ) : DashboardRepository {
 
     override suspend fun getDashboardSummary(householdId: String): AppResult<DashboardSummary> {
         return try {
-            // Supabase filter format: eq.{value}
-            val filter = "eq.$householdId"
-            val response = dashboardApi.getDashboardSummary(filter)
-            
+            val response = dashboardApi.getDashboardSummary("eq.$householdId")
             if (response.isSuccessful) {
                 val list = response.body()
                 if (!list.isNullOrEmpty()) {
-                    val dto = list.first()
-                    AppResult.Success(dto.toDomain())
+                    AppResult.Success(list.first().toDomain())
                 } else {
-                    AppResult.Error("No dashboard data found for this household")
+                    AppResult.Error("No hay datos para este hogar")
                 }
             } else {
-                AppResult.Error("Error fetching dashboard: ${response.code()}")
+                AppResult.Error("Error al cargar resumen: ${response.code()}")
             }
         } catch (e: Exception) {
-            AppResult.Error("Network failure: ${e.message}")
+            AppResult.Error("Fallo de red: ${e.message}")
         }
     }
 
@@ -41,18 +35,43 @@ class DashboardRepositoryImpl(
             val response = dashboardApi.getMonthlyBalance(
                 mapOf("p_household_id" to householdId)
             )
-            val domain = response.map { dto ->
-                MonthlyBalance(
-                    yearNum  = dto.yearNum,
-                    monthNum = dto.monthNum,
-                    income   = dto.income,
-                    expense  = dto.expense,
-                    net      = dto.net
-                )
+            if (response.isSuccessful) {
+                val domain = response.body()?.map { dto ->
+                    MonthlyBalance(
+                        yearNum  = dto.yearNum,
+                        monthNum = dto.monthNum,
+                        income   = dto.income,
+                        expense  = dto.expense,
+                        net      = dto.net
+                    )
+                } ?: emptyList()
+                AppResult.Success(domain)
+            } else {
+                AppResult.Error("Error tendencia mensual: ${response.code()}")
             }
-            AppResult.Success(domain)
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al cargar tendencia mensual")
+        }
+    }
+
+    override suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>> {
+        return try {
+            val response = dashboardApi.getAccountBalances(householdId)
+            if (response.isSuccessful) {
+                val balances = response.body()?.map { dto ->
+                    AccountBalance(
+                        accountId      = dto.accountId,
+                        accountName    = dto.accountName,
+                        accountType    = dto.accountType,
+                        movementBalance = dto.movementBalance.toLong()
+                    )
+                } ?: emptyList()
+                AppResult.Success(balances)
+            } else {
+                AppResult.Error("Error saldos de cuentas: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al cargar saldos")
         }
     }
 }

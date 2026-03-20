@@ -11,9 +11,9 @@ fun TransactionResponse.toDomain(): Transaction {
     return Transaction(
         id = id,
         description = description,
-        amount = amount_clp,
-        accountId = account_id,
-        createdAt = created_at,
+        amount = amountClp,         // ambos Long, sin conversión
+        accountId = accountId,
+        createdAt = createdAt,
         type = type
     )
 }
