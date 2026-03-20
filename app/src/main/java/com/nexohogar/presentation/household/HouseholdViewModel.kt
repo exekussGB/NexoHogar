@@ -1,67 +1,87 @@
 package com.nexohogar.presentation.household
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.data.local.SessionManager
+import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.repository.HouseholdRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel de Hogares.
- * Solo depende de interfaces de dominio y modelos de dominio.
- */
+data class HouseholdUiState(
+    val isLoading: Boolean            = false,
+    val households: List<Household>   = emptyList(),
+    val error: String?                = null,
+    val isCreating: Boolean           = false,
+    val createError: String?          = null,
+    val createSuccess: Boolean        = false
+)
+
 class HouseholdViewModel(
-    private val repository: HouseholdRepository,
-    private val sessionManager: SessionManager
+    private val householdRepository: HouseholdRepository,
+    private val tenantContext: TenantContext
 ) : ViewModel() {
 
-    private val _householdState = MutableStateFlow<HouseholdState>(HouseholdState.Loading)
-    val householdState: StateFlow<HouseholdState> = _householdState
+    private val _uiState = MutableStateFlow(HouseholdUiState())
+    val uiState: StateFlow<HouseholdUiState> = _uiState.asStateFlow()
 
     init {
-        fetchHouseholds()
+        loadHouseholds()
     }
 
-    fun fetchHouseholds() {
-        Log.d("HF_DEBUG", "fetchHouseholds() llamado")
-        Log.d("HF_DEBUG", "token = ${sessionManager.fetchAuthToken()}")
-
-        if (sessionManager.fetchAuthToken() == null) {
-            _householdState.value = HouseholdState.Error("No hay sesión activa")
-            return
-        }
-
-        _householdState.value = HouseholdState.Loading
-
+    fun loadHouseholds() {
         viewModelScope.launch {
-            Log.d("HF_DEBUG", "Llamando repository.getHouseholds()")
-            
-            when (val result = repository.getHouseholds()) {
-                is AppResult.Success -> {
-                    Log.d("HF_DEBUG", "Resultado repository: $result")
-                    _householdState.value = HouseholdState.Success(result.data)
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            when (val result = householdRepository.getHouseholds()) {
+                is AppResult.Success -> _uiState.update {
+                    it.copy(isLoading = false, households = result.data)
                 }
-                is AppResult.Error -> {
-                    Log.d("HF_DEBUG", "Resultado repository: $result")
-                    _householdState.value = HouseholdState.Error(result.message)
+                is AppResult.Error   -> _uiState.update {
+                    it.copy(isLoading = false, error = result.message)
                 }
-                is AppResult.Loading -> {}
+                else -> _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
 
-    fun selectHousehold(id: String) {
-        repository.selectHousehold(id)
+    fun createHousehold(name: String) {
+        if (name.isBlank()) {
+            _uiState.update { it.copy(createError = "El nombre no puede estar vacío") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCreating = true, createError = null) }
+            when (val result = householdRepository.createHousehold(name.trim())) {
+                is AppResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isCreating    = false,
+                            createSuccess = true,
+                            households    = it.households + result.data
+                        )
+                    }
+                }
+                is AppResult.Error -> _uiState.update {
+                    it.copy(isCreating = false, createError = result.message)
+                }
+                else -> _uiState.update { it.copy(isCreating = false) }
+            }
+        }
     }
-}
 
-sealed class HouseholdState {
-    object Loading : HouseholdState()
-    data class Success(val households: List<Household>) : HouseholdState()
-    data class Error(val message: String) : HouseholdState()
+    fun clearCreateError() {
+        _uiState.update { it.copy(createError = null) }
+    }
+
+    fun clearCreateSuccess() {
+        _uiState.update { it.copy(createSuccess = false) }
+    }
+
+    fun selectHousehold(household: Household) {
+        tenantContext.setHouseholdId(household.id)
+    }
 }

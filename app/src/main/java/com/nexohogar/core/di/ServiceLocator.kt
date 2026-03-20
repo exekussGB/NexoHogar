@@ -97,7 +97,7 @@ object ServiceLocator {
     }
 
     val householdRepository: HouseholdRepository by lazy {
-        HouseholdRepositoryImpl(authApi, tenantContext)
+        HouseholdRepositoryImpl(authApi)
     }
 
     val dashboardRepository: DashboardRepository by lazy {

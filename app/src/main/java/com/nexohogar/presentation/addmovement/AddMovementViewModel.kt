@@ -38,12 +38,12 @@ class AddMovementViewModel(
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
 
-    val filteredCategories: StateFlow<List<Category>> = 
+    val filteredCategories: StateFlow<List<Category>> =
         combine(_categories, _uiState) { categories, state ->
             when (state.type.name) {
                 "EXPENSE" -> categories.filter { it.type == "expense" }
-                "INCOME" -> categories.filter { it.type == "income" }
-                else -> emptyList()
+                "INCOME"  -> categories.filter { it.type == "income" }
+                else      -> emptyList()
             }
         }.stateIn(
             viewModelScope,
@@ -58,19 +58,32 @@ class AddMovementViewModel(
     private fun loadInitialData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
-            
-            val accountsResult = transactionsRepository.getAccounts(householdId)
+
+            val householdId = tenantContext.getCurrentHouseholdId()
+            if (householdId == null) {
+                _uiState.update { it.copy(isLoading = false, error = "No hay hogar seleccionado") }
+                return@launch
+            }
+
+            val accountsResult   = transactionsRepository.getAccounts(householdId)
             val categoriesResult = categoriesRepository.getCategories(householdId)
 
             if (accountsResult is AppResult.Success && categoriesResult is AppResult.Success) {
-                _uiState.update { 
+
+                // ── Filtrar cuentas del sistema ──────────────────────────────────
+                val userAccounts = accountsResult.data.filter { account ->
+                    !account.name.startsWith("__SYSTEM")   // oculta __SYSTEM_EXPENSE__ y __SYSTEM_INCOME__
+                }
+                // ────────────────────────────────────────────────────────────────
+
+                _uiState.update {
                     it.copy(
-                        accounts = accountsResult.data,
+                        accounts  = userAccounts,  // ← lista limpia
                         isLoading = false
                     )
                 }
                 _categories.value = categoriesResult.data
+
             } else {
                 _uiState.update { it.copy(isLoading = false, error = "Error al cargar datos iniciales") }
             }
@@ -78,12 +91,12 @@ class AddMovementViewModel(
     }
 
     fun onTypeChange(type: TransactionType) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
-                type = type, 
-                selectedCategory = null, 
-                selectedToAccount = null 
-            ) 
+                type              = type,
+                selectedCategory  = null,
+                selectedToAccount = null
+            )
         }
     }
 
@@ -108,9 +121,9 @@ class AddMovementViewModel(
     }
 
     fun saveTransaction() {
-        val state = _uiState.value
+        val state       = _uiState.value
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
-        
+
         val amountLong = state.amount.toLongOrNull()
         if (state.selectedFromAccount == null || amountLong == null) {
             _uiState.update { it.copy(error = "Datos incompletos") }
@@ -119,7 +132,7 @@ class AddMovementViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            
+
             val result = if (state.type.name == "TRANSFER") {
                 if (state.selectedToAccount == null) {
                     _uiState.update { it.copy(isLoading = false, error = "Seleccione cuenta destino") }
@@ -131,14 +144,15 @@ class AddMovementViewModel(
                 }
 
                 val request = CreateTransferRequest(
-                    householdId = householdId,
+                    householdId   = householdId,
                     fromAccountId = state.selectedFromAccount.id,
-                    toAccountId = state.selectedToAccount.id,
-                    amountClp = amountLong,
-                    description = state.description.ifBlank { null },
+                    toAccountId   = state.selectedToAccount.id,
+                    amountClp     = amountLong,
+                    description   = state.description.ifBlank { null },
                     transactionDate = LocalDate.now().toString()
                 )
                 transactionsRepository.createTransfer(request)
+
             } else {
                 if (state.selectedCategory == null) {
                     _uiState.update { it.copy(isLoading = false, error = "Seleccione categoría") }
@@ -150,14 +164,14 @@ class AddMovementViewModel(
                     _uiState.update { it.copy(isLoading = false, error = "Categoría sin ID válido") }
                     return@launch
                 }
-                
+
                 val request = CreateTransactionRequest(
-                    pHouseholdId = householdId,
-                    pType = state.type.name.lowercase(),
-                    pAccountId = state.selectedFromAccount.id,
-                    pAmountClp = amountLong,
-                    pCategoryId = categoryId,
-                    pDescription = state.description.ifBlank { null },
+                    pHouseholdId    = householdId,
+                    pType           = state.type.name.lowercase(),
+                    pAccountId      = state.selectedFromAccount.id,
+                    pAmountClp      = amountLong,
+                    pCategoryId     = categoryId,
+                    pDescription    = state.description.ifBlank { null },
                     pTransactionDate = LocalDate.now().toString()
                 )
                 transactionsRepository.createTransaction(request)
@@ -165,12 +179,12 @@ class AddMovementViewModel(
 
             when (result) {
                 is AppResult.Success -> _uiState.update { it.copy(isLoading = false, isSuccess = true) }
-                is AppResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is AppResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 else -> {}
             }
         }
     }
-    
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }

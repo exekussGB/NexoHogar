@@ -11,49 +11,96 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel para gestionar el estado de la pantalla de cuentas.
- */
+data class AccountsUiState(
+    val accounts: List<AccountBalance> = emptyList(),
+    val isLoading: Boolean = true,
+    val error: String? = null,
+    val showCreateDialog: Boolean = false,
+    val isCreating: Boolean = false,
+    val createError: String? = null
+)
+
 class AccountsViewModel(
     private val repository: AccountsRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<AccountsUiState>(AccountsUiState.Loading)
+    private val _uiState = MutableStateFlow(AccountsUiState())
     val uiState: StateFlow<AccountsUiState> = _uiState.asStateFlow()
 
     init {
         loadAccounts()
     }
 
-    /**
-     * Carga los balances de las cuentas para el household actual.
-     */
     fun loadAccounts() {
         viewModelScope.launch {
-            _uiState.value = AccountsUiState.Loading
-            
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
             val householdId = tenantContext.getCurrentHouseholdId()
             if (householdId == null) {
-                _uiState.value = AccountsUiState.Error("No se ha seleccionado un hogar.")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No se ha seleccionado un hogar."
+                )
                 return@launch
             }
 
             when (val result = repository.getAccountBalances(householdId)) {
                 is AppResult.Success -> {
-                    _uiState.value = AccountsUiState.Success(result.data)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        accounts = result.data,
+                        error = null
+                    )
                 }
                 is AppResult.Error -> {
-                    _uiState.value = AccountsUiState.Error(result.message)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
                 }
                 is AppResult.Loading -> { }
             }
         }
     }
-}
 
-sealed interface AccountsUiState {
-    object Loading : AccountsUiState
-    data class Success(val accounts: List<AccountBalance>) : AccountsUiState
-    data class Error(val message: String) : AccountsUiState
+    fun onShowCreateDialog() {
+        _uiState.value = _uiState.value.copy(showCreateDialog = true, createError = null)
+    }
+
+    fun onDismissCreateDialog() {
+        _uiState.value = _uiState.value.copy(showCreateDialog = false, createError = null)
+    }
+
+    fun createAccount(name: String, accountType: String, accountSubtype: String) {
+        viewModelScope.launch {
+            val householdId = tenantContext.getCurrentHouseholdId()
+            if (householdId == null) {
+                _uiState.value = _uiState.value.copy(
+                    createError = "No se ha seleccionado un hogar."
+                )
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isCreating = true, createError = null)
+
+            when (val result = repository.createAccount(householdId, name, accountType, accountSubtype)) {
+                is AppResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        showCreateDialog = false,
+                        createError = null
+                    )
+                    loadAccounts()
+                }
+                is AppResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isCreating = false,
+                        createError = result.message
+                    )
+                }
+                is AppResult.Loading -> { }
+            }
+        }
+    }
 }

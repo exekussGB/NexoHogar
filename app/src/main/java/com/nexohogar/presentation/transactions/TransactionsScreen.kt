@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -97,17 +98,18 @@ fun TransactionItem(
     onItemClick: (Transaction) -> Unit
 ) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
-    
-    val icon = if (transaction.amount < 0) {
-        Icons.Default.ArrowDownward
-    } else {
-        Icons.Default.ArrowUpward
+
+    // Iconos y colores basados en transaction.type, NO en el signo del monto
+    val icon = when (transaction.type.lowercase()) {
+        "expense"  -> Icons.Default.ArrowUpward
+        "transfer" -> Icons.Default.SwapHoriz
+        else       -> Icons.Default.ArrowDownward  // income
     }
-    
-    val iconColor = if (transaction.amount < 0) {
-        Color(0xFFF44336)
-    } else {
-        Color(0xFF4CAF50)
+
+    val iconColor = when (transaction.type.lowercase()) {
+        "expense"  -> Color(0xFFF44336)  // rojo
+        "transfer" -> Color(0xFF2196F3)  // azul
+        else       -> Color(0xFF4CAF50)  // verde (income)
     }
 
     Card(
@@ -132,9 +134,9 @@ fun TransactionItem(
                     modifier = Modifier.padding(8.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.description?.ifBlank { "Sin descripción" } ?: "Sin descripción",
@@ -147,7 +149,7 @@ fun TransactionItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             Text(
                 text = clpFormat.format(transaction.amount),
                 style = MaterialTheme.typography.titleLarge,
