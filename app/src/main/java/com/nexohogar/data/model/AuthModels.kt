@@ -32,9 +32,3 @@ data class UserResponse(
     val id: String?,
     val email: String?
 )
-
-data class HouseholdResponse(
-    val id: String,
-    val name: String,
-    val description: String?
-)

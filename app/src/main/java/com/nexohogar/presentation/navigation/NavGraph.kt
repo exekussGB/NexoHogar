@@ -106,14 +106,18 @@ fun NavGraph(
 
         composable(Screen.Household.route) {
 
-            val viewModel = HouseholdViewModel(householdRepository, sessionManager)
+            val viewModel = HouseholdViewModel(
+                householdRepository = householdRepository,
+                tenantContext       = tenantContext
+            )
 
-            HouseholdScreen(viewModel = viewModel) {
+            HouseholdScreen(viewModel = viewModel) { householdId ->  // capturar el String
+
+                tenantContext.setHouseholdId(householdId)            // PERSISTIR antes de navegar
 
                 navController.navigate(Screen.Dashboard.route) {
                     popUpTo(Screen.Household.route) { inclusive = true }
                 }
-
             }
         }
 
