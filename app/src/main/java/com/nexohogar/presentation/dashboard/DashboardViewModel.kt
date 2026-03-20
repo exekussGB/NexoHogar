@@ -22,45 +22,37 @@ class DashboardViewModel(
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
-    init {
-        refreshDashboard()
-    }
+    init { refreshDashboard() }
 
     fun refreshDashboard() {
         viewModelScope.launch {
-
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val householdId = tenantContext.getCurrentHouseholdId()
-
             if (householdId == null) {
-                _uiState.update {
-                    it.copy(isLoading = false, error = "No hay hogar seleccionado")
-                }
+                _uiState.update { it.copy(isLoading = false, error = "No hay hogar seleccionado") }
                 return@launch
             }
 
-            // Las tres cargas se lanzan en PARALELO e independientes entre sí
-            val summaryDeferred    = async { dashboardRepository.getDashboardSummary(householdId) }
+            // Las cuatro cargas van en PARALELO — si una falla, las demás continúan
+            val summaryDeferred      = async { dashboardRepository.getDashboardSummary(householdId) }
             val transactionsDeferred = async { transactionsRepository.getTransactions(householdId) }
-            val monthlyDeferred    = async { dashboardRepository.getMonthlyBalance(householdId) }
+            val monthlyDeferred      = async { dashboardRepository.getMonthlyBalance(householdId) }
+            val accountsDeferred     = async { dashboardRepository.getAccountBalances(householdId) }
 
             val summaryResult      = summaryDeferred.await()
             val transactionsResult = transactionsDeferred.await()
             val monthlyResult      = monthlyDeferred.await()
-
-            val summary = if (summaryResult is AppResult.Success) summaryResult.data else null
-            val recent  = if (transactionsResult is AppResult.Success) transactionsResult.data.take(5) else emptyList()
-            val monthly = if (monthlyResult is AppResult.Success) monthlyResult.data else emptyList()
-            val error   = if (summaryResult is AppResult.Error) summaryResult.message else null
+            val accountsResult     = accountsDeferred.await()
 
             _uiState.update {
                 it.copy(
-                    summary            = summary,
-                    recentTransactions = recent,
-                    monthlyBalance     = monthly,
-                    isLoading          = false,
-                    error              = error
+                    summary          = if (summaryResult      is AppResult.Success) summaryResult.data           else null,
+                    recentTransactions = if (transactionsResult is AppResult.Success) transactionsResult.data.take(5) else emptyList(),
+                    monthlyBalance   = if (monthlyResult      is AppResult.Success) monthlyResult.data           else emptyList(),
+                    accountBalances  = if (accountsResult     is AppResult.Success) accountsResult.data          else emptyList(),
+                    isLoading        = false,
+                    error            = if (summaryResult is AppResult.Error) summaryResult.message else null
                 )
             }
         }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,9 +34,9 @@ fun AddTransactionScreen(
 
     LaunchedEffect(key1 = transactionType) {
         val type = when (transactionType) {
-            "income" -> TransactionType.INCOME
+            "income"   -> TransactionType.INCOME
             "transfer" -> TransactionType.TRANSFER
-            else -> TransactionType.EXPENSE
+            else       -> TransactionType.EXPENSE
         }
         viewModel.onTypeChange(type)
     }
@@ -55,16 +56,58 @@ fun AddTransactionScreen(
     }
 
     val title = when (uiState.type) {
-        TransactionType.INCOME -> "Nuevo Ingreso"
-        TransactionType.EXPENSE -> "Nuevo Gasto"
+        TransactionType.INCOME   -> "Nuevo Ingreso"
+        TransactionType.EXPENSE  -> "Nuevo Gasto"
         TransactionType.TRANSFER -> "Traspaso entre Cuentas"
     }
 
     val accountLabel = when (uiState.type) {
         TransactionType.INCOME -> "Cuenta Destino"
-        else -> "Cuenta Origen"
+        else                   -> "Cuenta Origen"
     }
 
+    // ── Diálogo de nueva categoría ───────────────────────────────────────────
+    if (uiState.showCreateCategoryDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onDismissCreateCategoryDialog() },
+            title = { Text("Nueva Categoría") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Tipo: ${if (uiState.type == TransactionType.INCOME) "Ingreso" else "Gasto"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = uiState.newCategoryName,
+                        onValueChange = { viewModel.onNewCategoryNameChange(it) },
+                        label = { Text("Nombre de la categoría") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.createCategory() },
+                    enabled = uiState.newCategoryName.isNotBlank() && !uiState.isSavingCategory
+                ) {
+                    if (uiState.isSavingCategory) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Crear")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onDismissCreateCategoryDialog() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // ── Scaffold principal ───────────────────────────────────────────────────
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,7 +140,7 @@ fun AddTransactionScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Cuenta Origen / Pago
+                    // Cuenta Origen / Destino
                     AccountDropdown(
                         label = accountLabel,
                         accounts = uiState.accounts,
@@ -105,7 +148,7 @@ fun AddTransactionScreen(
                         onAccountSelected = { viewModel.onFromAccountSelected(it) }
                     )
 
-                    // Mostrar Cuenta Destino si es transferencia
+                    // Segunda cuenta si es transferencia
                     if (uiState.type == TransactionType.TRANSFER) {
                         AccountDropdown(
                             label = "Cuenta Destino",
@@ -115,13 +158,14 @@ fun AddTransactionScreen(
                         )
                     }
 
-                    // Mostrar Categoría si NO es transferencia
+                    // Categoría (solo income/expense)
                     if (uiState.type != TransactionType.TRANSFER) {
                         CategoryDropdown(
                             label = "Categoría",
                             categories = categories,
                             selectedCategory = uiState.selectedCategory,
-                            onCategorySelected = { viewModel.onCategorySelected(it) }
+                            onCategorySelected = { viewModel.onCategorySelected(it) },
+                            onCreateCategory = { viewModel.onShowCreateCategoryDialog() }
                         )
                     }
 
@@ -159,12 +203,12 @@ fun AddTransactionScreen(
                 }
             }
 
-            if (uiState.isLoading) {
-                LoadingOverlay()
-            }
+            if (uiState.isLoading) LoadingOverlay()
         }
     }
 }
+
+// ── AccountDropdown ──────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +234,6 @@ fun AccountDropdown(
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
-
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
@@ -208,13 +251,16 @@ fun AccountDropdown(
     }
 }
 
+// ── CategoryDropdown ─────────────────────────────────────────────────────────
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryDropdown(
     label: String,
     categories: List<Category>,
     selectedCategory: Category?,
-    onCategorySelected: (Category) -> Unit
+    onCategorySelected: (Category) -> Unit,
+    onCreateCategory: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -232,11 +278,34 @@ fun CategoryDropdown(
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
-
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
+            // Opción para crear nueva categoría
+            DropdownMenuItem(
+                text = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Nueva categoría…",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                onClick = {
+                    expanded = false
+                    onCreateCategory()
+                }
+            )
+            HorizontalDivider()
             categories.forEach { category ->
                 DropdownMenuItem(
                     text = {
@@ -245,8 +314,8 @@ fun CategoryDropdown(
                             Text(
                                 text = when (category.type) {
                                     "expense" -> "Gasto"
-                                    "income" -> "Ingreso"
-                                    else -> category.type
+                                    "income"  -> "Ingreso"
+                                    else      -> category.type
                                 },
                                 style = MaterialTheme.typography.bodySmall
                             )

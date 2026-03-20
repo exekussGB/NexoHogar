@@ -1,11 +1,8 @@
 package com.nexohogar.domain.repository
 
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.domain.model.TransactionEntry
+import com.nexohogar.domain.model.TransactionDetail
 
-/**
- * Interface for the transaction detail repository.
- */
 interface TransactionDetailRepository {
-    suspend fun getTransactionEntries(transactionId: String): AppResult<List<TransactionEntry>>
+    suspend fun getTransactionDetail(transactionId: String): AppResult<TransactionDetail>
 }
