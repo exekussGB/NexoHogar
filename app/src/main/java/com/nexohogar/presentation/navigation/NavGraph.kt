@@ -237,8 +237,9 @@ fun NavGraph(
                 }
             )
             TransactionDetailScreen(
-                transactionId = transactionId,
-                viewModel = viewModel
+                transactionId  = transactionId,
+                viewModel      = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

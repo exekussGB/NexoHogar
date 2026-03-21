@@ -13,27 +13,35 @@ class AccountsRepositoryImpl(
     private val sessionManager: SessionManager
 ) : AccountsRepository {
 
-    override suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>> {
+    // -------------------------------------------------------------------------
+    // getAccountBalances
+    // -------------------------------------------------------------------------
+    override suspend fun getAccountBalances(
+        householdId: String
+    ): AppResult<List<AccountBalance>> {
         return try {
             val token = "Bearer ${sessionManager.fetchAuthToken()
                 ?: return AppResult.Error("No hay sesión activa")}"
 
-            val dtos = accountsApi.getAccountBalances(token, householdId)
+            val balances = accountsApi.getAccountBalances(token, householdId)
 
-            val balances = dtos.map { dto ->
+            val result = balances.map { dto ->
                 AccountBalance(
                     accountId       = dto.accountId,
                     accountName     = dto.accountName,
                     accountType     = dto.accountType,
-                    movementBalance = dto.movementBalance
+                    movementBalance = dto.movementBalance.toLong()
                 )
             }
-            AppResult.Success(balances)
+            AppResult.Success(result)
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al obtener cuentas")
+            AppResult.Error(e.message ?: "Error al obtener balances")
         }
     }
 
+    // -------------------------------------------------------------------------
+    // createAccount
+    // -------------------------------------------------------------------------
     override suspend fun createAccount(
         householdId: String,
         name: String,
@@ -45,13 +53,15 @@ class AccountsRepositoryImpl(
                 ?: return AppResult.Error("No hay sesión activa")}"
 
             val request = CreateAccountRequest(
-                name          = name,
-                accountType   = accountType,
+                name           = name,
+                accountType    = accountType,
                 accountSubtype = accountSubtype,
-                householdId   = householdId,
-                isActive      = true
+                householdId    = householdId,
+                isActive       = true
             )
+
             val response = accountsApi.createAccount(token, request)
+
             val created = response.firstOrNull()
                 ?: return AppResult.Error("No se recibió respuesta del servidor")
 
@@ -59,8 +69,8 @@ class AccountsRepositoryImpl(
                 Account(
                     id          = created.id,
                     name        = created.name,
-                    type        = created.accountType ?: accountType,
-                    balance     = created.balance ?: 0.0,
+                    accountType = created.accountType ?: accountType,
+                    balance     = created.balance?.toLong() ?: 0L,
                     householdId = householdId
                 )
             )
