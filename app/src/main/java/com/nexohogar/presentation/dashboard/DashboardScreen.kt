@@ -2,17 +2,19 @@ package com.nexohogar.presentation.dashboard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,31 +23,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
-
-// ─── Utilidad: formatea "2026-03-20T12:52:10.832678+00:00" → "20 mar 2026 · 12:52"
-private fun formatDate(isoDate: String): String {
-    return try {
-        val datePart = isoDate.substringBefore("T")
-        val timePart = isoDate.substringAfter("T").substring(0, 5)
-        val (year, month, day) = datePart.split("-")
-        val monthNames = listOf("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic")
-        val monthName = monthNames[(month.toInt() - 1).coerceIn(0, 11)]
-        "$day $monthName $year · $timePart"
-    } catch (_: Exception) { isoDate }
-}
 
 @Composable
 fun DashboardScreen(
@@ -70,35 +57,20 @@ fun DashboardScreen(
         if (uiState.isLoading) LoadingOverlay()
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 1. Tarjeta saldo total
             item {
                 uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
             }
-
-            // 2. Saldos por cuenta (nuevo)
-            item {
-                if (uiState.accountBalances.isNotEmpty()) {
-                    AccountBalancesSection(
-                        accounts = uiState.accountBalances,
-                        format = clpFormat
-                    )
-                }
-            }
-
-            // 3. Gráfico mensual
             item {
                 MonthlyChart(monthlyData = uiState.monthlyBalance)
             }
-
-            // 4. Acciones rápidas
             item {
                 QuickActionsRow(onActionClick = onCreateTransaction)
             }
-
-            // 5. Últimos movimientos
             item {
                 RecentTransactionsList(
                     transactions = uiState.recentTransactions,
@@ -111,71 +83,9 @@ fun DashboardScreen(
     }
 }
 
-// ─── Saldos por cuenta ────────────────────────────────────────────────────────
-
-@Composable
-fun AccountBalancesSection(accounts: List<AccountBalance>, format: NumberFormat) {
-    Column {
-        Text(
-            text = "Mis Cuentas",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Filtrar cuentas del sistema
-            accounts
-                .filter { !it.accountName.startsWith("__SYSTEM") }
-                .forEach { account ->
-                    AccountBalanceCard(account = account, format = format)
-                }
-        }
-    }
-}
-
-@Composable
-fun AccountBalanceCard(account: AccountBalance, format: NumberFormat) {
-    val (icon, color) = when (account.accountType.uppercase()) {
-        "ASSET"     -> Icons.Default.AccountBalance to Color(0xFF1976D2)
-        "LIABILITY" -> Icons.Default.CreditCard     to Color(0xFF9C27B0)
-        else        -> Icons.Default.Wallet         to Color(0xFF757575)
-    }
-
-    Card(
-        modifier = Modifier.width(160.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.08f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = account.accountName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-            Text(
-                text = format.format(account.movementBalance),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (account.movementBalance >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
-            )
-        }
-    }
-}
-
-// ─── Tarjeta saldo total ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// BalanceCard
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
@@ -191,7 +101,7 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
             modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "Saldo Total", style = MaterialTheme.typography.labelMedium)
+            Text("Saldo Total", style = MaterialTheme.typography.labelMedium)
             Text(
                 text = format.format(summary.totalBalance),
                 style = MaterialTheme.typography.headlineLarge,
@@ -216,7 +126,7 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
 @Composable
 private fun SummaryInfo(label: String, amount: Double, color: Color, format: NumberFormat) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        Text(label, style = MaterialTheme.typography.labelSmall)
         Text(
             text = format.format(amount),
             style = MaterialTheme.typography.titleMedium,
@@ -226,25 +136,105 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
     }
 }
 
-// ─── Gráfico mensual ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MonthlyChart — con tooltip al pinchar una barra
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
+    val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
+
+    // índice de la barra seleccionada; null = ninguna
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Tendencia Mensual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+            // ── Título + botón para cerrar tooltip ─────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Tendencia Mensual",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (selectedIndex != null) {
+                    TextButton(
+                        onClick = { selectedIndex = null },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("✕  cerrar", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
-            val hasData = monthlyData.any { it.net != 0L }
+            // ── Tooltip flotante ───────────────────────────────────────────
+            val selIdx = selectedIndex
+            if (selIdx != null) {
+                val item = monthlyData.getOrNull(selIdx)
+                if (item != null) {
+                    val monthName = monthNames.getOrElse(item.monthNum - 1) { "?" }
+                    val netColor  = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.inverseSurface
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "$monthName ${item.yearNum}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface
+                                )
+                                Text(
+                                    text = "Ingresos: ${clpFormat.format(item.income)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "Gastos: ${clpFormat.format(item.expense)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                            Text(
+                                text = clpFormat.format(item.net),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = netColor
+                            )
+                        }
+                    }
+                }
+            }
 
+            // ── Estado vacío ───────────────────────────────────────────────
+            val hasData = monthlyData.any { it.net != 0L }
             if (!hasData) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(130.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -255,7 +245,7 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                         )
                         Text(
-                            text = "Sin movimientos aún",
+                            "Sin movimientos aún",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -264,45 +254,80 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                 return@Column
             }
 
+            // ── Canvas con barras y detección de toques ────────────────────
             val positiveColor = Color(0xFF4CAF50)
             val negativeColor = Color(0xFFF44336)
+            val selectedColor = Color(0xFF1565C0)
             val labelColor    = Color(0xFF757575)
-            val maxAbs = monthlyData.maxOf { Math.abs(it.net) }.takeIf { it > 0 } ?: 1L
+            val maxAbs = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
 
-            Canvas(modifier = Modifier.fillMaxWidth().height(130.dp)) {
-                val count       = monthlyData.size
-                val slotWidth   = size.width / count
-                val barWidth    = slotWidth * 0.5f
-                val barAreaH    = size.height * 0.72f
-                val baselineY   = size.height * 0.72f
-                val labelY      = size.height - 4f
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .pointerInput(monthlyData) {
+                        detectTapGestures { offset ->
+                            val count = monthlyData.size
+                            if (count == 0) return@detectTapGestures
+                            val slotW = size.width / count.toFloat()
+                            val tapped = (offset.x / slotW).toInt().coerceIn(0, count - 1)
+                            // segundo toque en la misma barra: deselecciona
+                            selectedIndex = if (selectedIndex == tapped) null else tapped
+                        }
+                    }
+            ) {
+                val count      = monthlyData.size
+                val slotWidth  = size.width / count
+                val barWidth   = slotWidth * 0.5f
+                val barAreaH   = size.height * 0.72f
+                val baselineY  = size.height * 0.72f
+                val labelY     = size.height - 4f
 
+                // Línea base
                 drawLine(
-                    color = Color(0xFFBDBDBD),
-                    start = Offset(0f, baselineY),
-                    end   = Offset(size.width, baselineY),
+                    color       = Color(0xFFBDBDBD),
+                    start       = Offset(0f, baselineY),
+                    end         = Offset(size.width, baselineY),
                     strokeWidth = 1.5f
                 )
 
                 monthlyData.forEachIndexed { i, item ->
-                    val centerX  = slotWidth * i + slotWidth / 2f
-                    val fraction = item.net.toFloat() / maxAbs.toFloat()
-                    val barH     = Math.abs(fraction) * barAreaH * 0.85f
-                    val barColor = if (item.net >= 0) positiveColor else negativeColor
-                    val topY     = if (item.net >= 0) baselineY - barH else baselineY
+                    val isSelected = (selectedIndex == i)
+                    val centerX   = slotWidth * i + slotWidth / 2f
+                    val barLeft   = centerX - barWidth / 2f
+                    val fraction  = item.net.toFloat() / maxAbs.toFloat()
+                    val barH      = kotlin.math.abs(fraction) * barAreaH * 0.85f
+                    val topY      = if (item.net >= 0) baselineY - barH else baselineY
+
+                    val barColor = when {
+                        isSelected  -> selectedColor
+                        item.net >= 0 -> positiveColor
+                        else          -> negativeColor
+                    }
+                    // barras no seleccionadas se atenúan cuando hay una selección
+                    val alpha = when {
+                        isSelected            -> 1f
+                        selectedIndex != null -> 0.35f
+                        i == count - 1        -> 1f
+                        else                  -> 0.75f
+                    }
 
                     drawRect(
-                        color   = barColor,
-                        topLeft = Offset(centerX - barWidth / 2f, topY),
-                        size    = Size(barWidth, barH),
-                        alpha   = if (i == monthlyData.size - 1) 1f else 0.75f
+                        color    = barColor,
+                        topLeft  = Size(barLeft, topY).let { Offset(barLeft, topY) },
+                        size     = Size(barWidth, barH),
+                        alpha    = alpha
                     )
 
+                    // Etiqueta mes
                     val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
                     drawContext.canvas.nativeCanvas.drawText(
-                        label, centerX, labelY,
+                        label,
+                        centerX,
+                        labelY,
                         android.graphics.Paint().apply {
-                            color     = labelColor.toArgb()
+                            color     = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
+                            else labelColor.toArgb()
                             textSize  = 28f
                             textAlign = android.graphics.Paint.Align.CENTER
                             isAntiAlias = true
@@ -314,7 +339,9 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     }
 }
 
-// ─── Acciones rápidas ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// QuickActionsRow
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun QuickActionsRow(onActionClick: (String) -> Unit) {
@@ -322,15 +349,15 @@ fun QuickActionsRow(onActionClick: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        QuickActionItem(Modifier.weight(1f), "Ingreso",   Icons.Default.ArrowDownward, Color(0xFF4CAF50)) { onActionClick("income") }
-        QuickActionItem(Modifier.weight(1f), "Gasto",     Icons.Default.ArrowUpward,   Color(0xFFF44336)) { onActionClick("expense") }
-        QuickActionItem(Modifier.weight(1f), "Traspaso",  Icons.Default.SwapHoriz,     Color(0xFF2196F3)) { onActionClick("transfer") }
-        QuickActionItem(Modifier.weight(1f), "Tarjeta",   Icons.Default.CreditCard,    Color(0xFF9C27B0)) { onActionClick("credit_payment") }
+        QuickActionItem(Modifier.weight(1f), "Ingreso",  Icons.Default.ArrowDownward, Color(0xFF4CAF50)) { onActionClick("income") }
+        QuickActionItem(Modifier.weight(1f), "Gasto",    Icons.Default.ArrowUpward,   Color(0xFFF44336)) { onActionClick("expense") }
+        QuickActionItem(Modifier.weight(1f), "Traspaso", Icons.Default.SwapHoriz,     Color(0xFF2196F3)) { onActionClick("transfer") }
+        QuickActionItem(Modifier.weight(1f), "Tarjeta",  Icons.Default.CreditCard,    Color(0xFF9C27B0)) { onActionClick("credit_payment") }
     }
 }
 
 @Composable
-fun QuickActionItem(
+private fun QuickActionItem(
     modifier: Modifier,
     label: String,
     icon: ImageVector,
@@ -338,13 +365,17 @@ fun QuickActionItem(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier.aspectRatio(1f).clickable { onClick() },
+        modifier = modifier
+            .aspectRatio(1f)
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(4.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -355,7 +386,9 @@ fun QuickActionItem(
     }
 }
 
-// ─── Últimos movimientos ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// RecentTransactionsList
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun RecentTransactionsList(
@@ -378,7 +411,9 @@ fun RecentTransactionsList(
             Text(
                 text = "No hay movimientos recientes.",
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -389,13 +424,15 @@ fun RecentTransactionsList(
 }
 
 @Composable
-fun TransactionRowItem(
+private fun TransactionRowItem(
     transaction: Transaction,
     format: NumberFormat,
     onClick: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick(transaction.id) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(transaction.id) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -405,7 +442,6 @@ fun TransactionRowItem(
                 "transfer" -> Icons.Default.SwapHoriz     to Color(0xFF2196F3)
                 else       -> Icons.Default.AttachMoney   to Color(0xFF9E9E9E)
             }
-
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = iconColor.copy(alpha = 0.1f),
@@ -413,30 +449,25 @@ fun TransactionRowItem(
             ) {
                 Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.padding(8.dp))
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.description ?: "Sin descripción",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
-                // FIX: fecha formateada
                 Text(
-                    text = formatDate(transaction.createdAt),
+                    text = transaction.createdAt,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
             val amountColor = when (transaction.type) {
                 "income"   -> Color(0xFF4CAF50)
                 "expense"  -> Color(0xFFF44336)
                 "transfer" -> Color(0xFF2196F3)
                 else       -> MaterialTheme.colorScheme.onSurface
             }
-
             Text(
                 text = format.format(transaction.amount),
                 style = MaterialTheme.typography.titleMedium,

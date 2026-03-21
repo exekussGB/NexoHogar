@@ -87,7 +87,7 @@ object ServiceLocator {
     }
 
     val accountsRepository: AccountsRepository by lazy {
-        AccountsRepositoryImpl(accountsApi)   // ← Solo 1 parámetro: AuthInterceptor maneja el token
+        AccountsRepositoryImpl(accountsApi, sessionManager)
     }
 
     val transactionsRepository: TransactionsRepository by lazy {

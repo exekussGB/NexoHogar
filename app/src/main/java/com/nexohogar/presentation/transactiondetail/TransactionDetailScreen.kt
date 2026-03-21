@@ -61,13 +61,18 @@ fun TransactionDetailScreen(
             when (val state = uiState) {
                 is TransactionDetailUiState.Loading -> LoadingOverlay()
                 is TransactionDetailUiState.Success -> TransactionDetailContent(state.detail)
-                is TransactionDetailUiState.Error -> ErrorContent(state.message) {
-                    viewModel.loadTransactionDetail(transactionId)
-                }
+                is TransactionDetailUiState.Error   -> ErrorContent(
+                    message = state.message,
+                    onRetry = { viewModel.loadTransactionDetail(transactionId) }
+                )
             }
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contenido principal
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun TransactionDetailContent(detail: TransactionDetail) {
@@ -77,7 +82,7 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
         "transfer" -> Color(0xFF2196F3)
         else       -> Color.Gray
     }
-    val typeIcon = when (detail.type.lowercase()) {
+    val typeIcon: ImageVector = when (detail.type.lowercase()) {
         "income"   -> Icons.Default.ArrowDownward
         "expense"  -> Icons.Default.ArrowUpward
         "transfer" -> Icons.Default.SwapHoriz
@@ -97,12 +102,14 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // Tarjeta de cabecera con tipo, ícono y monto
+        // ── Cabecera: tipo + ícono + monto ─────────────────────────────────
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            colors = CardDefaults.cardColors(containerColor = typeColor.copy(alpha = 0.12f)),
+            colors = CardDefaults.cardColors(
+                containerColor = typeColor.copy(alpha = 0.12f)
+            ),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
@@ -141,7 +148,7 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
             }
         }
 
-        // Filas de detalle
+        // ── Filas de detalle ───────────────────────────────────────────────
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -239,18 +246,27 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
 private fun formatDate(isoDate: String): String {
     return try {
-        val dateTime = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        val month = dateTime.month.getDisplayName(TextStyle.SHORT, Locale("es", "ES"))
-        "${dateTime.dayOfMonth} $month ${dateTime.year} · ${dateTime.hour.toString().padStart(2,'0')}:${dateTime.minute.toString().padStart(2,'0')}"
+        val dt = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        buildDateString(dt)
     } catch (e: Exception) {
         try {
-            val dateTime = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            val month = dateTime.month.getDisplayName(TextStyle.SHORT, Locale("es", "ES"))
-            "${dateTime.dayOfMonth} $month ${dateTime.year} · ${dateTime.hour.toString().padStart(2,'0')}:${dateTime.minute.toString().padStart(2,'0')}"
+            val dt = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            buildDateString(dt)
         } catch (e2: Exception) {
             isoDate
         }
     }
+}
+
+private fun buildDateString(dt: LocalDateTime): String {
+    val month = dt.month.getDisplayName(TextStyle.SHORT, Locale("es", "ES"))
+    val hh = dt.hour.toString().padStart(2, '0')
+    val mm = dt.minute.toString().padStart(2, '0')
+    return "${dt.dayOfMonth} $month ${dt.year} · $hh:$mm"
 }
