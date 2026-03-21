@@ -14,6 +14,10 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
+/**
+ * Service Locator manual.
+ * Centraliza la creación de dependencias y expone solo las interfaces de Dominio.
+ */
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
 
@@ -26,8 +30,7 @@ object ServiceLocator {
     }
 
     private val context: Context
-        get() = databaseContext
-            ?: throw IllegalStateException("ServiceLocator must be initialized with context")
+        get() = databaseContext ?: throw IllegalStateException("ServiceLocator must be initialized with context")
 
     // --- Core & Local ---
 
@@ -63,16 +66,31 @@ object ServiceLocator {
             .build()
     }
 
-    // --- APIs ---
+    val authApi: AuthApi by lazy {
+        retrofit.create(AuthApi::class.java)
+    }
 
-    val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
-    val dashboardApi: DashboardApi by lazy { retrofit.create(DashboardApi::class.java) }
-    val accountsApi: AccountsApi by lazy { retrofit.create(AccountsApi::class.java) }
-    val transactionsApi: TransactionsApi by lazy { retrofit.create(TransactionsApi::class.java) }
-    val transactionDetailApi: TransactionDetailApi by lazy { retrofit.create(TransactionDetailApi::class.java) }
-    val categoriesApi: CategoriesApi by lazy { retrofit.create(CategoriesApi::class.java) }
+    val dashboardApi: DashboardApi by lazy {
+        retrofit.create(DashboardApi::class.java)
+    }
 
-    // --- Repositories ---
+    val accountsApi: AccountsApi by lazy {
+        retrofit.create(AccountsApi::class.java)
+    }
+
+    val transactionsApi: TransactionsApi by lazy {
+        retrofit.create(TransactionsApi::class.java)
+    }
+
+    val transactionDetailApi: TransactionDetailApi by lazy {
+        retrofit.create(TransactionDetailApi::class.java)
+    }
+
+    val categoriesApi: CategoriesApi by lazy {
+        retrofit.create(CategoriesApi::class.java)
+    }
+
+    // --- Repositories (Exponiendo interfaces de Dominio) ---
 
     val authRepository: AuthRepository by lazy {
         AuthRepositoryImpl(authApi, sessionManager)
@@ -86,6 +104,8 @@ object ServiceLocator {
         DashboardRepositoryImpl(dashboardApi)
     }
 
+    // AccountsRepositoryImpl SÍ necesita sessionManager porque AccountsApi
+    // usa @Header("Authorization") explícito (no depende del AuthInterceptor).
     val accountsRepository: AccountsRepository by lazy {
         AccountsRepositoryImpl(accountsApi, sessionManager)
     }
@@ -98,8 +118,10 @@ object ServiceLocator {
         )
     }
 
+    // TransactionDetailRepositoryImpl NO necesita sessionManager porque
+    // TransactionDetailApi confía en el AuthInterceptor para inyectar el token.
     val transactionDetailRepository: TransactionDetailRepository by lazy {
-        TransactionDetailRepositoryImpl(transactionDetailApi, sessionManager)
+        TransactionDetailRepositoryImpl(transactionDetailApi)
     }
 
     val categoriesRepository: CategoriesRepository by lazy {
