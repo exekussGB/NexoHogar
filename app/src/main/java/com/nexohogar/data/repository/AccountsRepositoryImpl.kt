@@ -60,7 +60,7 @@ class AccountsRepositoryImpl(
                     id          = created.id,
                     name        = created.name,
                     type        = created.accountType ?: accountType,
-                    balance     = created.balance ?: 0.0,
+                    balance     = created.balance?.toLong() ?: 0L,
                     householdId = householdId
                 )
             )
