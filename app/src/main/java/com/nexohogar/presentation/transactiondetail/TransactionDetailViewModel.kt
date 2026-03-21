@@ -28,8 +28,8 @@ class TransactionDetailViewModel(
             _uiState.value = TransactionDetailUiState.Loading
             when (val result = repository.getTransactionDetail(transactionId)) {
                 is AppResult.Success -> _uiState.value = TransactionDetailUiState.Success(result.data)
-                is AppResult.Error -> _uiState.value = TransactionDetailUiState.Error(result.message)
-                is AppResult.Loading -> { }
+                is AppResult.Error   -> _uiState.value = TransactionDetailUiState.Error(result.message)
+                is AppResult.Loading -> { /* no-op */ }
             }
         }
     }

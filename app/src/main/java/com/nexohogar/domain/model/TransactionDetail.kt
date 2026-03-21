@@ -2,7 +2,7 @@ package com.nexohogar.domain.model
 
 data class TransactionDetail(
     val id: String,
-    val type: String,           // "income", "expense", "transfer"
+    val type: String,           // "income" | "expense" | "transfer"
     val description: String?,
     val transactionDate: String?,
     val amountClp: Long,
