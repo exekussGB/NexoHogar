@@ -5,6 +5,7 @@ import com.nexohogar.data.model.LoginRequest
 import com.nexohogar.data.model.LoginResponse
 import com.nexohogar.data.remote.dto.CreateHouseholdRequest
 import com.nexohogar.data.remote.dto.CreateHouseholdResponse
+import com.nexohogar.data.remote.dto.HouseholdMemberDto
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.data.remote.dto.RegisterRequest
@@ -39,7 +40,6 @@ interface AuthApi {
     /**
      * Obtiene o crea el código de invitación del hogar.
      * Llama a la función SQL: get_or_create_invite_code(p_household_id UUID)
-     * Retorna el código de 8 caracteres como String JSON.
      */
     @POST("rest/v1/rpc/get_or_create_invite_code")
     suspend fun getOrCreateInviteCode(
@@ -48,10 +48,21 @@ interface AuthApi {
 
     /**
      * Une al usuario autenticado al hogar identificado por el código.
-     * Llama a la función SQL: join_household_by_code(p_invite_code TEXT)
      */
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest
     ): Response<Unit>
+
+    /**
+     * Obtiene la lista de miembros de un hogar.
+     * Tabla: household_members
+     * IMPORTANTE: householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
+     */
+    @GET("rest/v1/household_members")
+    suspend fun getHouseholdMembers(
+        @Query("household_id") householdId: String,
+        @Query("select")       select: String = "user_id,role,joined_at",
+        @Query("order")        order: String = "joined_at.asc"
+    ): Response<List<HouseholdMemberDto>>
 }

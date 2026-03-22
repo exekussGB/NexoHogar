@@ -21,7 +21,8 @@ fun SettingsScreen(
     sessionManager: SessionManager,
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
-    onChangeHousehold: () -> Unit
+    onChangeHousehold: () -> Unit,
+    onViewMembers: () -> Unit          // ← NUEVO: navega a HouseholdMembersScreen
 ) {
     val session = remember { sessionManager.fetchSession() }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -99,30 +100,38 @@ fun SettingsScreen(
             // ── Sección: Hogar ───────────────────────────────────────────────
             SectionLabel("Hogar")
             SettingsItem(
-                icon = Icons.Default.SwitchAccount,
+                icon      = Icons.Default.SwitchAccount,
                 iconColor = Color(0xFF1565C0),
-                title = "Cambiar hogar",
-                subtitle = "Seleccionar otro hogar",
-                onClick = onChangeHousehold
+                title     = "Cambiar hogar",
+                subtitle  = "Seleccionar otro hogar",
+                onClick   = onChangeHousehold
+            )
+            // ← NUEVO: Ver Miembros
+            SettingsItem(
+                icon      = Icons.Default.Group,
+                iconColor = Color(0xFF00695C),
+                title     = "Ver miembros",
+                subtitle  = "Usuarios que forman parte de este hogar",
+                onClick   = onViewMembers
             )
 
             // ── Sección: Aplicación ──────────────────────────────────────────
             SectionLabel("Aplicación")
             SettingsItem(
-                icon = Icons.Default.Palette,
+                icon      = Icons.Default.Palette,
                 iconColor = Color(0xFF6A1B9A),
-                title = "Apariencia",
-                subtitle = "Tema claro / oscuro (próximamente)",
-                enabled = false,
-                onClick = {}
+                title     = "Apariencia",
+                subtitle  = "Tema claro / oscuro (próximamente)",
+                enabled   = false,
+                onClick   = {}
             )
             SettingsItem(
-                icon = Icons.Default.Notifications,
+                icon      = Icons.Default.Notifications,
                 iconColor = Color(0xFFF57F17),
-                title = "Notificaciones",
-                subtitle = "Alertas de vencimiento (próximamente)",
-                enabled = false,
-                onClick = {}
+                title     = "Notificaciones",
+                subtitle  = "Activas — cuentas recurrentes",
+                enabled   = false,
+                onClick   = {}
             )
 
             // ── Sección: Acerca de ───────────────────────────────────────────
@@ -134,10 +143,14 @@ fun SettingsScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("NexoHogar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "NexoHogar",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Gestión financiera familiar · Versión 1.0.0",
+                        "Gestión financiera familiar · Versión 1.2.0",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -147,6 +160,12 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // ── Agrega aquí tus datos personales / de contacto ───────
+                    // Ejemplo:
+                    // Spacer(modifier = Modifier.height(8.dp))
+                    Text("Desarrollado por: ExEkUsS",)
+                    // Text("Contacto: tu@email.com", ...)
+                    // Text("GitHub: github.com/exekussGB/NexoHogar", ...)
                 }
             }
 
@@ -158,7 +177,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    contentColor   = MaterialTheme.colorScheme.onErrorContainer
                 )
             ) {
                 Icon(Icons.Default.Logout, contentDescription = null)
@@ -172,9 +191,9 @@ fun SettingsScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            icon = { Icon(Icons.Default.Logout, contentDescription = null) },
-            title = { Text("Cerrar sesión") },
-            text = { Text("¿Seguro que quieres cerrar sesión? Deberás ingresar tus credenciales de nuevo.") },
+            icon   = { Icon(Icons.Default.Logout, contentDescription = null) },
+            title  = { Text("Cerrar sesión") },
+            text   = { Text("¿Seguro que quieres cerrar sesión? Deberás ingresar tus credenciales de nuevo.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -203,7 +222,7 @@ fun SettingsScreen(
 @Composable
 private fun SectionLabel(text: String) {
     Text(
-        text = text.uppercase(),
+        text  = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
@@ -222,10 +241,10 @@ private fun SettingsItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        enabled = enabled,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+        onClick  = onClick,
+        enabled  = enabled,
+        colors   = CardDefaults.cardColors(
+            containerColor         = MaterialTheme.colorScheme.surface,
             disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
         )
     ) {
@@ -237,8 +256,8 @@ private fun SettingsItem(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Surface(
-                shape = MaterialTheme.shapes.small,
-                color = iconColor.copy(alpha = 0.12f),
+                shape  = MaterialTheme.shapes.small,
+                color  = iconColor.copy(alpha = 0.12f),
                 modifier = Modifier.size(40.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -252,14 +271,14 @@ private fun SettingsItem(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
+                    text  = title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     color = if (enabled) MaterialTheme.colorScheme.onSurface
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )
                 Text(
-                    text = subtitle,
+                    text  = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.5f)
                 )

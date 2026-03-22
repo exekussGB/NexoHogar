@@ -72,22 +72,21 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
 
 data class AccountTypeOption(
     val label: String,
-    val accountType: String,
+    val accountType: String,    // SIEMPRE LOWERCASE — Supabase CHECK constraint
     val accountSubtype: String
 )
 
 /**
- * CORRECCIÓN: los valores account_type deben ser lowercase para coincidir
- * con los CHECK constraints / enum de la tabla accounts en Supabase.
- * (Antes eran "ASSET", "LIABILITY", etc. — eso causaba HTTP 400).
+ * Los valores de accountType deben coincidir con el CHECK constraint de Supabase.
+ * Valores válidos: "asset", "liability", "income", "expense"
  */
 val accountTypeOptions = listOf(
-    AccountTypeOption("Billetera / Efectivo",  "asset",     "cash"),
-    AccountTypeOption("Cuenta Bancaria",        "asset",     "bank"),
-    AccountTypeOption("Tarjeta de Crédito",     "liability", "credit_card"),
-    AccountTypeOption("Categoría de Gasto",     "expense",   "other"),
-    AccountTypeOption("Fuente de Ingreso",      "income",    "other"),
-    AccountTypeOption("Otro",                   "asset",     "other")
+    AccountTypeOption("Billetera / Efectivo", "asset",     "cash"),
+    AccountTypeOption("Cuenta Bancaria",       "asset",     "bank"),
+    AccountTypeOption("Tarjeta de Crédito",    "liability", "credit_card"),
+    AccountTypeOption("Categoría de Gasto",    "expense",   "other"),
+    AccountTypeOption("Fuente de Ingreso",     "income",    "other"),
+    AccountTypeOption("Otro",                  "asset",     "other")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,37 +109,37 @@ fun CreateAccountDialog(
 
                 // Campo nombre
                 OutlinedTextField(
-                    value         = name,
+                    value = name,
                     onValueChange = { name = it },
-                    label         = { Text("Nombre de la cuenta") },
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth(),
-                    enabled       = !isCreating
+                    label = { Text("Nombre de la cuenta") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isCreating
                 )
 
                 // Dropdown tipo de cuenta
                 ExposedDropdownMenuBox(
-                    expanded          = dropdownExpanded,
-                    onExpandedChange  = { if (!isCreating) dropdownExpanded = it }
+                    expanded = dropdownExpanded,
+                    onExpandedChange = { if (!isCreating) dropdownExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value         = selectedOption.label,
+                        value = selectedOption.label,
                         onValueChange = {},
-                        readOnly      = true,
-                        label         = { Text("Tipo de cuenta") },
-                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
-                        modifier      = Modifier
+                        readOnly = true,
+                        label = { Text("Tipo de cuenta") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                        modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
                         enabled = !isCreating
                     )
                     ExposedDropdownMenu(
-                        expanded          = dropdownExpanded,
-                        onDismissRequest  = { dropdownExpanded = false }
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false }
                     ) {
                         accountTypeOptions.forEach { option ->
                             DropdownMenuItem(
-                                text    = { Text(option.label) },
+                                text = { Text(option.label) },
                                 onClick = {
                                     selectedOption = option
                                     dropdownExpanded = false
@@ -153,7 +152,7 @@ fun CreateAccountDialog(
                 // Mensaje de error
                 if (createError != null) {
                     Text(
-                        text  = createError,
+                        text = createError,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -174,7 +173,7 @@ fun CreateAccountDialog(
         },
         confirmButton = {
             Button(
-                onClick  = {
+                onClick = {
                     if (name.isNotBlank()) {
                         onCreate(name.trim(), selectedOption.accountType, selectedOption.accountSubtype)
                     }
@@ -200,12 +199,23 @@ fun CreateAccountDialog(
 fun AccountsList(accounts: List<AccountBalance>) {
     if (accounts.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No tienes cuentas registradas.")
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "No tienes cuentas registradas.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Usa el botón + para agregar una.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     } else {
         LazyColumn(
-            modifier            = Modifier.fillMaxSize(),
-            contentPadding      = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(accounts) { account ->
@@ -219,48 +229,55 @@ fun AccountsList(accounts: List<AccountBalance>) {
 fun AccountItem(account: AccountBalance) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
-    val (icon, iconColor) = when (account.accountType.uppercase()) {
-        "ASSET"     -> Icons.Default.Savings              to Color(0xFF1565C0)
-        "LIABILITY" -> Icons.Default.CreditCard           to Color(0xFFC62828)
-        "INCOME"    -> Icons.Default.TrendingUp           to Color(0xFF2E7D32)
-        "EXPENSE"   -> Icons.Default.TrendingDown         to Color(0xFFE65100)
-        else        -> Icons.Default.AccountBalanceWallet  to MaterialTheme.colorScheme.primary
+    // Maneja tanto lowercase como uppercase por compatibilidad
+    val (icon, iconColor) = when (account.accountType.lowercase()) {
+        "asset"     -> Icons.Default.Savings             to Color(0xFF1565C0)
+        "liability" -> Icons.Default.CreditCard          to Color(0xFFC62828)
+        "income"    -> Icons.Default.TrendingUp          to Color(0xFF2E7D32)
+        "expense"   -> Icons.Default.TrendingDown        to Color(0xFFE65100)
+        else        -> Icons.Default.AccountBalanceWallet to MaterialTheme.colorScheme.primary
     }
 
     Card(
-        modifier  = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier          = Modifier
+            modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector        = icon,
+                imageVector = icon,
                 contentDescription = null,
-                tint               = iconColor,
-                modifier           = Modifier.size(40.dp)
+                tint = iconColor,
+                modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text       = account.accountName,
-                    style      = MaterialTheme.typography.titleMedium,
+                    text = account.accountName,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text  = account.accountType,
+                    text = when (account.accountType.lowercase()) {
+                        "asset"     -> "Activo"
+                        "liability" -> "Pasivo / Deuda"
+                        "income"    -> "Fuente de ingresos"
+                        "expense"   -> "Categoría de gasto"
+                        else        -> account.accountType
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
-                text       = clpFormat.format(account.movementBalance),
-                style      = MaterialTheme.typography.titleLarge,
+                text = clpFormat.format(account.movementBalance),
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color      = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                color = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
             )
         }
     }
@@ -269,9 +286,9 @@ fun AccountItem(account: AccountBalance) {
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
-        modifier              = Modifier.fillMaxSize(),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = message, color = MaterialTheme.colorScheme.error)
         Spacer(modifier = Modifier.height(16.dp))

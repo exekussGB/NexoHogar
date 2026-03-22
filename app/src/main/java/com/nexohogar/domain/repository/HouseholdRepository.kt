@@ -2,6 +2,7 @@ package com.nexohogar.domain.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.model.Household
+import com.nexohogar.domain.model.HouseholdMember
 
 interface HouseholdRepository {
     suspend fun getHouseholds(): AppResult<List<Household>>
@@ -20,4 +21,10 @@ interface HouseholdRepository {
      * @return true si el join fue exitoso
      */
     suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean>
+
+    /**
+     * Obtiene la lista de miembros del hogar.
+     * @param householdId UUID del hogar
+     */
+    suspend fun getHouseholdMembers(householdId: String): AppResult<List<HouseholdMember>>
 }

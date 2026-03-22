@@ -2,7 +2,6 @@ package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.model.toDomain
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.remote.dto.CreateAccountRequest
 import com.nexohogar.domain.model.Account
@@ -11,29 +10,40 @@ import com.nexohogar.domain.repository.AccountsRepository
 
 class AccountsRepositoryImpl(
     private val accountsApi: AccountsApi,
-    private val sessionManager: SessionManager   // mantenido por compatibilidad con ServiceLocator
+    private val sessionManager: SessionManager
 ) : AccountsRepository {
 
     // -------------------------------------------------------------------------
     // getAccountBalances
-    // AccountsApi.getAccountBalances(householdId) → no lleva token (usa AuthInterceptor)
-    // AccountBalanceDto.toDomain() → AccountBalance con movementBalance: Double
+    // Antes usaba la RPC get_account_balances (que no existe → HTTP 404).
+    // Ahora consulta directamente la tabla accounts con el filtro PostgREST
+    // correcto: "eq.{householdId}".
     // -------------------------------------------------------------------------
     override suspend fun getAccountBalances(
         householdId: String
     ): AppResult<List<AccountBalance>> {
         return try {
-            val balances = accountsApi.getAccountBalances(householdId)
-            AppResult.Success(balances.map { it.toDomain() })
+            val accounts = accountsApi.getAccounts(
+                householdId = "eq.$householdId"
+            )
+            val balances = accounts.map { dto ->
+                AccountBalance(
+                    accountId       = dto.id,
+                    accountName     = dto.name,
+                    accountType     = dto.accountType ?: "asset",
+                    movementBalance = dto.balance?.toLong() ?: 0L
+                )
+            }
+            AppResult.Success(balances)
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al obtener balances de cuentas")
+            AppResult.Error(e.message ?: "Error al obtener cuentas")
         }
     }
 
     // -------------------------------------------------------------------------
     // createAccount
-    // AccountsApi.createAccount(request) → no lleva token (usa AuthInterceptor)
-    // Account.type (no accountType), Account.balance: Double
+    // account_type debe ser LOWERCASE para cumplir el CHECK constraint de Supabase.
+    // El repositorio normaliza el valor por si acaso llega en mayúsculas.
     // -------------------------------------------------------------------------
     override suspend fun createAccount(
         householdId: String,
@@ -44,8 +54,8 @@ class AccountsRepositoryImpl(
         return try {
             val request = CreateAccountRequest(
                 name           = name,
-                accountType    = accountType,
-                accountSubtype = accountSubtype,
+                accountType    = accountType.lowercase(),   // Garantizar lowercase
+                accountSubtype = accountSubtype.lowercase(),
                 householdId    = householdId,
                 isActive       = true
             )
