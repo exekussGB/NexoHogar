@@ -6,6 +6,7 @@ import com.nexohogar.data.remote.dto.CreateHouseholdRequest
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.domain.model.Household
+import com.nexohogar.domain.model.HouseholdMember
 import com.nexohogar.domain.repository.HouseholdRepository
 
 class HouseholdRepositoryImpl(
@@ -62,7 +63,6 @@ class HouseholdRepositoryImpl(
             if (response.isSuccessful) {
                 val code = response.body()
                 if (!code.isNullOrBlank()) {
-                    // Gson deserializa cadenas JSON con comillas — las eliminamos por si acaso
                     AppResult.Success(code.trim('"'))
                 } else {
                     AppResult.Error("No se recibió código de invitación")
@@ -77,7 +77,9 @@ class HouseholdRepositoryImpl(
 
     override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
         return try {
-            val response = authApi.joinHouseholdByCode(JoinHouseholdRequest(inviteCode.trim().uppercase()))
+            val response = authApi.joinHouseholdByCode(
+                JoinHouseholdRequest(inviteCode.trim().uppercase())
+            )
             if (response.isSuccessful) {
                 AppResult.Success(true)
             } else {
@@ -87,6 +89,27 @@ class HouseholdRepositoryImpl(
                     else -> "Error al unirse al hogar: ${response.code()}"
                 }
                 AppResult.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    /**
+     * Obtiene la lista de miembros del hogar con su email/nombre.
+     * Usa la función RPC get_members_with_email para acceder a auth.users
+     * desde el servidor (SECURITY DEFINER), evitando restricciones de RLS.
+     */
+    override suspend fun getHouseholdMembers(householdId: String): AppResult<List<HouseholdMember>> {
+        return try {
+            val response = authApi.getHouseholdMembersWithEmail(
+                mapOf("p_household_id" to householdId)
+            )
+            if (response.isSuccessful) {
+                val members = response.body()?.map { it.toDomain() } ?: emptyList()
+                AppResult.Success(members)
+            } else {
+                AppResult.Error("Error al obtener miembros: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")

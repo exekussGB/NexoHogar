@@ -47,6 +47,7 @@ fun HubScreen(
     onNavigateToAccounts: () -> Unit,
     onNavigateToInviteMember: () -> Unit,
     onNavigateToRecurringBills: () -> Unit,
+    onNavigateToInventory: () -> Unit,
     onNavigateToOptions: () -> Unit
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
@@ -99,6 +100,14 @@ fun HubScreen(
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
             onClick         = onNavigateToRecurringBills
+        ),
+        HubAction(
+            title           = "Inventario",
+            subtitle        = "Control de stock",
+            icon            = Icons.Default.Inventory,
+            backgroundColor = Color(0xFFE8EAF6),
+            iconColor       = Color(0xFF283593),
+            onClick         = onNavigateToInventory
         ),
         HubAction(
             title           = "Opciones",

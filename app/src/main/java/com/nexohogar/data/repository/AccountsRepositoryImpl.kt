@@ -13,12 +13,11 @@ class AccountsRepositoryImpl(
     private val sessionManager: SessionManager
 ) : AccountsRepository {
 
-    // -------------------------------------------------------------------------
-    // getAccountBalances
-    // Antes usaba la RPC get_account_balances (que no existe → HTTP 404).
-    // Ahora consulta directamente la tabla accounts con el filtro PostgREST
-    // correcto: "eq.{householdId}".
-    // -------------------------------------------------------------------------
+    /**
+     * Obtiene los balances de las cuentas del hogar.
+     * - Filtra las cuentas del sistema (_system_expense_, _system_income_) para no
+     *   mostrarlas al usuario.
+     */
     override suspend fun getAccountBalances(
         householdId: String
     ): AppResult<List<AccountBalance>> {
@@ -26,25 +25,30 @@ class AccountsRepositoryImpl(
             val accounts = accountsApi.getAccounts(
                 householdId = "eq.$householdId"
             )
-            val balances = accounts.map { dto ->
-                AccountBalance(
-                    accountId       = dto.id,
-                    accountName     = dto.name,
-                    accountType     = dto.accountType ?: "asset",
-                    movementBalance = dto.balance?.toLong() ?: 0L
-                )
-            }
+            val balances = accounts
+                // Excluir cuentas internas del sistema
+                .filter { dto ->
+                    val nameLower = dto.name.lowercase()
+                    !nameLower.startsWith("_system_") && nameLower != "_system_expense_" && nameLower != "_system_income_"
+                }
+                .map { dto ->
+                    AccountBalance(
+                        accountId       = dto.id,
+                        accountName     = dto.name,
+                        accountType     = dto.accountType ?: "asset",
+                        movementBalance = dto.balance?.toLong() ?: 0L
+                    )
+                }
             AppResult.Success(balances)
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al obtener cuentas")
         }
     }
 
-    // -------------------------------------------------------------------------
-    // createAccount
-    // account_type debe ser LOWERCASE para cumplir el CHECK constraint de Supabase.
-    // El repositorio normaliza el valor por si acaso llega en mayúsculas.
-    // -------------------------------------------------------------------------
+    /**
+     * Crea una nueva cuenta para el hogar.
+     * account_type debe ser lowercase para cumplir el CHECK constraint de Supabase.
+     */
     override suspend fun createAccount(
         householdId: String,
         name: String,
@@ -53,11 +57,11 @@ class AccountsRepositoryImpl(
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
-                name           = name,
-                accountType    = accountType.lowercase(),   // Garantizar lowercase
-                accountSubtype = accountSubtype.lowercase(),
-                householdId    = householdId,
-                isActive       = true
+                name        = name,
+                accountType = accountType.lowercase(),
+                householdId = householdId,
+                balance     = 0.0,
+                isActive    = true
             )
 
             val response = accountsApi.createAccount(request)

@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -32,7 +32,7 @@ fun HouseholdMembersScreen(
                 title = { Text("Miembros del Hogar") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -50,6 +50,7 @@ fun HouseholdMembersScreen(
         ) {
             when {
                 uiState.isLoading -> LoadingOverlay()
+
                 uiState.error != null -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -66,6 +67,7 @@ fun HouseholdMembersScreen(
                         }
                     }
                 }
+
                 uiState.members.isEmpty() -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -85,10 +87,9 @@ fun HouseholdMembersScreen(
                         )
                     }
                 }
+
                 else -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         // Contador de miembros
                         Card(
                             modifier = Modifier
@@ -166,16 +167,15 @@ private fun MemberCard(member: HouseholdMember) {
             }
 
             Column(modifier = Modifier.weight(1f)) {
+                // Mostrar email o nombre real del usuario
                 Text(
-                    // Muestra los primeros 8 chars del UUID como identificador abreviado
-                    text = "Usuario ${member.userId.take(8).uppercase()}",
+                    text = member.label(),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 if (member.joinedAt != null) {
-                    val dateDisplay = member.joinedAt.take(10) // YYYY-MM-DD
                     Text(
-                        text = "Se unió: $dateDisplay",
+                        text = "Se unió: ${member.joinedAt.take(10)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
