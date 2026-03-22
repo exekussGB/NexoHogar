@@ -150,13 +150,13 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Gestión financiera familiar · Versión 1.2.0",
+                        text = "Gestión financiera familiar · Versión 1.2.2",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Controla ingresos, gastos y transferencias de tu hogar en un solo lugar.",
+                        text = "Controla ingresos, gastos, transferencias e inventario de tu hogar en un solo lugar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

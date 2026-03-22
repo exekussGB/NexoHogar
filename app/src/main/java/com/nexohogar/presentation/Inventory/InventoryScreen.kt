@@ -107,7 +107,7 @@ fun InventoryScreen(
                         onQuickConsume = { p -> productToConsume = p },
                         onSelectCategory = { viewModel.selectCategory(it) }
                     )
-                    1 -> RegisterMovementTab(viewModel = viewModel)
+                    1 -> RegisterMovementTab(viewModel = viewModel, allProducts = uiState.products)
                     2 -> CategoryStatsTab(stats = uiState.categoryStats)
                     3 -> SuggestionsTab(suggestions = uiState.suggestions)
                 }
@@ -219,45 +219,67 @@ private fun ProductsTab(
     }
 }
 
+// ─── Card de producto — stock prominente ──────────────────────────────────────
 @Composable
 private fun ProductCard(
     product: Product,
     onClick: () -> Unit,
     onQuickConsume: () -> Unit
 ) {
+    val stockColor = when {
+        product.currentStock <= 0    -> Color(0xFFC62828)
+        product.currentStock < 1.0   -> Color(0xFFE65100)
+        else                         -> Color(0xFF2E7D32)
+    }
+    val stockLabel = when {
+        product.currentStock <= 0    -> "Sin stock"
+        else                         -> String.format("%.2f", product.currentStock).trimEnd('0').trimEnd('.')
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(
-            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 14.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Ícono de stock
-            val stockColor = when {
-                product.currentStock <= 0 -> Color(0xFFC62828)
-                product.currentStock < 1  -> Color(0xFFE65100)
-                else -> Color(0xFF2E7D32)
-            }
-            val stockIcon = when {
-                product.currentStock <= 0 -> Icons.Default.RemoveShoppingCart
-                product.currentStock < 1  -> Icons.Default.Warning
-                else -> Icons.Default.Inventory2
-            }
-            Icon(stockIcon, contentDescription = null, tint = stockColor, modifier = Modifier.size(32.dp))
-            Spacer(Modifier.width(12.dp))
-
-            // Info del producto
-            Column(Modifier.weight(1f)) {
-                Text(product.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            // Info principal
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                // Nombre del producto
                 Text(
-                    "${String.format("%.2f", product.currentStock)} ${product.unit}",
-                    fontSize = 13.sp,
-                    color = stockColor
+                    text = product.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF212121)
                 )
-                // Categoría y marca
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+                // Stock prominente
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stockLabel,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 28.sp,
+                        color = stockColor,
+                        lineHeight = 30.sp
+                    )
+                    if (product.currentStock > 0) {
+                        Text(
+                            text = product.unit,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = stockColor.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                }
+
+                // Categoría y marca (secundario)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!product.category.isNullOrBlank()) {
                         Surface(
                             color = PrimaryBlue.copy(alpha = 0.1f),
@@ -278,13 +300,19 @@ private fun ProductCard(
             }
 
             // Botón consumo rápido
-            IconButton(onClick = onQuickConsume) {
-                Icon(
-                    Icons.Default.RemoveCircleOutline,
-                    contentDescription = "Registrar consumo",
-                    tint = RedOut,
-                    modifier = Modifier.size(20.dp)
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IconButton(
+                    onClick = onQuickConsume,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        Icons.Default.RemoveCircleOutline,
+                        contentDescription = "Registrar consumo",
+                        tint = RedOut,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Text("consumir", fontSize = 9.sp, color = Color.Gray)
             }
         }
     }
@@ -338,10 +366,11 @@ private fun QuickConsumeDialog(
 // ─── Pestaña: Registrar movimiento ────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RegisterMovementTab(viewModel: InventoryViewModel) {
+private fun RegisterMovementTab(
+    viewModel: InventoryViewModel,
+    allProducts: List<Product>
+) {
     val form by viewModel.movementForm.collectAsState()
-    val products by viewModel.uiState.collectAsState()
-
     var productDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(form.success) {
@@ -353,29 +382,93 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Registrar movimiento", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text("¿Qué quieres registrar?", fontWeight = FontWeight.Bold, fontSize = 17.sp)
 
-        // Tipo de movimiento
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = form.movementType == "in",
-                onClick = { viewModel.onMovementTypeChange("in") },
-                label = { Text("📥 Compra / Entrada") },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = GreenIn.copy(alpha = 0.15f)
-                )
-            )
-            FilterChip(
-                selected = form.movementType == "out",
-                onClick = { viewModel.onMovementTypeChange("out") },
-                label = { Text("📤 Consumo / Salida") },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = RedOut.copy(alpha = 0.15f)
-                )
-            )
+        // ── Selector tipo de movimiento (2 tarjetas grandes) ────────────────
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Compra
+            val isCompra = form.movementType == "in"
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { viewModel.onMovementTypeChange("in") },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isCompra) GreenIn else Color(0xFFF5F5F5)
+                ),
+                elevation = CardDefaults.cardElevation(if (isCompra) 4.dp else 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ShoppingCart,
+                        contentDescription = null,
+                        tint = if (isCompra) Color.White else GreenIn,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Text(
+                        "Compra",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = if (isCompra) Color.White else GreenIn
+                    )
+                    Text(
+                        "Agregar stock",
+                        fontSize = 11.sp,
+                        color = if (isCompra) Color.White.copy(alpha = 0.8f) else Color.Gray
+                    )
+                }
+            }
+
+            // Consumo
+            val isConsumo = form.movementType == "out"
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { viewModel.onMovementTypeChange("out") },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isConsumo) RedOut else Color(0xFFF5F5F5)
+                ),
+                elevation = CardDefaults.cardElevation(if (isConsumo) 4.dp else 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        Icons.Default.RemoveShoppingCart,
+                        contentDescription = null,
+                        tint = if (isConsumo) Color.White else RedOut,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Text(
+                        "Consumo",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = if (isConsumo) Color.White else RedOut
+                    )
+                    Text(
+                        "Descontar stock",
+                        fontSize = 11.sp,
+                        color = if (isConsumo) Color.White.copy(alpha = 0.8f) else Color.Gray
+                    )
+                }
+            }
         }
+
+        HorizontalDivider()
+
+        // ── Formulario ──────────────────────────────────────────────────────
 
         // Selector de producto
         ExposedDropdownMenuBox(
@@ -387,6 +480,14 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Producto *") },
+                placeholder = { Text("Selecciona un producto") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Inventory2,
+                        contentDescription = null,
+                        tint = if (form.movementType == "in") GreenIn else RedOut
+                    )
+                },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productDropdownExpanded) },
                 modifier = Modifier.fillMaxWidth().menuAnchor()
             )
@@ -394,9 +495,18 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
                 expanded = productDropdownExpanded,
                 onDismissRequest = { productDropdownExpanded = false }
             ) {
-                products.products.forEach { product ->
+                allProducts.forEach { product ->
                     DropdownMenuItem(
-                        text = { Text("${product.name} (${product.unit})") },
+                        text = {
+                            Column {
+                                Text(product.name, fontWeight = FontWeight.Medium)
+                                Text(
+                                    "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        },
                         onClick = {
                             viewModel.onMovementProductSelect(product)
                             productDropdownExpanded = false
@@ -416,8 +526,11 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Campos solo para compras
+        // Campos adicionales solo para compras
         if (form.movementType == "in") {
+            HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
+            Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray)
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = form.pricePerUnit,
@@ -462,22 +575,42 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
 
         // Error
         form.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = RedOut, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(it, color = RedOut, fontSize = 13.sp)
+                }
+            }
         }
 
-        // Botón
+        // Botón principal
         Button(
             onClick = { viewModel.submitMovement() },
             enabled = !form.isSubmitting,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (form.movementType == "in") GreenIn else RedOut
+            ),
+            shape = RoundedCornerShape(12.dp)
         ) {
             if (form.isSubmitting) {
                 CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
             } else {
+                Icon(
+                    if (form.movementType == "in") Icons.Default.ShoppingCart else Icons.Default.RemoveShoppingCart,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
                 Text(
                     if (form.movementType == "in") "Registrar compra" else "Registrar consumo",
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
             }
         }
@@ -490,7 +623,7 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenIn)
                     Spacer(Modifier.width(8.dp))
-                    Text("¡Movimiento registrado con éxito!", color = GreenIn)
+                    Text("¡Movimiento registrado con éxito!", color = GreenIn, fontWeight = FontWeight.Medium)
                 }
             }
         }

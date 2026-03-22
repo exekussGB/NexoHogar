@@ -13,8 +13,8 @@ import retrofit2.http.Query
  * API de cuentas para Supabase.
  * AuthInterceptor inyecta el token automáticamente en todas las requests.
  *
- * NOTA: La función RPC get_account_balances fue eliminada porque no existe en Supabase.
- * El balance se obtiene directamente de la tabla accounts.
+ * CORRECCIÓN v5: eliminada @Query("is_active") — esa columna no existe
+ * en la tabla accounts del usuario, causando HTTP 400 en todas las llamadas.
  */
 interface AccountsApi {
 
@@ -26,7 +26,6 @@ interface AccountsApi {
     suspend fun getAccounts(
         @Query("household_id") householdId: String,
         @Query("select")       select: String = "*",
-        @Query("is_active")    isActive: String = "eq.true",
         @Query("order")        order: String = "name.asc"
     ): List<AccountDto>
 
