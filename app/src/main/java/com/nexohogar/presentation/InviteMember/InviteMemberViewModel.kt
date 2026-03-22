@@ -48,6 +48,7 @@ class InviteMemberViewModel(
                     codeError     = result.message,
                     isLoadingCode = false
                 )
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -78,6 +79,7 @@ class InviteMemberViewModel(
                     isJoining = false,
                     joinError = result.message
                 )
+                is AppResult.Loading -> Unit
             }
         }
     }

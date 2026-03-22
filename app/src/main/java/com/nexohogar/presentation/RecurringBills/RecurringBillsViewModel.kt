@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.model.RecurringBill
+import com.nexohogar.domain.repository.RecurringBillsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +51,7 @@ class RecurringBillsViewModel(
                 is AppResult.Error -> _uiState.value = _uiState.value.copy(
                     error = result.message, isLoading = false
                 )
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -78,6 +80,7 @@ class RecurringBillsViewModel(
                     createError = result.message,
                     isCreating  = false
                 )
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -108,6 +111,7 @@ class RecurringBillsViewModel(
                     billToPay     = null,
                     isMarkingPaid = false
                 )
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -121,6 +125,7 @@ class RecurringBillsViewModel(
                     bills = _uiState.value.bills.map { if (it.id == bill.id) result.data else it }
                 )
                 is AppResult.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -134,6 +139,7 @@ class RecurringBillsViewModel(
                     bills = _uiState.value.bills.filter { it.id != bill.id }
                 )
                 is AppResult.Error -> { /* silencioso — el item sigue visible */ }
+                is AppResult.Loading -> Unit
             }
         }
     }
