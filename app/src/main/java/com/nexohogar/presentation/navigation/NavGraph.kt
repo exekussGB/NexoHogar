@@ -20,10 +20,14 @@ import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.hub.HubScreen
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
+import com.nexohogar.presentation.invitemember.InviteMemberViewModel
 import com.nexohogar.presentation.login.LoginScreen
 import com.nexohogar.presentation.login.LoginViewModel
+import com.nexohogar.presentation.recurringbills.RecurringBillsScreen
+import com.nexohogar.presentation.recurringbills.RecurringBillsViewModel
 import com.nexohogar.presentation.register.RegisterScreen
 import com.nexohogar.presentation.register.RegisterViewModel
+import com.nexohogar.presentation.settings.SettingsScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
@@ -33,14 +37,16 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 // Rutas de la app
 // ---------------------------------------------------------------------------
 sealed class Screen(val route: String) {
-    object Login : Screen("login")
-    object Register : Screen("register")
-    object Household : Screen("household")
-    object Hub : Screen("hub")                          // ← NUEVO: menú principal
-    object Dashboard : Screen("dashboard")
-    object Accounts : Screen("accounts")
-    object Transactions : Screen("transactions")
-    object InviteMember : Screen("invite_member")       // ← NUEVO: invitar miembro
+    object Login          : Screen("login")
+    object Register       : Screen("register")
+    object Household      : Screen("household")
+    object Hub            : Screen("hub")
+    object Dashboard      : Screen("dashboard")
+    object Accounts       : Screen("accounts")
+    object Transactions   : Screen("transactions")
+    object InviteMember   : Screen("invite_member")
+    object RecurringBills : Screen("recurring_bills")
+    object Settings       : Screen("settings")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -58,34 +64,33 @@ sealed class Screen(val route: String) {
 fun NavGraph(
     navController: NavHostController
 ) {
-    val sessionManager            = ServiceLocator.sessionManager
-    val authRepository            = ServiceLocator.authRepository
-    val householdRepository       = ServiceLocator.householdRepository
-    val dashboardRepository       = ServiceLocator.dashboardRepository
-    val accountsRepository        = ServiceLocator.accountsRepository
-    val transactionsRepository    = ServiceLocator.transactionsRepository
-    val categoriesRepository      = ServiceLocator.categoriesRepository
+    val sessionManager             = ServiceLocator.sessionManager
+    val authRepository             = ServiceLocator.authRepository
+    val householdRepository        = ServiceLocator.householdRepository
+    val dashboardRepository        = ServiceLocator.dashboardRepository
+    val accountsRepository         = ServiceLocator.accountsRepository
+    val transactionsRepository     = ServiceLocator.transactionsRepository
+    val categoriesRepository       = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
-    val tenantContext             = ServiceLocator.tenantContext
+    val recurringBillsRepository   = ServiceLocator.recurringBillsRepository
+    val tenantContext               = ServiceLocator.tenantContext
 
     val startDestination =
         if (sessionManager.fetchAuthToken() != null) Screen.Household.route
         else Screen.Login.route
 
     NavHost(
-        navController = navController,
+        navController    = navController,
         startDestination = startDestination
     ) {
 
-        // ------------------------------------------------------------------ Login
+        // ── Login ──────────────────────────────────────────────────────────
         composable(Screen.Login.route) {
-            val viewModel = LoginViewModel(authRepository, sessionManager)
+            val vm = LoginViewModel(authRepository, sessionManager)
             LoginScreen(
-                viewModel = viewModel,
-                onNavigateToRegister = {
-                    navController.navigate(Screen.Register.route)
-                },
-                onLoginSuccess = {
+                viewModel           = vm,
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                onLoginSuccess       = {
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -93,13 +98,13 @@ fun NavGraph(
             )
         }
 
-        // ------------------------------------------------------------------ Register
+        // ── Register ───────────────────────────────────────────────────────
         composable(Screen.Register.route) {
-            val viewModel = RegisterViewModel(authRepository, sessionManager)
+            val vm = RegisterViewModel(authRepository, sessionManager)
             RegisterScreen(
-                viewModel = viewModel,
-                onNavigateToLogin = { navController.popBackStack() },
-                onRegisterSuccess = {
+                viewModel          = vm,
+                onNavigateToLogin  = { navController.popBackStack() },
+                onRegisterSuccess  = {
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
                     }
@@ -107,49 +112,37 @@ fun NavGraph(
             )
         }
 
-        // ------------------------------------------------------------------ Household
+        // ── Household ──────────────────────────────────────────────────────
         composable(Screen.Household.route) {
-            val viewModel = HouseholdViewModel(
+            val vm = HouseholdViewModel(
                 householdRepository = householdRepository,
-                tenantContext = tenantContext
+                tenantContext       = tenantContext
             )
-            HouseholdScreen(viewModel = viewModel) { householdId ->
+            HouseholdScreen(viewModel = vm) { householdId ->
                 tenantContext.setHouseholdId(householdId)
-                // Después de seleccionar hogar → HUB (no directo al Dashboard)
                 navController.navigate(Screen.Hub.route) {
                     popUpTo(Screen.Household.route) { inclusive = true }
                 }
             }
         }
 
-        // ------------------------------------------------------------------ Hub (menú principal)
+        // ── Hub (menú principal) ───────────────────────────────────────────
         composable(Screen.Hub.route) {
             HubScreen(
-                householdName = "",   // TODO: guardar nombre en TenantContext/SessionManager si se necesita
-                onNavigateToDashboard = {
-                    navController.navigate(Screen.Dashboard.route)
-                },
-                onNavigateToTransactions = {
-                    navController.navigate(Screen.Transactions.route)
-                },
-                onNavigateToAddMovement = { type ->
-                    navController.navigate(Screen.AddTransaction.createRoute(type))
-                },
-                onNavigateToAccounts = {
-                    navController.navigate(Screen.Accounts.route)
-                },
-                onNavigateToInviteMember = {
-                    navController.navigate(Screen.InviteMember.route)
-                },
-                onNavigateToOptions = {
-                    // TODO: implementar pantalla de opciones
-                }
+                householdName            = "",
+                onNavigateToDashboard    = { navController.navigate(Screen.Dashboard.route) },
+                onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToAddMovement  = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
+                onNavigateToAccounts     = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToInviteMember = { navController.navigate(Screen.InviteMember.route) },
+                onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
+                onNavigateToOptions      = { navController.navigate(Screen.Settings.route) }
             )
         }
 
-        // ------------------------------------------------------------------ Dashboard
+        // ── Dashboard ──────────────────────────────────────────────────────
         composable(Screen.Dashboard.route) {
-            val viewModel: DashboardViewModel = viewModel(
+            val vm: DashboardViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
                         @Suppress("UNCHECKED_CAST")
@@ -162,48 +155,35 @@ fun NavGraph(
                 }
             )
             DashboardScreen(
-                viewModel = viewModel,
-                onTransactionClick = { transactionId ->
-                    navController.navigate(Screen.TransactionDetail.createRoute(transactionId))
-                },
-                onSeeAllClick = {
-                    navController.navigate(Screen.Transactions.route)
-                },
-                onCreateTransaction = { type ->
-                    navController.navigate(Screen.AddTransaction.createRoute(type))
-                }
+                viewModel          = vm,
+                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onSeeAllClick      = { navController.navigate(Screen.Transactions.route) }
             )
         }
 
-        // ------------------------------------------------------------------ Accounts
+        // ── Accounts ───────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
-            val viewModel = AccountsViewModel(accountsRepository, tenantContext)
-            AccountsScreen(viewModel = viewModel)
+            val vm = AccountsViewModel(accountsRepository, tenantContext)
+            AccountsScreen(viewModel = vm)
         }
 
-        // ------------------------------------------------------------------ Transactions
+        // ── Transactions ───────────────────────────────────────────────────
         composable(Screen.Transactions.route) {
-            val viewModel = TransactionsViewModel(transactionsRepository, tenantContext)
+            val vm = TransactionsViewModel(transactionsRepository, tenantContext)
             TransactionsScreen(
-                viewModel = viewModel,
-                onTransactionClick = { transaction ->
-                    navController.navigate(
-                        Screen.TransactionDetail.createRoute(transaction.id)
-                    )
-                },
-                onAddTransactionClick = {
-                    navController.navigate(Screen.AddTransaction.createRoute("expense"))
-                }
+                viewModel           = vm,
+                onTransactionClick  = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
+                onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) }
             )
         }
 
-        // ------------------------------------------------------------------ AddTransaction
+        // ── AddTransaction ─────────────────────────────────────────────────
         composable(
-            route = Screen.AddTransaction.route,
+            route     = Screen.AddTransaction.route,
             arguments = listOf(navArgument("type") { type = NavType.StringType })
         ) { backStackEntry ->
             val type = backStackEntry.arguments?.getString("type") ?: "expense"
-            val viewModel: AddMovementViewModel = viewModel(
+            val vm: AddMovementViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
                         @Suppress("UNCHECKED_CAST")
@@ -217,18 +197,18 @@ fun NavGraph(
             )
             AddTransactionScreen(
                 transactionType = type,
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 
-        // ------------------------------------------------------------------ TransactionDetail
+        // ── TransactionDetail ──────────────────────────────────────────────
         composable(
-            route = Screen.TransactionDetail.route,
+            route     = Screen.TransactionDetail.route,
             arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
         ) { backStackEntry ->
             val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
-            val viewModel: TransactionDetailViewModel = viewModel(
+            val vm: TransactionDetailViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
                         @Suppress("UNCHECKED_CAST")
@@ -238,15 +218,52 @@ fun NavGraph(
             )
             TransactionDetailScreen(
                 transactionId  = transactionId,
-                viewModel      = viewModel,
+                viewModel      = vm,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        // ------------------------------------------------------------------ InviteMember
+        // ── InviteMember ───────────────────────────────────────────────────
         composable(Screen.InviteMember.route) {
+            val vm = InviteMemberViewModel(householdRepository, tenantContext)
             InviteMemberScreen(
+                viewModel      = vm,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── RecurringBills ─────────────────────────────────────────────────
+        composable(Screen.RecurringBills.route) {
+            val vm: RecurringBillsViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return RecurringBillsViewModel(recurringBillsRepository, tenantContext) as T
+                    }
+                }
+            )
+            RecurringBillsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── Settings ───────────────────────────────────────────────────────
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                sessionManager    = sessionManager,
+                onNavigateBack    = { navController.popBackStack() },
+                onLogout          = {
+                    // clearSession() ya fue llamado dentro de SettingsScreen
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onChangeHousehold = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Hub.route) { inclusive = true }
+                    }
+                }
             )
         }
     }

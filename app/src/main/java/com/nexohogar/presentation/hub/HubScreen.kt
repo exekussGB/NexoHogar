@@ -43,71 +43,70 @@ fun HubScreen(
     householdName: String = "",
     onNavigateToDashboard: () -> Unit,
     onNavigateToTransactions: () -> Unit,
-    onNavigateToAddMovement: (String) -> Unit,   // recibe "income" | "expense" | "transfer"
+    onNavigateToAddMovement: (String) -> Unit,
     onNavigateToAccounts: () -> Unit,
     onNavigateToInviteMember: () -> Unit,
+    onNavigateToRecurringBills: () -> Unit,
     onNavigateToOptions: () -> Unit
 ) {
-    // Diálogo para elegir tipo de movimiento al presionar "Agregar"
     var showAddTypeDialog by remember { mutableStateOf(false) }
 
     val actions = listOf(
         HubAction(
-            title = "Resumen",
-            subtitle = "Saldos y gráficos",
-            icon = Icons.Default.BarChart,
+            title           = "Resumen",
+            subtitle        = "Saldos y gráficos",
+            icon            = Icons.Default.BarChart,
             backgroundColor = Color(0xFFE8F5E9),
-            iconColor = Color(0xFF2E7D32),
-            onClick = onNavigateToDashboard
+            iconColor       = Color(0xFF2E7D32),
+            onClick         = onNavigateToDashboard
         ),
         HubAction(
-            title = "Movimientos",
-            subtitle = "Historial completo",
-            icon = Icons.Default.Receipt,
+            title           = "Movimientos",
+            subtitle        = "Historial completo",
+            icon            = Icons.Default.Receipt,
             backgroundColor = Color(0xFFE3F2FD),
-            iconColor = Color(0xFF1565C0),
-            onClick = onNavigateToTransactions
+            iconColor       = Color(0xFF1565C0),
+            onClick         = onNavigateToTransactions
         ),
         HubAction(
-            title = "Agregar",
-            subtitle = "Nuevo movimiento",
-            icon = Icons.Default.AddCircle,
+            title           = "Agregar",
+            subtitle        = "Nuevo movimiento",
+            icon            = Icons.Default.AddCircle,
             backgroundColor = Color(0xFFFFF8E1),
-            iconColor = Color(0xFFF57F17),
-            onClick = { showAddTypeDialog = true }
+            iconColor       = Color(0xFFF57F17),
+            onClick         = { showAddTypeDialog = true }
         ),
         HubAction(
-            title = "Cuentas",
-            subtitle = "Ver saldos",
-            icon = Icons.Default.AccountBalance,
+            title           = "Cuentas",
+            subtitle        = "Ver saldos",
+            icon            = Icons.Default.AccountBalance,
             backgroundColor = Color(0xFFF3E5F5),
-            iconColor = Color(0xFF6A1B9A),
-            onClick = onNavigateToAccounts
+            iconColor       = Color(0xFF6A1B9A),
+            onClick         = onNavigateToAccounts
         ),
         HubAction(
-            title = "Invitar",
-            subtitle = "Agregar miembro",
-            icon = Icons.Default.PersonAdd,
+            title           = "Invitar",
+            subtitle        = "Agregar miembro",
+            icon            = Icons.Default.PersonAdd,
             backgroundColor = Color(0xFFE0F7FA),
-            iconColor = Color(0xFF00695C),
-            onClick = onNavigateToInviteMember
+            iconColor       = Color(0xFF00695C),
+            onClick         = onNavigateToInviteMember
         ),
         HubAction(
-            title = "Inventario",
-            subtitle = "Próximamente",
-            icon = Icons.Default.Inventory2,
-            backgroundColor = Color(0xFFF5F5F5),
-            iconColor = Color(0xFFBDBDBD),
-            enabled = false,
-            onClick = {}
-        ),
-        HubAction(
-            title = "Opciones",
-            subtitle = "Configuración",
-            icon = Icons.Default.Settings,
+            title           = "Recurrentes",
+            subtitle        = "Servicios mensuales",
+            icon            = Icons.Default.Repeat,
             backgroundColor = Color(0xFFFCE4EC),
-            iconColor = Color(0xFFC62828),
-            onClick = onNavigateToOptions
+            iconColor       = Color(0xFFC62828),
+            onClick         = onNavigateToRecurringBills
+        ),
+        HubAction(
+            title           = "Opciones",
+            subtitle        = "Configuración",
+            icon            = Icons.Default.Settings,
+            backgroundColor = Color(0xFFF5F5F5),
+            iconColor       = Color(0xFF424242),
+            onClick         = onNavigateToOptions
         )
     )
 
@@ -120,7 +119,6 @@ fun HubScreen(
     ) {
         Spacer(modifier = Modifier.height(52.dp))
 
-        // --- Encabezado ---
         Text(
             text = if (householdName.isNotBlank()) householdName else "Mi hogar",
             style = MaterialTheme.typography.labelMedium,
@@ -137,22 +135,15 @@ fun HubScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // --- Grilla 2 columnas ---
-        // Renderizamos filas de a 2 manualmente para evitar LazyGrid
-        // (que no funciona bien dentro de verticalScroll)
         val rows = actions.chunked(2)
-        rows.forEachIndexed { rowIndex, rowActions ->
+        rows.forEachIndexed { _, rowActions ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 rowActions.forEach { action ->
-                    HubActionCard(
-                        action = action,
-                        modifier = Modifier.weight(1f)
-                    )
+                    HubActionCard(action = action, modifier = Modifier.weight(1f))
                 }
-                // Si la fila tiene un solo elemento, añadimos un espaciador invisible
                 if (rowActions.size == 1) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -163,10 +154,9 @@ fun HubScreen(
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // --- Diálogo: elegir tipo de movimiento ---
     if (showAddTypeDialog) {
         AddMovementTypeDialog(
-            onDismiss = { showAddTypeDialog = false },
+            onDismiss    = { showAddTypeDialog = false },
             onTypeSelected = { type ->
                 showAddTypeDialog = false
                 onNavigateToAddMovement(type)
@@ -198,7 +188,6 @@ private fun HubActionCard(
                 .padding(18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Ícono con fondo circular de color
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -213,7 +202,6 @@ private fun HubActionCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-
             Column {
                 Text(
                     text = action.title,
@@ -257,7 +245,6 @@ private fun AddMovementTypeDialog(
                 )
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Ingreso
                 MovementTypeOption(
                     icon = Icons.Default.ArrowDownward,
                     label = "Ingreso",
@@ -268,7 +255,6 @@ private fun AddMovementTypeDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Gasto
                 MovementTypeOption(
                     icon = Icons.Default.ArrowUpward,
                     label = "Gasto",
@@ -279,7 +265,6 @@ private fun AddMovementTypeDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Transferencia
                 MovementTypeOption(
                     icon = Icons.Default.SwapHoriz,
                     label = "Transferencia",
@@ -290,9 +275,7 @@ private fun AddMovementTypeDialog(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = onDismiss) { Text("Cancelar") }
             }
         }
     }

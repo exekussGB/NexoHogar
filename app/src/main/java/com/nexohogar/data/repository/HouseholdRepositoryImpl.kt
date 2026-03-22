@@ -3,6 +3,8 @@ package com.nexohogar.data.repository
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.network.AuthApi
 import com.nexohogar.data.remote.dto.CreateHouseholdRequest
+import com.nexohogar.data.remote.dto.InviteCodeRequest
+import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.repository.HouseholdRepository
 
@@ -48,6 +50,43 @@ class HouseholdRepositoryImpl(
                 }
             } else {
                 AppResult.Error("Error al crear hogar: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    override suspend fun getOrCreateInviteCode(householdId: String): AppResult<String> {
+        return try {
+            val response = authApi.getOrCreateInviteCode(InviteCodeRequest(householdId))
+            if (response.isSuccessful) {
+                val code = response.body()
+                if (!code.isNullOrBlank()) {
+                    // Gson deserializa cadenas JSON con comillas — las eliminamos por si acaso
+                    AppResult.Success(code.trim('"'))
+                } else {
+                    AppResult.Error("No se recibió código de invitación")
+                }
+            } else {
+                AppResult.Error("Error al obtener código: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
+        return try {
+            val response = authApi.joinHouseholdByCode(JoinHouseholdRequest(inviteCode.trim().uppercase()))
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                val errorMsg = when (response.code()) {
+                    400 -> "Código de invitación inválido o expirado"
+                    409 -> "Ya eres miembro de este hogar"
+                    else -> "Error al unirse al hogar: ${response.code()}"
+                }
+                AppResult.Error(errorMsg)
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
