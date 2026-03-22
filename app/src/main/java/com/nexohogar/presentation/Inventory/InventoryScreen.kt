@@ -45,6 +45,7 @@ fun InventoryScreen(
 
     var showAddProductSheet by remember { mutableStateOf(false) }
     var selectedProductForHistory by remember { mutableStateOf<Product?>(null) }
+    var productToConsume by remember { mutableStateOf<Product?>(null) }
 
     Scaffold(
         topBar = {
@@ -100,7 +101,8 @@ fun InventoryScreen(
                         onProductClick = { p ->
                             selectedProductForHistory = p
                             viewModel.loadMovementsForProduct(p)
-                        }
+                        },
+                        onQuickConsume = { p -> productToConsume = p }
                     )
                     1 -> RegisterMovementTab(viewModel = viewModel)
                     2 -> SuggestionsTab(suggestions = uiState.suggestions)
@@ -128,13 +130,26 @@ fun InventoryScreen(
             onDismiss = { selectedProductForHistory = null }
         )
     }
+
+    // ─── Diálogo de consumo rápido ──────────────────────────────────────────────
+    productToConsume?.let { product ->
+        QuickConsumeDialog(
+            product = product,
+            onConfirm = { qty ->
+                viewModel.quickConsume(product.id, qty, product.unit)
+                productToConsume = null
+            },
+            onDismiss = { productToConsume = null }
+        )
+    }
 }
 
 // ─── Pestaña: Productos ────────────────────────────────────────────────────────
 @Composable
 private fun ProductsTab(
     products: List<Product>,
-    onProductClick: (Product) -> Unit
+    onProductClick: (Product) -> Unit,
+    onQuickConsume: (Product) -> Unit
 ) {
     if (products.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -154,20 +169,28 @@ private fun ProductsTab(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(products, key = { it.id }) { product ->
-            ProductCard(product = product, onClick = { onProductClick(product) })
+            ProductCard(
+                product = product,
+                onClick = { onProductClick(product) },
+                onQuickConsume = { onQuickConsume(product) }
+            )
         }
     }
 }
 
 @Composable
-private fun ProductCard(product: Product, onClick: () -> Unit) {
+private fun ProductCard(
+    product: Product,
+    onClick: () -> Unit,
+    onQuickConsume: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            Modifier.padding(16.dp),
+            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Ícono de stock
@@ -205,10 +228,70 @@ private fun ProductCard(product: Product, onClick: () -> Unit) {
                 )
                 Text(product.unit, fontSize = 12.sp, color = Color.Gray)
             }
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
+            Spacer(Modifier.width(4.dp))
+            // ── Botón consumo rápido ──────────────────────────────────────────
+            IconButton(onClick = onQuickConsume) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(RedOut.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Registrar consumo",
+                        tint = RedOut,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
+}
+
+// ─── Diálogo de consumo rápido ─────────────────────────────────────────────────
+@Composable
+private fun QuickConsumeDialog(
+    product: Product,
+    onConfirm: (Double) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var qty by remember { mutableStateOf("") }
+    val qtyDouble = qty.toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Consumir: ${product.name}", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Stock actual: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                    color = Color.Gray,
+                    fontSize = 13.sp
+                )
+                OutlinedTextField(
+                    value = qty,
+                    onValueChange = { qty = it },
+                    label = { Text("Cantidad (${product.unit})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = qtyDouble != null && qtyDouble <= 0
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { qtyDouble?.let { if (it > 0) onConfirm(it) } },
+                enabled = qtyDouble != null && qtyDouble > 0
+            ) {
+                Text("Confirmar", color = RedOut, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
 
 // ─── Pestaña: Registrar movimiento ────────────────────────────────────────────
