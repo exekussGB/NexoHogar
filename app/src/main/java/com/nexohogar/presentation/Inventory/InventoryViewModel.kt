@@ -13,19 +13,54 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+// ─── Categorías predefinidas ───────────────────────────────────────────────────
+val INVENTORY_CATEGORIES = listOf(
+    "Carnes y Pescados",
+    "Lácteos y Huevos",
+    "Frutas y Verduras",
+    "Cereales y Panadería",
+    "Enlatados y Conservas",
+    "Bebidas",
+    "Limpieza y Hogar",
+    "Higiene Personal",
+    "Congelados",
+    "Snacks y Dulces",
+    "Condimentos y Salsas",
+    "Otros"
+)
+
+// ─── Estadística por categoría ─────────────────────────────────────────────────
+data class CategoryStat(
+    val category: String,
+    val totalSpent: Double,
+    val productCount: Int
+)
+
 // ─── Estado de la pantalla principal ───────────────────────────────────────────
 data class InventoryUiState(
     val products: List<Product> = emptyList(),
     val suggestions: List<PurchaseSuggestion> = emptyList(),
+    val categoryStats: List<CategoryStat> = emptyList(),
+    val selectedCategory: String? = null,      // null = "Todos"
     val isLoading: Boolean = false,
     val error: String? = null
-)
+) {
+    // Productos filtrados por categoría seleccionada
+    val filteredProducts: List<Product>
+        get() = if (selectedCategory == null) products
+                else products.filter { it.category == selectedCategory }
+
+    // Categorías disponibles en los productos actuales
+    val availableCategories: List<String>
+        get() = products.mapNotNull { it.category }.distinct().sorted()
+}
 
 // ─── Estado del formulario de producto ─────────────────────────────────────────
 data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
+    val category: String = "",
     val initialQuantity: String = "",   // stock inicial opcional
     val isSubmitting: Boolean = false,
     val error: String? = null,
@@ -63,7 +98,6 @@ class InventoryViewModel(
     private val householdId: String
         get() = tenantContext.getCurrentHouseholdId() ?: ""
 
-
     private val _uiState = MutableStateFlow(InventoryUiState())
     val uiState: StateFlow<InventoryUiState> = _uiState.asStateFlow()
 
@@ -86,10 +120,17 @@ class InventoryViewModel(
             try {
                 val products = repository.getProducts(householdId)
                 val suggestions = repository.getSuggestions(householdId)
-                _uiState.value = InventoryUiState(
+                val movements = try { repository.getMovements(householdId) } catch (e: Exception) { emptyList() }
+
+                // Calcular estadísticas por categoría
+                val stats = calcCategoryStats(products, movements)
+
+                _uiState.value = _uiState.value.copy(
                     products = products,
                     suggestions = suggestions,
-                    isLoading = false
+                    categoryStats = stats,
+                    isLoading = false,
+                    error = null
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -100,10 +141,38 @@ class InventoryViewModel(
         }
     }
 
+    private fun calcCategoryStats(products: List<Product>, movements: List<InventoryMovement>): List<CategoryStat> {
+        // Mapa: itemId -> categoría
+        val productCategory = products.associate { it.id to (it.category ?: "Sin categoría") }
+
+        // Solo movimientos de entrada (compras) con precio
+        val purchasesByCategory = movements
+            .filter { it.movementType == "in" }
+            .groupBy { productCategory[it.itemId] ?: "Sin categoría" }
+
+        return purchasesByCategory.map { (cat, movs) ->
+            val total = movs.sumOf { m ->
+                when {
+                    m.priceTotal != null -> m.priceTotal
+                    m.pricePerUnit != null -> m.pricePerUnit * m.quantity
+                    else -> 0.0
+                }
+            }
+            val productCount = movs.map { it.itemId }.distinct().size
+            CategoryStat(category = cat, totalSpent = total, productCount = productCount)
+        }.sortedByDescending { it.totalSpent }
+    }
+
+    // ─── Filtro por categoría ──────────────────────────────────────────────────
+    fun selectCategory(category: String?) {
+        _uiState.value = _uiState.value.copy(selectedCategory = category)
+    }
+
     // ─── Product form ──────────────────────────────────────────────────────────
     fun onProductNameChange(v: String) { _productForm.value = _productForm.value.copy(name = v) }
     fun onProductUnitChange(v: String) { _productForm.value = _productForm.value.copy(unit = v) }
     fun onProductBrandChange(v: String) { _productForm.value = _productForm.value.copy(brand = v) }
+    fun onProductCategoryChange(v: String) { _productForm.value = _productForm.value.copy(category = v) }
     fun onProductInitialQuantityChange(v: String) { _productForm.value = _productForm.value.copy(initialQuantity = v) }
 
     fun submitProduct() {
@@ -122,21 +191,22 @@ class InventoryViewModel(
             try {
                 val product = repository.createProduct(
                     householdId = householdId,
-                    name = form.name.trim(),
-                    unit = form.unit,
-                    brand = form.brand.takeIf { it.isNotBlank() }
+                    name        = form.name.trim(),
+                    unit        = form.unit,
+                    brand       = form.brand.takeIf { it.isNotBlank() },
+                    category    = form.category.takeIf { it.isNotBlank() }
                 )
                 // Si ingresaron cantidad inicial, crear movimiento "in"
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
-                        householdId = householdId,
-                        itemId = product.id,
-                        quantity = initialQty,
-                        movementDate = java.time.LocalDate.now().toString(),
+                        householdId  = householdId,
+                        itemId       = product.id,
+                        quantity     = initialQty,
+                        movementDate = LocalDate.now().toString(),
                         pricePerUnit = null,
-                        priceTotal = null,
-                        brand = null,
-                        store = null
+                        priceTotal   = null,
+                        brand        = null,
+                        store        = null
                     )
                 }
                 _productForm.value = ProductFormState(success = true)
@@ -180,20 +250,20 @@ class InventoryViewModel(
             try {
                 if (form.movementType == "in") {
                     repository.addPurchase(
-                        householdId = householdId,
-                        itemId = product.id,
-                        quantity = qty,
+                        householdId  = householdId,
+                        itemId       = product.id,
+                        quantity     = qty,
                         movementDate = form.movementDate,
                         pricePerUnit = form.pricePerUnit.toDoubleOrNull(),
-                        priceTotal = form.priceTotal.toDoubleOrNull(),
-                        brand = form.brand.takeIf { it.isNotBlank() },
-                        store = form.store.takeIf { it.isNotBlank() }
+                        priceTotal   = form.priceTotal.toDoubleOrNull(),
+                        brand        = form.brand.takeIf { it.isNotBlank() },
+                        store        = form.store.takeIf { it.isNotBlank() }
                     )
                 } else {
                     repository.addConsumption(
-                        householdId = householdId,
-                        itemId = product.id,
-                        quantity = qty,
+                        householdId  = householdId,
+                        itemId       = product.id,
+                        quantity     = qty,
                         movementDate = form.movementDate
                     )
                 }
@@ -211,14 +281,14 @@ class InventoryViewModel(
     fun resetMovementForm() { _movementForm.value = MovementFormState() }
 
     // ─── Consumo rápido desde la tarjeta de producto ────────────────────────────
-    fun quickConsume(itemId: String, quantity: Double, unit: String) {
+    fun quickConsume(itemId: String, quantity: Double) {
         viewModelScope.launch {
             try {
                 repository.addConsumption(
                     householdId  = householdId,
                     itemId       = itemId,
                     quantity     = quantity,
-                    movementDate = java.time.LocalDate.now().toString()
+                    movementDate = LocalDate.now().toString()
                 )
                 loadData()
             } catch (e: Exception) {
@@ -237,7 +307,7 @@ class InventoryViewModel(
                 val movements = repository.getMovements(householdId, product.id)
                 _movementsState.value = MovementsUiState(
                     movements = movements,
-                    product = product,
+                    product   = product,
                     isLoading = false
                 )
             } catch (e: Exception) {

@@ -48,6 +48,7 @@ class AccountsRepositoryImpl(
     /**
      * Crea una nueva cuenta para el hogar.
      * account_type debe ser lowercase para cumplir el CHECK constraint de Supabase.
+     * Solo se envían los campos que existen en la tabla: name, account_type, household_id.
      */
     override suspend fun createAccount(
         householdId: String,
@@ -59,9 +60,7 @@ class AccountsRepositoryImpl(
             val request = CreateAccountRequest(
                 name        = name,
                 accountType = accountType.lowercase(),
-                householdId = householdId,
-                balance     = 0.0,
-                isActive    = true
+                householdId = householdId
             )
 
             val response = accountsApi.createAccount(request)

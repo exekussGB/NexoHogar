@@ -7,5 +7,6 @@ data class CreateProductRequest(
     @SerializedName("name")         val name: String,
     @SerializedName("unit")         val unit: String,
     @SerializedName("brand")        val brand: String? = null,
+    @SerializedName("category")     val category: String? = null,
     @SerializedName("notes")        val notes: String? = null
 )

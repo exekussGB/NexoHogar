@@ -8,8 +8,6 @@ import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
 import com.nexohogar.domain.repository.InventoryRepository
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 
 class InventoryRepositoryImpl(
     private val api: InventoryApi
@@ -42,14 +40,16 @@ class InventoryRepositoryImpl(
         householdId: String,
         name: String,
         unit: String,
-        brand: String?
+        brand: String?,
+        category: String?
     ): Product {
         val response = api.createProduct(
             CreateProductRequest(
                 householdId = householdId,
                 name = name,
                 unit = unit,
-                brand = brand
+                brand = brand,
+                category = category
             )
         )
         if (!response.isSuccessful) {

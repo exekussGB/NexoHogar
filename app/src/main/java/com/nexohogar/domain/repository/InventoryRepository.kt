@@ -10,7 +10,8 @@ interface InventoryRepository {
         householdId: String,
         name: String,
         unit: String,
-        brand: String? = null
+        brand: String? = null,
+        category: String? = null
     ): Product
     suspend fun getMovements(householdId: String, itemId: String? = null): List<InventoryMovement>
     suspend fun addPurchase(
