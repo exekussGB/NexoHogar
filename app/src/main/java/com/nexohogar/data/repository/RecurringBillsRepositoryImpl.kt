@@ -6,6 +6,7 @@ import com.nexohogar.data.remote.dto.CreateRecurringBillRequest
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
 import com.nexohogar.domain.model.RecurringBill
+import com.nexohogar.domain.repository.RecurringBillsRepository
 
 class RecurringBillsRepositoryImpl(
     private val api: RecurringBillsApi
