@@ -164,8 +164,8 @@ fun SettingsScreen(
                     // Ejemplo:
                     // Spacer(modifier = Modifier.height(8.dp))
                     Text("Desarrollado por: ExEkUsS",)
-                    // Text("Contacto: tu@email.com", ...)
-                    // Text("GitHub: github.com/exekussGB/NexoHogar", ...)
+                    Text("Contacto: contactonexohogar@proton.me",)
+                    // Text("",)
                 }
             }
 
