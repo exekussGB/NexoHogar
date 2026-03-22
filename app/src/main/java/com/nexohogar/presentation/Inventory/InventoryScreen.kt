@@ -514,6 +514,19 @@ private fun AddProductSheet(viewModel: InventoryViewModel, onDismiss: () -> Unit
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Cantidad inicial
+            OutlinedTextField(
+                value = form.initialQuantity,
+                onValueChange = viewModel::onProductInitialQuantityChange,
+                label = { Text("Cantidad inicial (opcional)") },
+                placeholder = { Text("Ej: 2.5") },
+                suffix = { Text(form.unit) },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
             form.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             }

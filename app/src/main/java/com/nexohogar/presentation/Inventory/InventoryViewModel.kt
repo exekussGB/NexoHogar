@@ -26,6 +26,7 @@ data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
+    val initialQuantity: String = "",   // stock inicial opcional
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val success: Boolean = false
@@ -103,6 +104,7 @@ class InventoryViewModel(
     fun onProductNameChange(v: String) { _productForm.value = _productForm.value.copy(name = v) }
     fun onProductUnitChange(v: String) { _productForm.value = _productForm.value.copy(unit = v) }
     fun onProductBrandChange(v: String) { _productForm.value = _productForm.value.copy(brand = v) }
+    fun onProductInitialQuantityChange(v: String) { _productForm.value = _productForm.value.copy(initialQuantity = v) }
 
     fun submitProduct() {
         val form = _productForm.value
@@ -110,15 +112,33 @@ class InventoryViewModel(
             _productForm.value = form.copy(error = "El nombre es obligatorio")
             return
         }
+        val initialQty = form.initialQuantity.toDoubleOrNull()
+        if (form.initialQuantity.isNotBlank() && initialQty == null) {
+            _productForm.value = form.copy(error = "La cantidad inicial debe ser un número válido")
+            return
+        }
         viewModelScope.launch {
             _productForm.value = form.copy(isSubmitting = true, error = null)
             try {
-                repository.createProduct(
+                val product = repository.createProduct(
                     householdId = householdId,
                     name = form.name.trim(),
                     unit = form.unit,
                     brand = form.brand.takeIf { it.isNotBlank() }
                 )
+                // Si ingresaron cantidad inicial, crear movimiento "in"
+                if (initialQty != null && initialQty > 0) {
+                    repository.addPurchase(
+                        householdId = householdId,
+                        itemId = product.id,
+                        quantity = initialQty,
+                        movementDate = java.time.LocalDate.now().toString(),
+                        pricePerUnit = null,
+                        priceTotal = null,
+                        brand = null,
+                        store = null
+                    )
+                }
                 _productForm.value = ProductFormState(success = true)
                 loadData()
             } catch (e: Exception) {
