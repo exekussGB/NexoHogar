@@ -34,16 +34,21 @@ class TransactionsRepositoryImpl(
 
             val dtoList = response.body() ?: emptyList()
 
-            val result = dtoList.map { dto ->
-                Transaction(
-                    id = dto.id,
-                    accountId = dto.accountId,
-                    amount = dto.amountClp,         // Long directo
-                    description = dto.description,
-                    createdAt = dto.createdAt,
-                    type = dto.type
-                )
-            }
+            val result = dtoList
+                .map { dto ->
+                    Transaction(
+                        id          = dto.id,
+                        accountId   = dto.accountId,
+                        amount      = dto.amountClp,
+                        description = dto.description,
+                        createdAt   = dto.createdAt,
+                        type        = dto.type
+                    )
+                }
+                // ── Ordenar de más reciente a más antiguo ──────────────────────
+                // createdAt es ISO-8601 ("2024-01-15T10:30:00"), el orden lexicográfico
+                // descendente es equivalente al orden cronológico descendente.
+                .sortedByDescending { it.createdAt }
 
             AppResult.Success(result)
 
@@ -88,18 +93,16 @@ class TransactionsRepositoryImpl(
         return try {
             Log.d("ACCOUNTS_DEBUG", "Fetching accounts for householdId=$householdId")
 
-            // ← CORREGIDO: parámetro correcto, sin token (AuthInterceptor lo maneja),
-            //   retorna List<AccountDto> directamente (sin Response<>)
             val body = accountsApi.getAccounts(householdId = "eq.$householdId")
 
             Log.d("ACCOUNTS_DEBUG", "Accounts returned from API: ${body.size}")
 
             val domainAccounts = body.map { dto ->
                 Account(
-                    id = dto.id,
-                    name = dto.name,
-                    type = dto.accountType ?: "ASSET",
-                    balance = (dto.balance ?: 0.0).toLong(),  // Long: CLP
+                    id          = dto.id,
+                    name        = dto.name,
+                    type        = dto.accountType ?: "ASSET",
+                    balance     = (dto.balance ?: 0.0).toLong(),
                     householdId = dto.householdId
                 )
             }

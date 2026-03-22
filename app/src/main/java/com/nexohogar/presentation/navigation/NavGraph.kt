@@ -64,20 +64,26 @@ sealed class Screen(val route: String) {
 fun NavGraph(
     navController: NavHostController
 ) {
-    val sessionManager             = ServiceLocator.sessionManager
-    val authRepository             = ServiceLocator.authRepository
-    val householdRepository        = ServiceLocator.householdRepository
-    val dashboardRepository        = ServiceLocator.dashboardRepository
-    val accountsRepository         = ServiceLocator.accountsRepository
-    val transactionsRepository     = ServiceLocator.transactionsRepository
-    val categoriesRepository       = ServiceLocator.categoriesRepository
+    val sessionManager              = ServiceLocator.sessionManager
+    val authRepository              = ServiceLocator.authRepository
+    val householdRepository         = ServiceLocator.householdRepository
+    val dashboardRepository         = ServiceLocator.dashboardRepository
+    val accountsRepository          = ServiceLocator.accountsRepository
+    val transactionsRepository      = ServiceLocator.transactionsRepository
+    val categoriesRepository        = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
-    val recurringBillsRepository   = ServiceLocator.recurringBillsRepository
+    val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
     val tenantContext               = ServiceLocator.tenantContext
 
-    val startDestination =
-        if (sessionManager.fetchAuthToken() != null) Screen.Household.route
-        else Screen.Login.route
+    // ── Destino inicial ──────────────────────────────────────────────────────
+    // Si no hay token → Login
+    // Si el token está expirado → Login  (el AuthInterceptor intentará renovarlo
+    //   si el usuario estaba con la app abierta; si no puede, borra la sesión)
+    val startDestination = when {
+        sessionManager.fetchAuthToken() == null -> Screen.Login.route
+        sessionManager.isTokenExpired()         -> Screen.Login.route
+        else                                    -> Screen.Household.route
+    }
 
     NavHost(
         navController    = navController,
@@ -88,7 +94,7 @@ fun NavGraph(
         composable(Screen.Login.route) {
             val vm = LoginViewModel(authRepository, sessionManager)
             LoginScreen(
-                viewModel           = vm,
+                viewModel            = vm,
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                 onLoginSuccess       = {
                     navController.navigate(Screen.Household.route) {
@@ -102,9 +108,9 @@ fun NavGraph(
         composable(Screen.Register.route) {
             val vm = RegisterViewModel(authRepository, sessionManager)
             RegisterScreen(
-                viewModel          = vm,
-                onNavigateToLogin  = { navController.popBackStack() },
-                onRegisterSuccess  = {
+                viewModel         = vm,
+                onNavigateToLogin = { navController.popBackStack() },
+                onRegisterSuccess = {
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
                     }
@@ -129,14 +135,14 @@ fun NavGraph(
         // ── Hub (menú principal) ───────────────────────────────────────────
         composable(Screen.Hub.route) {
             HubScreen(
-                householdName            = "",
-                onNavigateToDashboard    = { navController.navigate(Screen.Dashboard.route) },
-                onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
-                onNavigateToAddMovement  = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
-                onNavigateToAccounts     = { navController.navigate(Screen.Accounts.route) },
-                onNavigateToInviteMember = { navController.navigate(Screen.InviteMember.route) },
+                householdName              = "",
+                onNavigateToDashboard      = { navController.navigate(Screen.Dashboard.route) },
+                onNavigateToTransactions   = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToAddMovement    = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
+                onNavigateToAccounts       = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
                 onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
-                onNavigateToOptions      = { navController.navigate(Screen.Settings.route) }
+                onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
             )
         }
 
@@ -171,8 +177,8 @@ fun NavGraph(
         composable(Screen.Transactions.route) {
             val vm = TransactionsViewModel(transactionsRepository, tenantContext)
             TransactionsScreen(
-                viewModel           = vm,
-                onTransactionClick  = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
+                viewModel             = vm,
+                onTransactionClick    = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
                 onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) }
             )
         }
@@ -190,6 +196,7 @@ fun NavGraph(
                         return AddMovementViewModel(
                             transactionsRepository,
                             categoriesRepository,
+                            recurringBillsRepository,   // ← nuevo parámetro
                             tenantContext
                         ) as T
                     }
@@ -254,7 +261,6 @@ fun NavGraph(
                 sessionManager    = sessionManager,
                 onNavigateBack    = { navController.popBackStack() },
                 onLogout          = {
-                    // clearSession() ya fue llamado dentro de SettingsScreen
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }

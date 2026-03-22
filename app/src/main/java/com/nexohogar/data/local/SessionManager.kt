@@ -10,16 +10,19 @@ import com.nexohogar.domain.model.UserSession
  * Esta clase reside en la capa de DATA (local) y utiliza el modelo de DOMINIO para comunicarse.
  */
 class SessionManager(context: Context) {
-    private val prefs: SharedPreferences = 
+    private val prefs: SharedPreferences =
         context.getSharedPreferences("NexoHogarPrefs", Context.MODE_PRIVATE)
 
     companion object {
-        private const val ACCESS_TOKEN = "access_token"
-        private const val REFRESH_TOKEN = "refresh_token"
-        private const val USER_ID = "user_id"
-        private const val USER_EMAIL = "user_email"
-        private const val EXPIRES_AT = "expires_at"
-        private const val SELECTED_HOUSEHOLD_ID = "selected_household_id"
+        private const val ACCESS_TOKEN           = "access_token"
+        private const val REFRESH_TOKEN          = "refresh_token"
+        private const val USER_ID                = "user_id"
+        private const val USER_EMAIL             = "user_email"
+        private const val EXPIRES_AT             = "expires_at"
+        private const val SELECTED_HOUSEHOLD_ID  = "selected_household_id"
+
+        /** Margen de seguridad: considera expirado si faltan menos de 2 minutos. */
+        private const val EXPIRY_MARGIN_MS = 2 * 60 * 1000L
     }
 
     /**
@@ -27,11 +30,11 @@ class SessionManager(context: Context) {
      */
     fun saveSession(session: UserSession) {
         prefs.edit().apply {
-            putString(ACCESS_TOKEN, session.accessToken)
+            putString(ACCESS_TOKEN,  session.accessToken)
             putString(REFRESH_TOKEN, session.refreshToken)
-            putString(USER_ID, session.userId)
-            putString(USER_EMAIL, session.email)
-            putLong(EXPIRES_AT, session.expiresAt)
+            putString(USER_ID,       session.userId)
+            putString(USER_EMAIL,    session.email)
+            putLong(EXPIRES_AT,      session.expiresAt)
             apply()
         }
     }
@@ -41,18 +44,18 @@ class SessionManager(context: Context) {
      * Retorna null si no hay un token de acceso persistido.
      */
     fun fetchSession(): UserSession? {
-        val token = prefs.getString(ACCESS_TOKEN, null) ?: return null
+        val token   = prefs.getString(ACCESS_TOKEN, null) ?: return null
         val refresh = prefs.getString(REFRESH_TOKEN, "") ?: ""
-        val id = prefs.getString(USER_ID, "") ?: ""
-        val email = prefs.getString(USER_EMAIL, "") ?: ""
+        val id      = prefs.getString(USER_ID, "") ?: ""
+        val email   = prefs.getString(USER_EMAIL, "") ?: ""
         val expires = prefs.getLong(EXPIRES_AT, 0L)
 
         return UserSession(
-            accessToken = token,
+            accessToken  = token,
             refreshToken = refresh,
-            userId = id,
-            email = email,
-            expiresAt = expires
+            userId       = id,
+            email        = email,
+            expiresAt    = expires
         )
     }
 
@@ -61,6 +64,26 @@ class SessionManager(context: Context) {
      */
     fun fetchAuthToken(): String? {
         return prefs.getString(ACCESS_TOKEN, null)
+    }
+
+    /**
+     * Retorna true si el token de acceso ya expiró o está a punto de expirar
+     * (según el margen de seguridad EXPIRY_MARGIN_MS).
+     * Retorna false si no hay token almacenado (el token ausente no "está expirado").
+     */
+    fun isTokenExpired(): Boolean {
+        val token     = prefs.getString(ACCESS_TOKEN, null) ?: return false
+        val expiresAt = prefs.getLong(EXPIRES_AT, 0L)
+        if (expiresAt == 0L) return false   // Sin expiración conocida → asumir válido
+        return System.currentTimeMillis() >= (expiresAt - EXPIRY_MARGIN_MS)
+    }
+
+    /**
+     * Retorna el refresh token almacenado, o null si no existe.
+     */
+    fun fetchRefreshToken(): String? {
+        val token = prefs.getString(REFRESH_TOKEN, null)
+        return if (token.isNullOrBlank()) null else token
     }
 
     /**
