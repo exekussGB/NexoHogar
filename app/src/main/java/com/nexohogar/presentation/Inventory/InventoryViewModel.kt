@@ -210,6 +210,25 @@ class InventoryViewModel(
 
     fun resetMovementForm() { _movementForm.value = MovementFormState() }
 
+    // ─── Consumo rápido desde la tarjeta de producto ────────────────────────────
+    fun quickConsume(itemId: String, quantity: Double, unit: String) {
+        viewModelScope.launch {
+            try {
+                repository.addConsumption(
+                    householdId  = householdId,
+                    itemId       = itemId,
+                    quantity     = quantity,
+                    movementDate = java.time.LocalDate.now().toString()
+                )
+                loadData()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Error al registrar consumo: ${e.message}"
+                )
+            }
+        }
+    }
+
     // ─── Historial de movimientos de un producto ────────────────────────────────
     fun loadMovementsForProduct(product: Product) {
         viewModelScope.launch {
