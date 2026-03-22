@@ -33,7 +33,7 @@ fun SettingsScreen(
                 title = { Text("Opciones") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -186,7 +186,7 @@ fun SettingsScreen(
                     contentColor   = MaterialTheme.colorScheme.onErrorContainer
                 )
             ) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                Icon(Icons.Filled.Logout, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
             }
@@ -197,7 +197,7 @@ fun SettingsScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            icon   = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
+            icon   = { Icon(Icons.Filled.Logout, contentDescription = null) },
             title  = { Text("Cerrar sesión") },
             text   = { Text("¿Seguro que quieres cerrar sesión? Deberás ingresar tus credenciales de nuevo.") },
             confirmButton = {

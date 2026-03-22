@@ -296,8 +296,8 @@ fun NavGraph(
                 }
             )
             InventoryScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel = vm,
+                onBack    = { navController.popBackStack() }
             )
         }
     }
