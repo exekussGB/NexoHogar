@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
+import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.repository.InventoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,8 +56,12 @@ data class MovementsUiState(
 
 class InventoryViewModel(
     private val repository: InventoryRepository,
-    private val householdId: String
+    private val tenantContext: TenantContext
 ) : ViewModel() {
+
+    private val householdId: String
+        get() = tenantContext.getCurrentHouseholdId() ?: ""
+
 
     private val _uiState = MutableStateFlow(InventoryUiState())
     val uiState: StateFlow<InventoryUiState> = _uiState.asStateFlow()
