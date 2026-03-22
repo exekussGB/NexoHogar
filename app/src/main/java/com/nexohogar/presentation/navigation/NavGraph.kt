@@ -21,6 +21,8 @@ import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
 import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.HubScreen
+import com.nexohogar.presentation.inventory.InventoryScreen
+import com.nexohogar.presentation.inventory.InventoryViewModel
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
 import com.nexohogar.presentation.invitemember.InviteMemberViewModel
 import com.nexohogar.presentation.login.LoginScreen
@@ -49,7 +51,8 @@ sealed class Screen(val route: String) {
     object InviteMember      : Screen("invite_member")
     object RecurringBills    : Screen("recurring_bills")
     object Settings          : Screen("settings")
-    object HouseholdMembers  : Screen("household_members")   // ← NUEVO
+    object HouseholdMembers  : Screen("household_members")
+    object Inventory         : Screen("inventory")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -76,6 +79,7 @@ fun NavGraph(
     val categoriesRepository        = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
     val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
+    val inventoryRepository         = ServiceLocator.inventoryRepository
     val tenantContext                = ServiceLocator.tenantContext
 
     val startDestination =
@@ -139,6 +143,7 @@ fun NavGraph(
                 onNavigateToAccounts       = { navController.navigate(Screen.Accounts.route) },
                 onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
                 onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
+                onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
                 onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -275,6 +280,22 @@ fun NavGraph(
         composable(Screen.HouseholdMembers.route) {
             val vm = HouseholdMembersViewModel(householdRepository, tenantContext)
             HouseholdMembersScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── Inventory ─────────────────────────────────────────────────────
+        composable(Screen.Inventory.route) {
+            val vm: InventoryViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return InventoryViewModel(inventoryRepository, tenantContext) as T
+                    }
+                }
+            )
+            InventoryScreen(
                 viewModel      = vm,
                 onNavigateBack = { navController.popBackStack() }
             )

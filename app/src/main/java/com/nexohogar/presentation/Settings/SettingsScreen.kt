@@ -22,7 +22,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
     onChangeHousehold: () -> Unit,
-    onViewMembers: () -> Unit          // ← NUEVO: navega a HouseholdMembersScreen
+    onViewMembers: () -> Unit
 ) {
     val session = remember { sessionManager.fetchSession() }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -33,7 +33,7 @@ fun SettingsScreen(
                 title = { Text("Opciones") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -106,7 +106,6 @@ fun SettingsScreen(
                 subtitle  = "Seleccionar otro hogar",
                 onClick   = onChangeHousehold
             )
-            // ← NUEVO: Ver Miembros
             SettingsItem(
                 icon      = Icons.Default.Group,
                 iconColor = Color(0xFF00695C),
@@ -144,28 +143,35 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "NexoHogar",
+                        text = "NexoHogar",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Gestión financiera familiar · Versión 1.2.0",
+                        text = "Gestión financiera familiar · Versión 1.2.0",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Controla ingresos, gastos y transferencias de tu hogar en un solo lugar.",
+                        text = "Controla ingresos, gastos y transferencias de tu hogar en un solo lugar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    // ── Agrega aquí tus datos personales / de contacto ───────
-                    // Ejemplo:
-                    // Spacer(modifier = Modifier.height(8.dp))
-                    Text("Desarrollado por: ExEkUsS",)
-                    Text("Contacto: contactonexohogar@proton.me",)
-                    // Text("",)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Desarrollado por: ExEkUsS",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Contacto: contactonexohogar@proton.me",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -180,7 +186,7 @@ fun SettingsScreen(
                     contentColor   = MaterialTheme.colorScheme.onErrorContainer
                 )
             ) {
-                Icon(Icons.Default.Logout, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
             }
@@ -191,7 +197,7 @@ fun SettingsScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            icon   = { Icon(Icons.Default.Logout, contentDescription = null) },
+            icon   = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
             title  = { Text("Cerrar sesión") },
             text   = { Text("¿Seguro que quieres cerrar sesión? Deberás ingresar tus credenciales de nuevo.") },
             confirmButton = {

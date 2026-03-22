@@ -14,10 +14,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-/**
- * Service Locator manual.
- * Centraliza la creación de dependencias y expone solo las interfaces de Dominio.
- */
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
 
@@ -96,6 +92,10 @@ object ServiceLocator {
         retrofit.create(RecurringBillsApi::class.java)
     }
 
+    val inventoryApi: InventoryApi by lazy {
+        retrofit.create(InventoryApi::class.java)
+    }
+
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
@@ -110,22 +110,18 @@ object ServiceLocator {
         DashboardRepositoryImpl(dashboardApi)
     }
 
-    // AccountsRepositoryImpl SÍ necesita sessionManager porque AccountsApi
-    // usa @Header("Authorization") explícito (no depende del AuthInterceptor).
     val accountsRepository: AccountsRepository by lazy {
         AccountsRepositoryImpl(accountsApi, sessionManager)
     }
 
     val transactionsRepository: TransactionsRepository by lazy {
         TransactionsRepositoryImpl(
-            api          = transactionsApi,
-            accountsApi  = accountsApi,
+            api            = transactionsApi,
+            accountsApi    = accountsApi,
             sessionManager = sessionManager
         )
     }
 
-    // TransactionDetailRepositoryImpl NO necesita sessionManager porque
-    // TransactionDetailApi confía en el AuthInterceptor para inyectar el token.
     val transactionDetailRepository: TransactionDetailRepository by lazy {
         TransactionDetailRepositoryImpl(transactionDetailApi)
     }
@@ -134,8 +130,11 @@ object ServiceLocator {
         CategoriesRepositoryImpl(categoriesApi)
     }
 
-    // RecurringBillsRepositoryImpl usa AuthInterceptor (sin token explícito).
     val recurringBillsRepository: RecurringBillsRepository by lazy {
         RecurringBillsRepositoryImpl(recurringBillsApi)
+    }
+
+    val inventoryRepository: InventoryRepository by lazy {
+        InventoryRepositoryImpl(inventoryApi)
     }
 }
