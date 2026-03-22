@@ -2,6 +2,7 @@ package com.nexohogar.presentation.inventory
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +43,7 @@ fun InventoryScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Productos", "Registrar", "Sugerencias")
+    val tabs = listOf("Productos", "Registrar", "Categorías", "Sugerencias")
 
     var showAddProductSheet by remember { mutableStateOf(false) }
     var selectedProductForHistory by remember { mutableStateOf<Product?>(null) }
@@ -53,7 +55,7 @@ fun InventoryScreen(
                 title = { Text("Inventario", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -80,7 +82,7 @@ fun InventoryScreen(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab, containerColor = LightBlue) {
+            ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = LightBlue, edgePadding = 0.dp) {
                 tabs.forEachIndexed { i, title ->
                     Tab(
                         selected = selectedTab == i,
@@ -97,15 +99,17 @@ fun InventoryScreen(
                 uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadData() }
                 else -> when (selectedTab) {
                     0 -> ProductsTab(
-                        products = uiState.products,
+                        uiState = uiState,
                         onProductClick = { p ->
                             selectedProductForHistory = p
                             viewModel.loadMovementsForProduct(p)
                         },
-                        onQuickConsume = { p -> productToConsume = p }
+                        onQuickConsume = { p -> productToConsume = p },
+                        onSelectCategory = { viewModel.selectCategory(it) }
                     )
                     1 -> RegisterMovementTab(viewModel = viewModel)
-                    2 -> SuggestionsTab(suggestions = uiState.suggestions)
+                    2 -> CategoryStatsTab(stats = uiState.categoryStats)
+                    3 -> SuggestionsTab(suggestions = uiState.suggestions)
                 }
             }
         }
@@ -136,7 +140,7 @@ fun InventoryScreen(
         QuickConsumeDialog(
             product = product,
             onConfirm = { qty ->
-                viewModel.quickConsume(product.id, qty, product.unit)
+                viewModel.quickConsume(product.id, qty)
                 productToConsume = null
             },
             onDismiss = { productToConsume = null }
@@ -147,33 +151,70 @@ fun InventoryScreen(
 // ─── Pestaña: Productos ────────────────────────────────────────────────────────
 @Composable
 private fun ProductsTab(
-    products: List<Product>,
+    uiState: InventoryUiState,
     onProductClick: (Product) -> Unit,
-    onQuickConsume: (Product) -> Unit
+    onQuickConsume: (Product) -> Unit,
+    onSelectCategory: (String?) -> Unit
 ) {
-    if (products.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Inventory2, contentDescription = null,
-                    tint = Color.Gray, modifier = Modifier.size(64.dp))
-                Spacer(Modifier.height(16.dp))
-                Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp)
-                Text("Toca + para agregar el primero", color = Color.Gray, fontSize = 13.sp)
-            }
-        }
-        return
-    }
+    val products = uiState.filteredProducts
+    val categories = uiState.availableCategories
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(products, key = { it.id }) { product ->
-            ProductCard(
-                product = product,
-                onClick = { onProductClick(product) },
-                onQuickConsume = { onQuickConsume(product) }
-            )
+    Column(Modifier.fillMaxSize()) {
+        // Filtros de categoría (solo si hay categorías)
+        if (categories.isNotEmpty()) {
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = uiState.selectedCategory == null,
+                    onClick = { onSelectCategory(null) },
+                    label = { Text("Todos (${uiState.products.size})") }
+                )
+                categories.forEach { cat ->
+                    val count = uiState.products.count { it.category == cat }
+                    FilterChip(
+                        selected = uiState.selectedCategory == cat,
+                        onClick = { onSelectCategory(if (uiState.selectedCategory == cat) null else cat) },
+                        label = { Text("$cat ($count)") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryBlue.copy(alpha = 0.15f)
+                        )
+                    )
+                }
+            }
+            HorizontalDivider()
+        }
+
+        if (products.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Inventory2, contentDescription = null,
+                        tint = Color.Gray, modifier = Modifier.size(64.dp))
+                    Spacer(Modifier.height(16.dp))
+                    if (uiState.selectedCategory != null) {
+                        Text("Sin productos en \"${uiState.selectedCategory}\"", color = Color.Gray, fontSize = 16.sp)
+                    } else {
+                        Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp)
+                        Text("Toca + para agregar el primero", color = Color.Gray, fontSize = 13.sp)
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(products, key = { it.id }) { product ->
+                    ProductCard(
+                        product = product,
+                        onClick = { onProductClick(product) },
+                        onQuickConsume = { onQuickConsume(product) }
+                    )
+                }
+            }
         }
     }
 }
@@ -199,51 +240,51 @@ private fun ProductCard(
                 product.currentStock < 1  -> Color(0xFFE65100)
                 else -> Color(0xFF2E7D32)
             }
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(stockColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = product.name.take(2).uppercase(),
-                    color = stockColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
+            val stockIcon = when {
+                product.currentStock <= 0 -> Icons.Default.RemoveShoppingCart
+                product.currentStock < 1  -> Icons.Default.Warning
+                else -> Icons.Default.Inventory2
             }
+            Icon(stockIcon, contentDescription = null, tint = stockColor, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(12.dp))
+
+            // Info del producto
             Column(Modifier.weight(1f)) {
                 Text(product.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                if (!product.brand.isNullOrBlank()) {
-                    Text(product.brand, fontSize = 12.sp, color = Color.Gray)
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = String.format("%.2f", product.currentStock),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    "${String.format("%.2f", product.currentStock)} ${product.unit}",
+                    fontSize = 13.sp,
                     color = stockColor
                 )
-                Text(product.unit, fontSize = 12.sp, color = Color.Gray)
-            }
-            Spacer(Modifier.width(4.dp))
-            // ── Botón consumo rápido ──────────────────────────────────────────
-            IconButton(onClick = onQuickConsume) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(RedOut.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Remove,
-                        contentDescription = "Registrar consumo",
-                        tint = RedOut,
-                        modifier = Modifier.size(20.dp)
-                    )
+                // Categoría y marca
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!product.category.isNullOrBlank()) {
+                        Surface(
+                            color = PrimaryBlue.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                product.category,
+                                fontSize = 10.sp,
+                                color = PrimaryBlue,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    if (!product.brand.isNullOrBlank()) {
+                        Text(product.brand, fontSize = 11.sp, color = Color.Gray)
+                    }
                 }
+            }
+
+            // Botón consumo rápido
+            IconButton(onClick = onQuickConsume) {
+                Icon(
+                    Icons.Default.RemoveCircleOutline,
+                    contentDescription = "Registrar consumo",
+                    tint = RedOut,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -456,6 +497,122 @@ private fun RegisterMovementTab(viewModel: InventoryViewModel) {
     }
 }
 
+// ─── Pestaña: Categorías ──────────────────────────────────────────────────────
+@Composable
+private fun CategoryStatsTab(stats: List<CategoryStat>) {
+    if (stats.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.BarChart, contentDescription = null,
+                    tint = PrimaryBlue, modifier = Modifier.size(64.dp)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("Sin estadísticas aún", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Asigna categorías a tus productos y registra compras con precio para ver cuánto gastas en cada categoría.",
+                    fontSize = 13.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+
+    val totalSpent = stats.sumOf { it.totalSpent }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = PrimaryBlue),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Total gastado registrado", color = Color.White, fontSize = 13.sp)
+                    Text(
+                        "$${String.format("%,.0f", totalSpent)}",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
+                    )
+                    Text(
+                        "${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        items(stats, key = { it.category }) { stat ->
+            CategoryStatCard(stat = stat, totalSpent = totalSpent)
+        }
+    }
+}
+
+@Composable
+private fun CategoryStatCard(stat: CategoryStat, totalSpent: Double) {
+    val percentage = if (totalSpent > 0) (stat.totalSpent / totalSpent * 100).toFloat() else 0f
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Category, contentDescription = null,
+                        tint = PrimaryBlue, modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(stat.category, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(
+                            "${stat.productCount} ${if (stat.productCount == 1) "producto" else "productos"}",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "$${String.format("%,.0f", stat.totalSpent)}",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        "${String.format("%.1f", percentage)}%",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { percentage / 100f },
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = PrimaryBlue,
+                trackColor = LightBlue
+            )
+        }
+    }
+}
+
 // ─── Pestaña: Sugerencias ─────────────────────────────────────────────────────
 @Composable
 private fun SuggestionsTab(suggestions: List<PurchaseSuggestion>) {
@@ -509,7 +666,12 @@ private fun SuggestionCard(suggestion: PurchaseSuggestion) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = null,
                     tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(suggestion.product.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Column {
+                    Text(suggestion.product.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    if (!suggestion.product.category.isNullOrBlank()) {
+                        Text(suggestion.product.category, fontSize = 11.sp, color = Color.Gray)
+                    }
+                }
             }
             Spacer(Modifier.height(6.dp))
             Text(
@@ -537,6 +699,7 @@ private fun AddProductSheet(viewModel: InventoryViewModel, onDismiss: () -> Unit
     val form by viewModel.productForm.collectAsState()
     val units = listOf("kg", "gramos", "unidades", "litros", "ml")
     var unitDropdownExpanded by remember { mutableStateOf(false) }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(form.success) {
         if (form.success) onDismiss()
@@ -560,6 +723,43 @@ private fun AddProductSheet(viewModel: InventoryViewModel, onDismiss: () -> Unit
                 leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Categoría
+            ExposedDropdownMenuBox(
+                expanded = categoryDropdownExpanded,
+                onExpandedChange = { categoryDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = form.category,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Categoría (opcional)") },
+                    leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = categoryDropdownExpanded,
+                    onDismissRequest = { categoryDropdownExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Sin categoría") },
+                        onClick = {
+                            viewModel.onProductCategoryChange("")
+                            categoryDropdownExpanded = false
+                        }
+                    )
+                    INVENTORY_CATEGORIES.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat) },
+                            onClick = {
+                                viewModel.onProductCategoryChange(cat)
+                                categoryDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             // Unidad de medida
             ExposedDropdownMenuBox(
@@ -604,9 +804,7 @@ private fun AddProductSheet(viewModel: InventoryViewModel, onDismiss: () -> Unit
                 label = { Text("Cantidad inicial (opcional)") },
                 placeholder = { Text("Ej: 2.5") },
                 suffix = { Text(form.unit) },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -648,13 +846,28 @@ private fun ProductHistorySheet(
                 .padding(bottom = 32.dp)
         ) {
             Text(product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(
-                "Stock actual: ${String.format("%.2f", product.currentStock)} ${product.unit}",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+                if (!product.category.isNullOrBlank()) {
+                    Surface(
+                        color = PrimaryBlue.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            product.category,
+                            fontSize = 10.sp,
+                            color = PrimaryBlue,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(12.dp))
-            Divider()
+            HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
             when {

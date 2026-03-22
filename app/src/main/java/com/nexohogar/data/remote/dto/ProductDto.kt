@@ -9,6 +9,7 @@ data class ProductDto(
     @SerializedName("name")         val name: String,
     @SerializedName("unit")         val unit: String,
     @SerializedName("brand")        val brand: String? = null,
+    @SerializedName("category")     val category: String? = null,
     @SerializedName("notes")        val notes: String? = null,
     @SerializedName("created_at")   val createdAt: String? = null
 ) {
@@ -18,6 +19,7 @@ data class ProductDto(
         name = name,
         unit = unit,
         brand = brand,
+        category = category,
         notes = notes,
         createdAt = createdAt,
         currentStock = currentStock
