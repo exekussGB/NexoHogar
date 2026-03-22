@@ -29,7 +29,7 @@ class AccountsRepositoryImpl(
                 // Excluir cuentas internas del sistema
                 .filter { dto ->
                     val nameLower = dto.name.lowercase()
-                    !nameLower.startsWith("_system_") && nameLower != "_system_expense_" && nameLower != "_system_income_"
+                    !nameLower.contains("system")
                 }
                 .map { dto ->
                     AccountBalance(
