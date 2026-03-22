@@ -22,7 +22,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,8 +37,7 @@ import java.util.*
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onTransactionClick: (String) -> Unit,
-    onSeeAllClick: () -> Unit,
-    onCreateTransaction: (String) -> Unit
+    onSeeAllClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
@@ -69,9 +67,6 @@ fun DashboardScreen(
                 MonthlyChart(monthlyData = uiState.monthlyBalance)
             }
             item {
-                QuickActionsRow(onActionClick = onCreateTransaction)
-            }
-            item {
                 RecentTransactionsList(
                     transactions = uiState.recentTransactions,
                     format = clpFormat,
@@ -93,7 +88,7 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -137,7 +132,7 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MonthlyChart — con tooltip al pinchar una barra
+// MonthlyChart — con tooltip al tocar una barra
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -145,7 +140,6 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
-    // índice de la barra seleccionada; null = ninguna
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     Card(
@@ -154,7 +148,6 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // ── Título + botón para cerrar tooltip ─────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -170,20 +163,19 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                         onClick = { selectedIndex = null },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text("✕  cerrar", style = MaterialTheme.typography.labelSmall)
+                        Text("✕ cerrar", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Tooltip flotante ───────────────────────────────────────────
             val selIdx = selectedIndex
             if (selIdx != null) {
                 val item = monthlyData.getOrNull(selIdx)
                 if (item != null) {
                     val monthName = monthNames.getOrElse(item.monthNum - 1) { "?" }
-                    val netColor  = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+                    val netColor = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -228,7 +220,6 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                 }
             }
 
-            // ── Estado vacío ───────────────────────────────────────────────
             val hasData = monthlyData.any { it.net != 0L }
             if (!hasData) {
                 Box(
@@ -254,11 +245,10 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                 return@Column
             }
 
-            // ── Canvas con barras y detección de toques ────────────────────
             val positiveColor = Color(0xFF4CAF50)
             val negativeColor = Color(0xFFF44336)
             val selectedColor = Color(0xFF1565C0)
-            val labelColor    = Color(0xFF757575)
+            val labelColor = Color(0xFF757575)
             val maxAbs = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
 
             Canvas(
@@ -271,117 +261,66 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                             if (count == 0) return@detectTapGestures
                             val slotW = size.width / count.toFloat()
                             val tapped = (offset.x / slotW).toInt().coerceIn(0, count - 1)
-                            // segundo toque en la misma barra: deselecciona
                             selectedIndex = if (selectedIndex == tapped) null else tapped
                         }
                     }
             ) {
-                val count      = monthlyData.size
-                val slotWidth  = size.width / count
-                val barWidth   = slotWidth * 0.5f
-                val barAreaH   = size.height * 0.72f
-                val baselineY  = size.height * 0.72f
-                val labelY     = size.height - 4f
+                val count = monthlyData.size
+                val slotWidth = size.width / count
+                val barWidth = slotWidth * 0.5f
+                val barAreaH = size.height * 0.72f
+                val baselineY = size.height * 0.72f
+                val labelY = size.height - 4f
 
-                // Línea base
                 drawLine(
-                    color       = Color(0xFFBDBDBD),
-                    start       = Offset(0f, baselineY),
-                    end         = Offset(size.width, baselineY),
+                    color = Color(0xFFBDBDBD),
+                    start = Offset(0f, baselineY),
+                    end = Offset(size.width, baselineY),
                     strokeWidth = 1.5f
                 )
 
                 monthlyData.forEachIndexed { i, item ->
                     val isSelected = (selectedIndex == i)
-                    val centerX   = slotWidth * i + slotWidth / 2f
-                    val barLeft   = centerX - barWidth / 2f
-                    val fraction  = item.net.toFloat() / maxAbs.toFloat()
-                    val barH      = kotlin.math.abs(fraction) * barAreaH * 0.85f
-                    val topY      = if (item.net >= 0) baselineY - barH else baselineY
+                    val centerX = slotWidth * i + slotWidth / 2f
+                    val barLeft = centerX - barWidth / 2f
+                    val fraction = item.net.toFloat() / maxAbs.toFloat()
+                    val barH = kotlin.math.abs(fraction) * barAreaH * 0.85f
+                    val topY = if (item.net >= 0) baselineY - barH else baselineY
 
                     val barColor = when {
-                        isSelected  -> selectedColor
+                        isSelected -> selectedColor
                         item.net >= 0 -> positiveColor
-                        else          -> negativeColor
+                        else -> negativeColor
                     }
-                    // barras no seleccionadas se atenúan cuando hay una selección
                     val alpha = when {
-                        isSelected            -> 1f
+                        isSelected -> 1f
                         selectedIndex != null -> 0.35f
-                        i == count - 1        -> 1f
-                        else                  -> 0.75f
+                        i == count - 1 -> 1f
+                        else -> 0.75f
                     }
 
                     drawRect(
-                        color    = barColor,
-                        topLeft  = Size(barLeft, topY).let { Offset(barLeft, topY) },
-                        size     = Size(barWidth, barH),
-                        alpha    = alpha
+                        color = barColor,
+                        topLeft = Offset(barLeft, topY),
+                        size = Size(barWidth, barH),
+                        alpha = alpha
                     )
 
-                    // Etiqueta mes
                     val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
                     drawContext.canvas.nativeCanvas.drawText(
                         label,
                         centerX,
                         labelY,
                         android.graphics.Paint().apply {
-                            color     = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
+                            color = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
                             else labelColor.toArgb()
-                            textSize  = 28f
+                            textSize = 28f
                             textAlign = android.graphics.Paint.Align.CENTER
                             isAntiAlias = true
                         }
                     )
                 }
             }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// QuickActionsRow
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-fun QuickActionsRow(onActionClick: (String) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        QuickActionItem(Modifier.weight(1f), "Ingreso",  Icons.Default.ArrowDownward, Color(0xFF4CAF50)) { onActionClick("income") }
-        QuickActionItem(Modifier.weight(1f), "Gasto",    Icons.Default.ArrowUpward,   Color(0xFFF44336)) { onActionClick("expense") }
-        QuickActionItem(Modifier.weight(1f), "Traspaso", Icons.Default.SwapHoriz,     Color(0xFF2196F3)) { onActionClick("transfer") }
-        QuickActionItem(Modifier.weight(1f), "Tarjeta",  Icons.Default.CreditCard,    Color(0xFF9C27B0)) { onActionClick("credit_payment") }
-    }
-}
-
-@Composable
-private fun QuickActionItem(
-    modifier: Modifier,
-    label: String,
-    icon: ImageVector,
-    color: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .aspectRatio(1f)
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = label, tint = color, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = label, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1)
         }
     }
 }

@@ -32,7 +32,7 @@ object ServiceLocator {
     private val context: Context
         get() = databaseContext ?: throw IllegalStateException("ServiceLocator must be initialized with context")
 
-    // --- Core & Local ---
+    // ── Core & Local ──────────────────────────────────────────────────────────
 
     val sessionManager: SessionManager by lazy {
         SessionManager(context)
@@ -42,7 +42,7 @@ object ServiceLocator {
         TenantContext(sessionManager)
     }
 
-    // --- Network ---
+    // ── Network ───────────────────────────────────────────────────────────────
 
     private val authInterceptor: AuthInterceptor by lazy {
         AuthInterceptor(sessionManager)
@@ -65,6 +65,8 @@ object ServiceLocator {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
+
+    // ── API interfaces ────────────────────────────────────────────────────────
 
     val authApi: AuthApi by lazy {
         retrofit.create(AuthApi::class.java)
@@ -90,7 +92,11 @@ object ServiceLocator {
         retrofit.create(CategoriesApi::class.java)
     }
 
-    // --- Repositories (Exponiendo interfaces de Dominio) ---
+    val recurringBillsApi: RecurringBillsApi by lazy {
+        retrofit.create(RecurringBillsApi::class.java)
+    }
+
+    // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
         AuthRepositoryImpl(authApi, sessionManager)
@@ -112,8 +118,8 @@ object ServiceLocator {
 
     val transactionsRepository: TransactionsRepository by lazy {
         TransactionsRepositoryImpl(
-            api = transactionsApi,
-            accountsApi = accountsApi,
+            api          = transactionsApi,
+            accountsApi  = accountsApi,
             sessionManager = sessionManager
         )
     }
@@ -126,5 +132,10 @@ object ServiceLocator {
 
     val categoriesRepository: CategoriesRepository by lazy {
         CategoriesRepositoryImpl(categoriesApi)
+    }
+
+    // RecurringBillsRepositoryImpl usa AuthInterceptor (sin token explícito).
+    val recurringBillsRepository: RecurringBillsRepository by lazy {
+        RecurringBillsRepositoryImpl(recurringBillsApi)
     }
 }
