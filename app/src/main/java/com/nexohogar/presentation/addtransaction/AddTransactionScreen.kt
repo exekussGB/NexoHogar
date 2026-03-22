@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
+import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.presentation.addmovement.AddMovementViewModel
 import com.nexohogar.presentation.addmovement.TransactionType
 import com.nexohogar.presentation.components.LoadingOverlay
@@ -28,9 +30,9 @@ fun AddTransactionScreen(
     viewModel: AddMovementViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState    by viewModel.uiState.collectAsState()
     val categories by viewModel.filteredCategories.collectAsState()
-    val context = LocalContext.current
+    val context    = LocalContext.current
 
     LaunchedEffect(key1 = transactionType) {
         val type = when (transactionType) {
@@ -71,26 +73,26 @@ fun AddTransactionScreen(
         AlertDialog(
             onDismissRequest = { viewModel.onDismissCreateCategoryDialog() },
             title = { Text("Nueva Categoría") },
-            text = {
+            text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Tipo: ${if (uiState.type == TransactionType.INCOME) "Ingreso" else "Gasto"}",
+                        text  = "Tipo: ${if (uiState.type == TransactionType.INCOME) "Ingreso" else "Gasto"}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     OutlinedTextField(
-                        value = uiState.newCategoryName,
+                        value         = uiState.newCategoryName,
                         onValueChange = { viewModel.onNewCategoryNameChange(it) },
-                        label = { Text("Nombre de la categoría") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        label         = { Text("Nombre de la categoría") },
+                        singleLine    = true,
+                        modifier      = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.createCategory() },
-                    enabled = uiState.newCategoryName.isNotBlank() && !uiState.isSavingCategory
+                    onClick  = { viewModel.createCategory() },
+                    enabled  = uiState.newCategoryName.isNotBlank() && !uiState.isSavingCategory
                 ) {
                     if (uiState.isSavingCategory) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -115,7 +117,7 @@ fun AddTransactionScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver"
                         )
                     }
@@ -127,7 +129,7 @@ fun AddTransactionScreen(
             if (uiState.accounts.isEmpty() && !uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Crea una cuenta antes de agregar movimientos.",
+                        text  = "Crea una cuenta antes de agregar movimientos.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -142,18 +144,18 @@ fun AddTransactionScreen(
                 ) {
                     // Cuenta Origen / Destino
                     AccountDropdown(
-                        label = accountLabel,
-                        accounts = uiState.accounts,
-                        selectedAccount = uiState.selectedFromAccount,
+                        label             = accountLabel,
+                        accounts          = uiState.accounts,
+                        selectedAccount   = uiState.selectedFromAccount,
                         onAccountSelected = { viewModel.onFromAccountSelected(it) }
                     )
 
                     // Segunda cuenta si es transferencia
                     if (uiState.type == TransactionType.TRANSFER) {
                         AccountDropdown(
-                            label = "Cuenta Destino",
-                            accounts = uiState.accounts,
-                            selectedAccount = uiState.selectedToAccount,
+                            label             = "Cuenta Destino",
+                            accounts          = uiState.accounts,
+                            selectedAccount   = uiState.selectedToAccount,
                             onAccountSelected = { viewModel.onToAccountSelected(it) }
                         )
                     }
@@ -161,27 +163,37 @@ fun AddTransactionScreen(
                     // Categoría (solo income/expense)
                     if (uiState.type != TransactionType.TRANSFER) {
                         CategoryDropdown(
-                            label = "Categoría",
-                            categories = categories,
-                            selectedCategory = uiState.selectedCategory,
+                            label              = "Categoría",
+                            categories         = categories,
+                            selectedCategory   = uiState.selectedCategory,
                             onCategorySelected = { viewModel.onCategorySelected(it) },
-                            onCreateCategory = { viewModel.onShowCreateCategoryDialog() }
+                            onCreateCategory   = { viewModel.onShowCreateCategoryDialog() }
+                        )
+                    }
+
+                    // ── Enlazar cuenta recurrente (solo para gastos con cuentas pendientes) ──
+                    if (uiState.type == TransactionType.EXPENSE && uiState.recurringBills.isNotEmpty()) {
+                        RecurringBillDropdown(
+                            bills              = uiState.recurringBills,
+                            selectedBill       = uiState.linkedRecurringBill,
+                            onBillSelected     = { viewModel.onRecurringBillSelected(it) },
+                            onClearSelection   = { viewModel.onRecurringBillSelected(null) }
                         )
                     }
 
                     OutlinedTextField(
-                        value = uiState.amount,
+                        value         = uiState.amount,
                         onValueChange = { viewModel.onAmountChange(it) },
-                        label = { Text("Monto") },
+                        label         = { Text("Monto") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier      = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
-                        value = uiState.description,
+                        value         = uiState.description,
                         onValueChange = { viewModel.onDescriptionChange(it) },
-                        label = { Text("Descripción (opcional)") },
-                        modifier = Modifier.fillMaxWidth()
+                        label         = { Text("Descripción (opcional)") },
+                        modifier      = Modifier.fillMaxWidth()
                     )
 
                     val isButtonEnabled = remember(uiState) {
@@ -194,9 +206,9 @@ fun AddTransactionScreen(
                     }
 
                     Button(
-                        onClick = { viewModel.saveTransaction() },
+                        onClick  = { viewModel.saveTransaction() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isLoading && isButtonEnabled
+                        enabled  = !uiState.isLoading && isButtonEnabled
                     ) {
                         Text("Guardar Movimiento")
                     }
@@ -221,26 +233,26 @@ fun AccountDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
-        expanded = expanded,
+        expanded         = expanded,
         onExpandedChange = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth()
+        modifier         = Modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
-            value = selectedAccount?.name ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-            modifier = Modifier.menuAnchor().fillMaxWidth()
+            value            = selectedAccount?.name ?: "",
+            onValueChange    = {},
+            readOnly         = true,
+            label            = { Text(label) },
+            trailingIcon     = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors           = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier         = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(
-            expanded = expanded,
+            expanded         = expanded,
             onDismissRequest = { expanded = false }
         ) {
             accounts.forEach { account ->
                 DropdownMenuItem(
-                    text = { Text(account.name) },
+                    text    = { Text(account.name) },
                     onClick = {
                         onAccountSelected(account)
                         expanded = false
@@ -265,21 +277,21 @@ fun CategoryDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
-        expanded = expanded,
+        expanded         = expanded,
         onExpandedChange = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth()
+        modifier         = Modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
-            value = selectedCategory?.name ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-            modifier = Modifier.menuAnchor().fillMaxWidth()
+            value            = selectedCategory?.name ?: "",
+            onValueChange    = {},
+            readOnly         = true,
+            label            = { Text(label) },
+            trailingIcon     = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors           = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier         = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(
-            expanded = expanded,
+            expanded         = expanded,
             onDismissRequest = { expanded = false }
         ) {
             // Opción para crear nueva categoría
@@ -287,15 +299,15 @@ fun CategoryDropdown(
                 text = {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment     = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector        = Icons.Default.Add,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint               = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Nueva categoría…",
+                            text  = "Nueva categoría…",
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -312,7 +324,7 @@ fun CategoryDropdown(
                         Column {
                             Text(category.name)
                             Text(
-                                text = when (category.type) {
+                                text  = when (category.type) {
                                     "expense" -> "Gasto"
                                     "income"  -> "Ingreso"
                                     else      -> category.type
@@ -326,6 +338,92 @@ fun CategoryDropdown(
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+// ── RecurringBillDropdown ────────────────────────────────────────────────────
+//
+// Aparece solo si hay cuentas recurrentes pendientes de pago y el tipo es EXPENSE.
+// Permite al usuario vincular este gasto a una cuenta recurrente para marcarla
+// automáticamente como pagada al guardar.
+//
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecurringBillDropdown(
+    bills: List<RecurringBill>,
+    selectedBill: RecurringBill?,
+    onBillSelected: (RecurringBill) -> Unit,
+    onClearSelection: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text  = "¿Corresponde a una cuenta recurrente?",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        ExposedDropdownMenuBox(
+            expanded         = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier         = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value            = selectedBill?.name ?: "No vincular",
+                onValueChange    = {},
+                readOnly         = true,
+                label            = { Text("Cuenta recurrente (opcional)") },
+                trailingIcon = {
+                    if (selectedBill != null) {
+                        IconButton(onClick = { onClearSelection(); expanded = false }) {
+                            Icon(
+                                imageVector        = Icons.Default.Close,
+                                contentDescription = "Quitar vínculo",
+                                tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    }
+                },
+                colors           = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                modifier         = Modifier.menuAnchor().fillMaxWidth(),
+                supportingText   = if (selectedBill != null) {
+                    { Text("✓ Se marcará como pagada al guardar") }
+                } else null
+            )
+            ExposedDropdownMenu(
+                expanded         = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                // Opción "no vincular"
+                DropdownMenuItem(
+                    text    = { Text("No vincular", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    onClick = { onClearSelection(); expanded = false }
+                )
+                HorizontalDivider()
+                bills.forEach { bill ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(bill.name)
+                                Text(
+                                    text  = "Vence día ${bill.dueDayOfMonth} · ${"$%,d".format(bill.amountClp)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            onBillSelected(bill)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }
