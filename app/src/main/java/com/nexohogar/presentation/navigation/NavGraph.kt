@@ -18,6 +18,8 @@ import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
+import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
+import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.HubScreen
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
 import com.nexohogar.presentation.invitemember.InviteMemberViewModel
@@ -37,16 +39,17 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 // Rutas de la app
 // ---------------------------------------------------------------------------
 sealed class Screen(val route: String) {
-    object Login          : Screen("login")
-    object Register       : Screen("register")
-    object Household      : Screen("household")
-    object Hub            : Screen("hub")
-    object Dashboard      : Screen("dashboard")
-    object Accounts       : Screen("accounts")
-    object Transactions   : Screen("transactions")
-    object InviteMember   : Screen("invite_member")
-    object RecurringBills : Screen("recurring_bills")
-    object Settings       : Screen("settings")
+    object Login             : Screen("login")
+    object Register          : Screen("register")
+    object Household         : Screen("household")
+    object Hub               : Screen("hub")
+    object Dashboard         : Screen("dashboard")
+    object Accounts          : Screen("accounts")
+    object Transactions      : Screen("transactions")
+    object InviteMember      : Screen("invite_member")
+    object RecurringBills    : Screen("recurring_bills")
+    object Settings          : Screen("settings")
+    object HouseholdMembers  : Screen("household_members")   // ← NUEVO
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -73,17 +76,11 @@ fun NavGraph(
     val categoriesRepository        = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
     val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
-    val tenantContext               = ServiceLocator.tenantContext
+    val tenantContext                = ServiceLocator.tenantContext
 
-    // ── Destino inicial ──────────────────────────────────────────────────────
-    // Si no hay token → Login
-    // Si el token está expirado → Login  (el AuthInterceptor intentará renovarlo
-    //   si el usuario estaba con la app abierta; si no puede, borra la sesión)
-    val startDestination = when {
-        sessionManager.fetchAuthToken() == null -> Screen.Login.route
-        sessionManager.isTokenExpired()         -> Screen.Login.route
-        else                                    -> Screen.Household.route
-    }
+    val startDestination =
+        if (sessionManager.fetchAuthToken() != null) Screen.Household.route
+        else Screen.Login.route
 
     NavHost(
         navController    = navController,
@@ -196,7 +193,6 @@ fun NavGraph(
                         return AddMovementViewModel(
                             transactionsRepository,
                             categoriesRepository,
-                            recurringBillsRepository,   // ← nuevo parámetro
                             tenantContext
                         ) as T
                     }
@@ -269,7 +265,17 @@ fun NavGraph(
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Hub.route) { inclusive = true }
                     }
-                }
+                },
+                onViewMembers     = { navController.navigate(Screen.HouseholdMembers.route) }
+            )
+        }
+
+        // ── HouseholdMembers ───────────────────────────────────────────────
+        composable(Screen.HouseholdMembers.route) {
+            val vm = HouseholdMembersViewModel(householdRepository, tenantContext)
+            HouseholdMembersScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

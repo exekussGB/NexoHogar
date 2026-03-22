@@ -3,10 +3,16 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Notificaciones en Android 13+ (API 33+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- WorkManager necesita este permiso para reagendarse tras reinicio -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".NexoHogarApp"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher_foreground"
         android:label="NexoHogar"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
@@ -22,6 +28,12 @@
             </intent-filter>
 
         </activity>
+
+        <!--
+            WorkManager registra su propio ContentProvider automáticamente.
+            No es necesario declarar el Worker aquí — WorkManager lo descubre
+            a través del classpath.
+        -->
 
     </application>
 
