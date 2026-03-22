@@ -193,6 +193,7 @@ fun NavGraph(
                         return AddMovementViewModel(
                             transactionsRepository,
                             categoriesRepository,
+                            recurringBillsRepository,
                             tenantContext
                         ) as T
                     }
