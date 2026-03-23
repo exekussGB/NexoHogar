@@ -100,7 +100,7 @@ class InventoryViewModel(
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
-    private val householdId: String get() = tenantContext.householdId ?: ""
+    private val householdId: String get() = tenantContext.getCurrentHouseholdId() ?: ""
 
     private val _uiState = MutableStateFlow(InventoryUiState())
     val uiState: StateFlow<InventoryUiState> = _uiState.asStateFlow()
