@@ -45,7 +45,6 @@ fun InventoryScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Productos", "Registrar", "Categorías", "Sugerencias")
 
-    var showAddProductSheet by remember { mutableStateOf(false) }
     var selectedProductForHistory by remember { mutableStateOf<Product?>(null) }
     var productToConsume by remember { mutableStateOf<Product?>(null) }
 
@@ -69,17 +68,8 @@ fun InventoryScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (selectedTab == 0) {
-                FloatingActionButton(
-                    onClick = { showAddProductSheet = true },
-                    containerColor = PrimaryBlue
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Agregar producto", tint = Color.White)
-                }
-            }
         }
+        // Sin floatingActionButton — todo el ingreso es desde la pestaña Registrar
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = LightBlue, edgePadding = 0.dp) {
@@ -107,23 +97,16 @@ fun InventoryScreen(
                         onQuickConsume = { p -> productToConsume = p },
                         onSelectCategory = { viewModel.selectCategory(it) }
                     )
-                    1 -> RegisterMovementTab(viewModel = viewModel, allProducts = uiState.products)
+                    1 -> RegisterTab(
+                        viewModel = viewModel,
+                        allProducts = uiState.products,
+                        onRegistered = { selectedTab = 0 }
+                    )
                     2 -> CategoryStatsTab(stats = uiState.categoryStats)
                     3 -> SuggestionsTab(suggestions = uiState.suggestions)
                 }
             }
         }
-    }
-
-    // ─── Hoja de agregar producto ───────────────────────────────────────────────
-    if (showAddProductSheet) {
-        AddProductSheet(
-            viewModel = viewModel,
-            onDismiss = {
-                showAddProductSheet = false
-                viewModel.resetProductForm()
-            }
-        )
     }
 
     // ─── Hoja de historial de producto ─────────────────────────────────────────
@@ -148,7 +131,7 @@ fun InventoryScreen(
     }
 }
 
-// ─── Pestaña: Productos ────────────────────────────────────────────────────────
+// ─── Pestaña: Productos (solo muestra stock) ───────────────────────────────────
 @Composable
 private fun ProductsTab(
     uiState: InventoryUiState,
@@ -160,7 +143,7 @@ private fun ProductsTab(
     val categories = uiState.availableCategories
 
     Column(Modifier.fillMaxSize()) {
-        // Filtros de categoría (solo si hay categorías)
+        // Filtros de categoría
         if (categories.isNotEmpty()) {
             Row(
                 Modifier
@@ -190,15 +173,16 @@ private fun ProductsTab(
 
         if (products.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Icon(Icons.Default.Inventory2, contentDescription = null,
                         tint = Color.Gray, modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(16.dp))
                     if (uiState.selectedCategory != null) {
                         Text("Sin productos en \"${uiState.selectedCategory}\"", color = Color.Gray, fontSize = 16.sp)
                     } else {
-                        Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp)
-                        Text("Toca + para agregar el primero", color = Color.Gray, fontSize = 13.sp)
+                        Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Ve a la pestaña Registrar para agregar tu primera compra", color = Color.Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -227,13 +211,13 @@ private fun ProductCard(
     onQuickConsume: () -> Unit
 ) {
     val stockColor = when {
-        product.currentStock <= 0    -> Color(0xFFC62828)
-        product.currentStock < 1.0   -> Color(0xFFE65100)
-        else                         -> Color(0xFF2E7D32)
+        product.currentStock <= 0  -> Color(0xFFC62828)
+        product.currentStock < 1.0 -> Color(0xFFE65100)
+        else                       -> Color(0xFF2E7D32)
     }
     val stockLabel = when {
-        product.currentStock <= 0    -> "Sin stock"
-        else                         -> String.format("%.2f", product.currentStock).trimEnd('0').trimEnd('.')
+        product.currentStock <= 0 -> "Sin stock"
+        else -> String.format("%.2f", product.currentStock).trimEnd('0').trimEnd('.')
     }
 
     Card(
@@ -250,15 +234,9 @@ private fun ProductCard(
         ) {
             // Info principal
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                // Nombre del producto
-                Text(
-                    text = product.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(0xFF212121)
-                )
+                Text(product.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF212121))
 
-                // Stock prominente
+                // Stock en número grande
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = stockLabel,
@@ -278,19 +256,12 @@ private fun ProductCard(
                     }
                 }
 
-                // Categoría y marca (secundario)
+                // Categoría y marca (info secundaria)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!product.category.isNullOrBlank()) {
-                        Surface(
-                            color = PrimaryBlue.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                product.category,
-                                fontSize = 10.sp,
-                                color = PrimaryBlue,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                        Surface(color = PrimaryBlue.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
+                            Text(product.category, fontSize = 10.sp, color = PrimaryBlue,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                         }
                     }
                     if (!product.brand.isNullOrBlank()) {
@@ -301,16 +272,9 @@ private fun ProductCard(
 
             // Botón consumo rápido
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(
-                    onClick = onQuickConsume,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        Icons.Default.RemoveCircleOutline,
-                        contentDescription = "Registrar consumo",
-                        tint = RedOut,
-                        modifier = Modifier.size(26.dp)
-                    )
+                IconButton(onClick = onQuickConsume, modifier = Modifier.size(44.dp)) {
+                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Registrar consumo",
+                        tint = RedOut, modifier = Modifier.size(26.dp))
                 }
                 Text("consumir", fontSize = 9.sp, color = Color.Gray)
             }
@@ -333,11 +297,8 @@ private fun QuickConsumeDialog(
         title = { Text("Consumir: ${product.name}", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Stock actual: ${String.format("%.2f", product.currentStock)} ${product.unit}",
-                    color = Color.Gray,
-                    fontSize = 13.sp
-                )
+                Text("Stock actual: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                    color = Color.Gray, fontSize = 13.sp)
                 OutlinedTextField(
                     value = qty,
                     onValueChange = { qty = it },
@@ -353,28 +314,54 @@ private fun QuickConsumeDialog(
             TextButton(
                 onClick = { qtyDouble?.let { if (it > 0) onConfirm(it) } },
                 enabled = qtyDouble != null && qtyDouble > 0
-            ) {
-                Text("Confirmar", color = RedOut, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("Confirmar", color = RedOut, fontWeight = FontWeight.Bold) }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }
 
-// ─── Pestaña: Registrar movimiento ────────────────────────────────────────────
+// ─── Pestaña: Registrar ────────────────────────────────────────────────────────
+// Permite registrar compras y consumos para productos existentes,
+// Y también crear un producto nuevo directamente con su primera compra.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RegisterMovementTab(
+private fun RegisterTab(
     viewModel: InventoryViewModel,
-    allProducts: List<Product>
+    allProducts: List<Product>,
+    onRegistered: () -> Unit
 ) {
-    val form by viewModel.movementForm.collectAsState()
-    var productDropdownExpanded by remember { mutableStateOf(false) }
+    val movForm by viewModel.movementForm.collectAsState()
+    val prodForm by viewModel.productForm.collectAsState()
 
-    LaunchedEffect(form.success) {
-        if (form.success) viewModel.resetMovementForm()
+    // true = crear producto nuevo, false = producto existente
+    var isNewProduct by remember { mutableStateOf(false) }
+    // Tipo de operación: "in" = Compra, "out" = Consumo
+    var movementType by remember { mutableStateOf("in") }
+
+    var productDropdownExpanded by remember { mutableStateOf(false) }
+    var unitDropdownExpanded by remember { mutableStateOf(false) }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+    val units = listOf("kg", "gramos", "unidades", "litros", "ml")
+
+    // Cuando el tipo cambia a "Consumo", forzar modo producto existente
+    LaunchedEffect(movementType) {
+        if (movementType == "out") isNewProduct = false
+        viewModel.onMovementTypeChange(movementType)
+    }
+
+    // Resetear formularios al cambiar modo
+    LaunchedEffect(isNewProduct) {
+        viewModel.resetProductForm()
+        viewModel.resetMovementForm()
+        viewModel.onMovementTypeChange(movementType)
+    }
+
+    // Volver a Productos al registrar exitosamente
+    LaunchedEffect(movForm.success) {
+        if (movForm.success) { viewModel.resetMovementForm(); onRegistered() }
+    }
+    LaunchedEffect(prodForm.success) {
+        if (prodForm.success) { viewModel.resetProductForm(); onRegistered() }
     }
 
     Column(
@@ -386,246 +373,380 @@ private fun RegisterMovementTab(
     ) {
         Text("¿Qué quieres registrar?", fontWeight = FontWeight.Bold, fontSize = 17.sp)
 
-        // ── Selector tipo de movimiento (2 tarjetas grandes) ────────────────
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Compra
-            val isCompra = form.movementType == "in"
+        // ── Selector: Compra / Consumo ────────────────────────────────────────
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val isCompra = movementType == "in"
             Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { viewModel.onMovementTypeChange("in") },
+                modifier = Modifier.weight(1f).clickable { movementType = "in" },
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isCompra) GreenIn else Color(0xFFF5F5F5)
-                ),
+                colors = CardDefaults.cardColors(containerColor = if (isCompra) GreenIn else Color(0xFFF5F5F5)),
                 elevation = CardDefaults.cardElevation(if (isCompra) 4.dp else 1.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        Icons.Default.ShoppingCart,
-                        contentDescription = null,
-                        tint = if (isCompra) Color.White else GreenIn,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        "Compra",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = if (isCompra) Color.White else GreenIn
-                    )
-                    Text(
-                        "Agregar stock",
-                        fontSize = 11.sp,
-                        color = if (isCompra) Color.White.copy(alpha = 0.8f) else Color.Gray
-                    )
+                Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null,
+                        tint = if (isCompra) Color.White else GreenIn, modifier = Modifier.size(32.dp))
+                    Text("Compra", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                        color = if (isCompra) Color.White else GreenIn)
+                    Text("Agregar stock", fontSize = 11.sp,
+                        color = if (isCompra) Color.White.copy(alpha = 0.8f) else Color.Gray)
                 }
             }
 
-            // Consumo
-            val isConsumo = form.movementType == "out"
+            val isConsumo = movementType == "out"
             Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { viewModel.onMovementTypeChange("out") },
+                modifier = Modifier.weight(1f).clickable { movementType = "out" },
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isConsumo) RedOut else Color(0xFFF5F5F5)
-                ),
+                colors = CardDefaults.cardColors(containerColor = if (isConsumo) RedOut else Color(0xFFF5F5F5)),
                 elevation = CardDefaults.cardElevation(if (isConsumo) 4.dp else 1.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Default.RemoveShoppingCart, contentDescription = null,
+                        tint = if (isConsumo) Color.White else RedOut, modifier = Modifier.size(32.dp))
+                    Text("Consumo", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                        color = if (isConsumo) Color.White else RedOut)
+                    Text("Descontar stock", fontSize = 11.sp,
+                        color = if (isConsumo) Color.White.copy(alpha = 0.8f) else Color.Gray)
+                }
+            }
+        }
+
+        // ── Toggle: Producto existente / Producto nuevo (solo en Compra) ──────
+        if (movementType == "in") {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { isNewProduct = false },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (!isNewProduct) PrimaryBlue.copy(alpha = 0.1f) else Color.Transparent
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, if (!isNewProduct) PrimaryBlue else Color.Gray
+                    )
                 ) {
-                    Icon(
-                        Icons.Default.RemoveShoppingCart,
-                        contentDescription = null,
-                        tint = if (isConsumo) Color.White else RedOut,
-                        modifier = Modifier.size(32.dp)
+                    Icon(Icons.Default.Inventory2, contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (!isNewProduct) PrimaryBlue else Color.Gray)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Existente", fontSize = 13.sp,
+                        color = if (!isNewProduct) PrimaryBlue else Color.Gray)
+                }
+                OutlinedButton(
+                    onClick = { isNewProduct = true },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isNewProduct) GreenIn.copy(alpha = 0.1f) else Color.Transparent
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, if (isNewProduct) GreenIn else Color.Gray
                     )
-                    Text(
-                        "Consumo",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = if (isConsumo) Color.White else RedOut
-                    )
-                    Text(
-                        "Descontar stock",
-                        fontSize = 11.sp,
-                        color = if (isConsumo) Color.White.copy(alpha = 0.8f) else Color.Gray
-                    )
+                ) {
+                    Icon(Icons.Default.AddCircleOutline, contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (isNewProduct) GreenIn else Color.Gray)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Nuevo producto", fontSize = 13.sp,
+                        color = if (isNewProduct) GreenIn else Color.Gray)
                 }
             }
         }
 
         HorizontalDivider()
 
-        // ── Formulario ──────────────────────────────────────────────────────
-
-        // Selector de producto
-        ExposedDropdownMenuBox(
-            expanded = productDropdownExpanded,
-            onExpandedChange = { productDropdownExpanded = it }
-        ) {
-            OutlinedTextField(
-                value = form.selectedProduct?.name ?: "",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Producto *") },
-                placeholder = { Text("Selecciona un producto") },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Inventory2,
-                        contentDescription = null,
-                        tint = if (form.movementType == "in") GreenIn else RedOut
-                    )
-                },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productDropdownExpanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor()
-            )
-            ExposedDropdownMenu(
+        // ══════════════════════════════════════════════════════════════════════
+        // FORMULARIO: Producto existente
+        // ══════════════════════════════════════════════════════════════════════
+        if (!isNewProduct) {
+            // Selector de producto
+            ExposedDropdownMenuBox(
                 expanded = productDropdownExpanded,
-                onDismissRequest = { productDropdownExpanded = false }
+                onExpandedChange = { productDropdownExpanded = it }
             ) {
-                allProducts.forEach { product ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(product.name, fontWeight = FontWeight.Medium)
-                                Text(
-                                    "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
-                                    fontSize = 11.sp,
-                                    color = Color.Gray
-                                )
+                OutlinedTextField(
+                    value = movForm.selectedProduct?.name ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Producto *") },
+                    placeholder = { Text("Selecciona un producto") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Inventory2, contentDescription = null,
+                            tint = if (movementType == "in") GreenIn else RedOut)
+                    },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productDropdownExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(expanded = productDropdownExpanded,
+                    onDismissRequest = { productDropdownExpanded = false }) {
+                    if (allProducts.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("Sin productos — ve a Registrar > Nuevo producto", color = Color.Gray, fontSize = 13.sp) },
+                            onClick = { productDropdownExpanded = false }
+                        )
+                    }
+                    allProducts.forEach { product ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(product.name, fontWeight = FontWeight.Medium)
+                                    Text("Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                                        fontSize = 11.sp, color = Color.Gray)
+                                }
+                            },
+                            onClick = {
+                                viewModel.onMovementProductSelect(product)
+                                productDropdownExpanded = false
                             }
-                        },
-                        onClick = {
-                            viewModel.onMovementProductSelect(product)
-                            productDropdownExpanded = false
-                        }
+                        )
+                    }
+                }
+            }
+
+            // Cantidad
+            OutlinedTextField(
+                value = movForm.quantity,
+                onValueChange = viewModel::onMovementQuantityChange,
+                label = { Text("Cantidad *") },
+                suffix = { Text(movForm.selectedProduct?.unit ?: "") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Detalles de compra (solo en "in")
+            if (movementType == "in") {
+                HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
+                Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = movForm.pricePerUnit,
+                        onValueChange = viewModel::onMovementPricePerUnitChange,
+                        label = { Text("Precio por unidad") },
+                        prefix = { Text("$") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = movForm.priceTotal,
+                        onValueChange = viewModel::onMovementPriceTotalChange,
+                        label = { Text("Precio total") },
+                        prefix = { Text("$") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = movForm.brand,
+                    onValueChange = viewModel::onMovementBrandChange,
+                    label = { Text("Marca") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = movForm.store,
+                    onValueChange = viewModel::onMovementStoreChange,
+                    label = { Text("Tienda / Local") },
+                    leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Fecha
+            OutlinedTextField(
+                value = movForm.movementDate,
+                onValueChange = viewModel::onMovementDateChange,
+                label = { Text("Fecha (yyyy-MM-dd)") },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Error
+            movForm.error?.let {
+                ErrorBanner(it)
+            }
+
+            // Botón registrar
+            Button(
+                onClick = { viewModel.submitMovement() },
+                enabled = !movForm.isSubmitting,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (movementType == "in") GreenIn else RedOut
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (movForm.isSubmitting) {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
+                } else {
+                    Icon(
+                        if (movementType == "in") Icons.Default.ShoppingCart else Icons.Default.RemoveShoppingCart,
+                        contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (movementType == "in") "Registrar compra" else "Registrar consumo",
+                        fontWeight = FontWeight.Bold, fontSize = 16.sp
                     )
                 }
             }
         }
 
-        // Cantidad
-        OutlinedTextField(
-            value = form.quantity,
-            onValueChange = viewModel::onMovementQuantityChange,
-            label = { Text("Cantidad *") },
-            suffix = { Text(form.selectedProduct?.unit ?: "") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth()
-        )
+        // ══════════════════════════════════════════════════════════════════════
+        // FORMULARIO: Nuevo producto (solo visible en Compra)
+        // ══════════════════════════════════════════════════════════════════════
+        if (isNewProduct && movementType == "in") {
 
-        // Campos adicionales solo para compras
-        if (form.movementType == "in") {
+            // Nombre del producto
+            OutlinedTextField(
+                value = prodForm.name,
+                onValueChange = viewModel::onProductNameChange,
+                label = { Text("Nombre del producto *") },
+                leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Categoría
+            ExposedDropdownMenuBox(
+                expanded = categoryDropdownExpanded,
+                onExpandedChange = { categoryDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = prodForm.category,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Categoría (opcional)") },
+                    leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(expanded = categoryDropdownExpanded,
+                    onDismissRequest = { categoryDropdownExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Sin categoría") },
+                        onClick = { viewModel.onProductCategoryChange(""); categoryDropdownExpanded = false }
+                    )
+                    INVENTORY_CATEGORIES.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat) },
+                            onClick = { viewModel.onProductCategoryChange(cat); categoryDropdownExpanded = false }
+                        )
+                    }
+                }
+            }
+
+            // Unidad de medida
+            ExposedDropdownMenuBox(
+                expanded = unitDropdownExpanded,
+                onExpandedChange = { unitDropdownExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = prodForm.unit,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Unidad de medida *") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitDropdownExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(expanded = unitDropdownExpanded,
+                    onDismissRequest = { unitDropdownExpanded = false }) {
+                    units.forEach { unit ->
+                        DropdownMenuItem(
+                            text = { Text(unit) },
+                            onClick = { viewModel.onProductUnitChange(unit); unitDropdownExpanded = false }
+                        )
+                    }
+                }
+            }
+
+            // Marca
+            OutlinedTextField(
+                value = prodForm.brand,
+                onValueChange = viewModel::onProductBrandChange,
+                label = { Text("Marca (opcional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-            Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray)
+            Text("Detalles de la compra", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
 
+            // Cantidad comprada (obligatoria en nuevo producto)
+            OutlinedTextField(
+                value = prodForm.initialQuantity,
+                onValueChange = viewModel::onProductInitialQuantityChange,
+                label = { Text("Cantidad comprada *") },
+                placeholder = { Text("Ej: 2.5") },
+                suffix = { Text(prodForm.unit) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Precio
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = form.pricePerUnit,
-                    onValueChange = viewModel::onMovementPricePerUnitChange,
+                    value = prodForm.pricePerUnit,
+                    onValueChange = viewModel::onProductPricePerUnitChange,
                     label = { Text("Precio por unidad") },
                     prefix = { Text("$") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
-                    value = form.priceTotal,
-                    onValueChange = viewModel::onMovementPriceTotalChange,
+                    value = prodForm.priceTotal,
+                    onValueChange = viewModel::onProductPriceTotalChange,
                     label = { Text("Precio total") },
                     prefix = { Text("$") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            // Tienda
             OutlinedTextField(
-                value = form.brand,
-                onValueChange = viewModel::onMovementBrandChange,
-                label = { Text("Marca") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = form.store,
-                onValueChange = viewModel::onMovementStoreChange,
+                value = prodForm.store,
+                onValueChange = viewModel::onProductStoreChange,
                 label = { Text("Tienda / Local") },
                 leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
-        }
 
-        // Fecha
-        OutlinedTextField(
-            value = form.movementDate,
-            onValueChange = viewModel::onMovementDateChange,
-            label = { Text("Fecha (yyyy-MM-dd)") },
-            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth()
-        )
+            // Error
+            prodForm.error?.let {
+                ErrorBanner(it)
+            }
 
-        // Error
-        form.error?.let {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                shape = RoundedCornerShape(8.dp)
+            // Botón crear y registrar
+            Button(
+                onClick = { viewModel.submitProduct() },
+                enabled = !prodForm.isSubmitting,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenIn),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = RedOut, modifier = Modifier.size(18.dp))
+                if (prodForm.isSubmitting) {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
+                } else {
+                    Icon(Icons.Default.AddShoppingCart, contentDescription = null,
+                        tint = Color.White, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(it, color = RedOut, fontSize = 13.sp)
+                    Text("Crear producto y registrar compra", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
         }
+    }
+}
 
-        // Botón principal
-        Button(
-            onClick = { viewModel.submitMovement() },
-            enabled = !form.isSubmitting,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (form.movementType == "in") GreenIn else RedOut
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            if (form.isSubmitting) {
-                CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
-            } else {
-                Icon(
-                    if (form.movementType == "in") Icons.Default.ShoppingCart else Icons.Default.RemoveShoppingCart,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (form.movementType == "in") "Registrar compra" else "Registrar consumo",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
-        }
-
-        if (form.success) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GreenIn)
-                    Spacer(Modifier.width(8.dp))
-                    Text("¡Movimiento registrado con éxito!", color = GreenIn, fontWeight = FontWeight.Medium)
-                }
-            }
+// ─── Banner de error reutilizable ─────────────────────────────────────────────
+@Composable
+private fun ErrorBanner(message: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+        shape = RoundedCornerShape(8.dp)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.ErrorOutline, contentDescription = null,
+                tint = RedOut, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(message, color = RedOut, fontSize = 13.sp)
         }
     }
 }
@@ -635,23 +756,14 @@ private fun RegisterMovementTab(
 private fun CategoryStatsTab(stats: List<CategoryStat>) {
     if (stats.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Icon(
-                    Icons.Default.BarChart, contentDescription = null,
-                    tint = PrimaryBlue, modifier = Modifier.size(64.dp)
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                Icon(Icons.Default.BarChart, contentDescription = null,
+                    tint = PrimaryBlue, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(16.dp))
                 Text("Sin estadísticas aún", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "Asigna categorías a tus productos y registra compras con precio para ver cuánto gastas en cada categoría.",
-                    fontSize = 13.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
+                Text("Registra compras con precio para ver cuánto gastas por categoría.",
+                    fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
             }
         }
         return
@@ -659,32 +771,18 @@ private fun CategoryStatsTab(stats: List<CategoryStat>) {
 
     val totalSpent = stats.sumOf { it.totalSpent }
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = PrimaryBlue),
-                shape = RoundedCornerShape(12.dp)
-            ) {
+            Card(colors = CardDefaults.cardColors(containerColor = PrimaryBlue), shape = RoundedCornerShape(12.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Total gastado registrado", color = Color.White, fontSize = 13.sp)
-                    Text(
-                        "$${String.format("%,.0f", totalSpent)}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp
-                    )
-                    Text(
-                        "${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 12.sp
-                    )
+                    Text("$${String.format("%,.0f", totalSpent)}", color = Color.White,
+                        fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                    Text("${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
+                        color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
                 }
             }
         }
-
         items(stats, key = { it.category }) { stat ->
             CategoryStatCard(stat = stat, totalSpent = totalSpent)
         }
@@ -695,52 +793,32 @@ private fun CategoryStatsTab(stats: List<CategoryStat>) {
 private fun CategoryStatCard(stat: CategoryStat, totalSpent: Double) {
     val percentage = if (totalSpent > 0) (stat.totalSpent / totalSpent * 100).toFloat() else 0f
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Category, contentDescription = null,
-                        tint = PrimaryBlue, modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Default.Category, contentDescription = null,
+                        tint = PrimaryBlue, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Column {
                         Text(stat.category, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Text(
-                            "${stat.productCount} ${if (stat.productCount == 1) "producto" else "productos"}",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
+                        Text("${stat.productCount} ${if (stat.productCount == 1) "producto" else "productos"}",
+                            fontSize = 12.sp, color = Color.Gray)
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "$${String.format("%,.0f", stat.totalSpent)}",
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        "${String.format("%.1f", percentage)}%",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
+                    Text("$${String.format("%,.0f", stat.totalSpent)}", fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue, fontSize = 16.sp)
+                    Text("${String.format("%.1f", percentage)}%", fontSize = 12.sp, color = Color.Gray)
                 }
             }
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
                 progress = { percentage / 100f },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
-                color = PrimaryBlue,
-                trackColor = LightBlue
+                color = PrimaryBlue, trackColor = LightBlue
             )
         }
     }
@@ -757,28 +835,17 @@ private fun SuggestionsTab(suggestions: List<PurchaseSuggestion>) {
                 Spacer(Modifier.height(16.dp))
                 Text("Sin sugerencias por ahora", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "Las sugerencias aparecen automáticamente cuando el stock de un producto esté por debajo del 50% de tu consumo mensual.",
-                    fontSize = 13.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
+                Text("Las sugerencias aparecen cuando el stock baje del 50% de tu consumo mensual.",
+                    fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
             }
         }
         return
     }
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Text(
-                "💡 Basado en tu consumo del último mes",
-                fontSize = 13.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text("💡 Basado en tu consumo del último mes", fontSize = 13.sp, color = Color.Gray,
+                modifier = Modifier.padding(bottom = 4.dp))
         }
         items(suggestions, key = { it.product.id }) { suggestion ->
             SuggestionCard(suggestion)
@@ -788,12 +855,9 @@ private fun SuggestionsTab(suggestions: List<PurchaseSuggestion>) {
 
 @Composable
 private fun SuggestionCard(suggestion: PurchaseSuggestion) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = null,
@@ -807,156 +871,14 @@ private fun SuggestionCard(suggestion: PurchaseSuggestion) {
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                "Comprar: ${String.format("%.2f", suggestion.suggestedQuantity)} ${suggestion.product.unit}",
-                fontWeight = FontWeight.SemiBold,
-                color = PrimaryBlue
-            )
+            Text("Comprar: ${String.format("%.2f", suggestion.suggestedQuantity)} ${suggestion.product.unit}",
+                fontWeight = FontWeight.SemiBold, color = PrimaryBlue)
             if (suggestion.estimatedCost != null) {
-                Text(
-                    "Costo estimado: $${String.format("%.0f", suggestion.estimatedCost)}",
-                    fontSize = 13.sp,
-                    color = Color(0xFF2E7D32)
-                )
+                Text("Costo estimado: $${String.format("%.0f", suggestion.estimatedCost)}",
+                    fontSize = 13.sp, color = Color(0xFF2E7D32))
             }
             Spacer(Modifier.height(4.dp))
             Text(suggestion.reason, fontSize = 12.sp, color = Color.Gray)
-        }
-    }
-}
-
-// ─── Sheet: Agregar producto ──────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddProductSheet(viewModel: InventoryViewModel, onDismiss: () -> Unit) {
-    val form by viewModel.productForm.collectAsState()
-    val units = listOf("kg", "gramos", "unidades", "litros", "ml")
-    var unitDropdownExpanded by remember { mutableStateOf(false) }
-    var categoryDropdownExpanded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(form.success) {
-        if (form.success) onDismiss()
-    }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text("Nuevo producto", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-
-            OutlinedTextField(
-                value = form.name,
-                onValueChange = viewModel::onProductNameChange,
-                label = { Text("Nombre del producto *") },
-                leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Categoría
-            ExposedDropdownMenuBox(
-                expanded = categoryDropdownExpanded,
-                onExpandedChange = { categoryDropdownExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = form.category,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoría (opcional)") },
-                    leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = categoryDropdownExpanded,
-                    onDismissRequest = { categoryDropdownExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Sin categoría") },
-                        onClick = {
-                            viewModel.onProductCategoryChange("")
-                            categoryDropdownExpanded = false
-                        }
-                    )
-                    INVENTORY_CATEGORIES.forEach { cat ->
-                        DropdownMenuItem(
-                            text = { Text(cat) },
-                            onClick = {
-                                viewModel.onProductCategoryChange(cat)
-                                categoryDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Unidad de medida
-            ExposedDropdownMenuBox(
-                expanded = unitDropdownExpanded,
-                onExpandedChange = { unitDropdownExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = form.unit,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Unidad de medida *") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitDropdownExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = unitDropdownExpanded,
-                    onDismissRequest = { unitDropdownExpanded = false }
-                ) {
-                    units.forEach { unit ->
-                        DropdownMenuItem(
-                            text = { Text(unit) },
-                            onClick = {
-                                viewModel.onProductUnitChange(unit)
-                                unitDropdownExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            OutlinedTextField(
-                value = form.brand,
-                onValueChange = viewModel::onProductBrandChange,
-                label = { Text("Marca (opcional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Cantidad inicial
-            OutlinedTextField(
-                value = form.initialQuantity,
-                onValueChange = viewModel::onProductInitialQuantityChange,
-                label = { Text("Cantidad inicial (opcional)") },
-                placeholder = { Text("Ej: 2.5") },
-                suffix = { Text(form.unit) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            form.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-            }
-
-            Button(
-                onClick = { viewModel.submitProduct() },
-                enabled = !form.isSubmitting,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-            ) {
-                if (form.isSubmitting) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
-                } else {
-                    Text("Agregar producto", fontWeight = FontWeight.Bold)
-                }
-            }
         }
     }
 }
@@ -972,30 +894,15 @@ private fun ProductHistorySheet(
     val state by viewModel.movementsState.collectAsState()
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
-        ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
             Text(product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
+                Text("Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                    fontSize = 14.sp, color = Color.Gray)
                 if (!product.category.isNullOrBlank()) {
-                    Surface(
-                        color = PrimaryBlue.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            product.category,
-                            fontSize = 10.sp,
-                            color = PrimaryBlue,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    Surface(color = PrimaryBlue.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
+                        Text(product.category, fontSize = 10.sp, color = PrimaryBlue,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
             }
@@ -1004,20 +911,13 @@ private fun ProductHistorySheet(
             Spacer(Modifier.height(8.dp))
 
             when {
-                state.isLoading -> Box(
-                    Modifier.fillMaxWidth().height(120.dp),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator(color = PrimaryBlue) }
-
-                state.movements.isEmpty() -> Box(
-                    Modifier.fillMaxWidth().height(80.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("Sin movimientos registrados", color = Color.Gray) }
-
-                else -> LazyColumn(
-                    modifier = Modifier.heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                state.isLoading -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryBlue)
+                }
+                state.movements.isEmpty() -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
+                    Text("Sin movimientos registrados", color = Color.Gray)
+                }
+                else -> LazyColumn(modifier = Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(state.movements, key = { it.id }) { movement ->
                         MovementRow(movement = movement, unit = product.unit)
                     }
@@ -1041,12 +941,8 @@ private fun MovementRow(movement: InventoryMovement, unit: String) {
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            if (isIn) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(18.dp)
-        )
+        Icon(if (isIn) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+            contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(label, fontSize = 13.sp, color = color, fontWeight = FontWeight.SemiBold)
@@ -1056,12 +952,8 @@ private fun MovementRow(movement: InventoryMovement, unit: String) {
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(
-                "$sign${String.format("%.2f", movement.quantity)} $unit",
-                fontWeight = FontWeight.Bold,
-                color = color,
-                fontSize = 14.sp
-            )
+            Text("$sign${String.format("%.2f", movement.quantity)} $unit",
+                fontWeight = FontWeight.Bold, color = color, fontSize = 14.sp)
             if (movement.priceTotal != null) {
                 Text("$${String.format("%.0f", movement.priceTotal)}", fontSize = 11.sp, color = Color.Gray)
             }

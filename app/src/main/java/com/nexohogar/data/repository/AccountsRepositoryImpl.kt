@@ -3,7 +3,7 @@ package com.nexohogar.data.repository
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AccountsApi
-import com.nexohogar.data.remote.dto.CreateAccountRequest
+import com.nexohogar.data.model.CreateAccountRequest
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
@@ -15,8 +15,7 @@ class AccountsRepositoryImpl(
 
     /**
      * Obtiene los balances de las cuentas del hogar.
-     * - Filtra las cuentas del sistema (_system_expense_, _system_income_) para no
-     *   mostrarlas al usuario.
+     * Filtra las cuentas del sistema (_system_expense_, _system_income_).
      */
     override suspend fun getAccountBalances(
         householdId: String
@@ -26,7 +25,6 @@ class AccountsRepositoryImpl(
                 householdId = "eq.$householdId"
             )
             val balances = accounts
-                // Excluir cuentas internas del sistema
                 .filter { dto ->
                     val nameLower = dto.name.lowercase()
                     !nameLower.contains("system")
@@ -35,7 +33,7 @@ class AccountsRepositoryImpl(
                     AccountBalance(
                         accountId       = dto.id,
                         accountName     = dto.name,
-                        accountType     = dto.accountType ?: "asset",
+                        accountType     = dto.accountType ?: "ASSET",
                         movementBalance = dto.balance?.toLong() ?: 0L
                     )
                 }
@@ -47,8 +45,8 @@ class AccountsRepositoryImpl(
 
     /**
      * Crea una nueva cuenta para el hogar.
-     * account_type debe ser lowercase para cumplir el CHECK constraint de Supabase.
-     * Solo se envían los campos que existen en la tabla: name, account_type, household_id.
+     * account_type debe ser MAYÚSCULAS — CHECK constraint: ASSET, LIABILITY, EXPENSE, INCOME
+     * currency_code es NOT NULL → se envía "CLP" por defecto
      */
     override suspend fun createAccount(
         householdId: String,
@@ -58,9 +56,10 @@ class AccountsRepositoryImpl(
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
-                name        = name,
-                accountType = accountType.lowercase(),
-                householdId = householdId
+                name         = name,
+                accountType  = accountType.uppercase(),   // CHECK: ASSET, LIABILITY, EXPENSE, INCOME
+                householdId  = householdId,
+                currencyCode = "CLP"                      // NOT NULL sin default en Supabase
             )
 
             val response = accountsApi.createAccount(request)
