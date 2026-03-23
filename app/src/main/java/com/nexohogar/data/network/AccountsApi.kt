@@ -1,8 +1,8 @@
 package com.nexohogar.data.network
 
 import com.nexohogar.data.model.AccountDto
+import com.nexohogar.data.model.CreateAccountRequest       // ← CORRECCIÓN: paquete correcto
 import com.nexohogar.data.remote.dto.AccountResponse
-import com.nexohogar.data.remote.dto.CreateAccountRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
@@ -15,6 +15,8 @@ import retrofit2.http.Query
  *
  * CORRECCIÓN v5: eliminada @Query("is_active") — esa columna no existe
  * en la tabla accounts del usuario, causando HTTP 400 en todas las llamadas.
+ *
+ * CORRECCIÓN v7: import de CreateAccountRequest movido a com.nexohogar.data.model
  */
 interface AccountsApi {
 
@@ -31,7 +33,8 @@ interface AccountsApi {
 
     /**
      * Crea una nueva cuenta.
-     * account_type debe ser LOWERCASE: "asset", "liability", "income", "expense"
+     * account_type debe ser UPPERCASE: "ASSET", "LIABILITY", "INCOME", "EXPENSE"
+     * currency_code es obligatorio: se envía "CLP"
      */
     @Headers("Prefer: return=representation")
     @POST("rest/v1/accounts")
