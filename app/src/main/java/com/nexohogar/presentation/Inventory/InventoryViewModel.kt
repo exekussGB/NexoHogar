@@ -56,12 +56,17 @@ data class InventoryUiState(
 }
 
 // ─── Estado del formulario de producto ─────────────────────────────────────────
+// v6: agrega store, pricePerUnit, priceTotal para capturar detalles
+//     de la compra inicial directamente desde la pestaña Registrar
 data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
     val category: String = "",
-    val initialQuantity: String = "",   // stock inicial opcional
+    val initialQuantity: String = "",   // stock inicial obligatorio en flujo Registrar
+    val store: String = "",             // tienda de la compra inicial
+    val pricePerUnit: String = "",      // precio por unidad de la compra inicial
+    val priceTotal: String = "",        // precio total de la compra inicial
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val success: Boolean = false
@@ -95,8 +100,7 @@ class InventoryViewModel(
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
-    private val householdId: String
-        get() = tenantContext.getCurrentHouseholdId() ?: ""
+    private val householdId: String get() = tenantContext.householdId ?: ""
 
     private val _uiState = MutableStateFlow(InventoryUiState())
     val uiState: StateFlow<InventoryUiState> = _uiState.asStateFlow()
@@ -110,46 +114,36 @@ class InventoryViewModel(
     private val _movementsState = MutableStateFlow(MovementsUiState())
     val movementsState: StateFlow<MovementsUiState> = _movementsState.asStateFlow()
 
-    init {
-        loadData()
-    }
+    init { loadData() }
 
     fun loadData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val products = repository.getProducts(householdId)
-                val suggestions = repository.getSuggestions(householdId)
                 val movements = try { repository.getMovements(householdId) } catch (e: Exception) { emptyList() }
-
-                // Calcular estadísticas por categoría
+                val suggestions = calcSuggestions(products, movements)
                 val stats = calcCategoryStats(products, movements)
-
                 _uiState.value = _uiState.value.copy(
                     products = products,
                     suggestions = suggestions,
                     categoryStats = stats,
-                    isLoading = false,
-                    error = null
+                    isLoading = false
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Error al cargar inventario"
+                    error = e.message ?: "Error al cargar datos"
                 )
             }
         }
     }
 
     private fun calcCategoryStats(products: List<Product>, movements: List<InventoryMovement>): List<CategoryStat> {
-        // Mapa: itemId -> categoría
         val productCategory = products.associate { it.id to (it.category ?: "Sin categoría") }
-
-        // Solo movimientos de entrada (compras) con precio
         val purchasesByCategory = movements
             .filter { it.movementType == "in" }
             .groupBy { productCategory[it.itemId] ?: "Sin categoría" }
-
         return purchasesByCategory.map { (cat, movs) ->
             val total = movs.sumOf { m ->
                 when {
@@ -163,17 +157,40 @@ class InventoryViewModel(
         }.sortedByDescending { it.totalSpent }
     }
 
-    // ─── Filtro por categoría ──────────────────────────────────────────────────
+    private fun calcSuggestions(products: List<Product>, movements: List<InventoryMovement>): List<PurchaseSuggestion> {
+        val cutoff = LocalDate.now().minusMonths(1).toString()
+        return products.mapNotNull { product ->
+            val recentOut = movements.filter { it.itemId == product.id && it.movementType == "out" && it.movementDate >= cutoff }
+            val monthlyConsumption = recentOut.sumOf { it.quantity }
+            if (monthlyConsumption > 0 && product.currentStock < monthlyConsumption * 0.5) {
+                val suggested = monthlyConsumption - product.currentStock
+                val avgPrice = movements
+                    .filter { it.itemId == product.id && it.movementType == "in" && it.pricePerUnit != null }
+                    .map { it.pricePerUnit!! }
+                    .average().takeIf { !it.isNaN() }
+                PurchaseSuggestion(
+                    product = product,
+                    suggestedQuantity = suggested,
+                    estimatedCost = avgPrice?.let { it * suggested },
+                    reason = "Consumiste ${String.format("%.1f", monthlyConsumption)} ${product.unit} el último mes"
+                )
+            } else null
+        }
+    }
+
     fun selectCategory(category: String?) {
         _uiState.value = _uiState.value.copy(selectedCategory = category)
     }
 
-    // ─── Product form ──────────────────────────────────────────────────────────
-    fun onProductNameChange(v: String) { _productForm.value = _productForm.value.copy(name = v) }
-    fun onProductUnitChange(v: String) { _productForm.value = _productForm.value.copy(unit = v) }
-    fun onProductBrandChange(v: String) { _productForm.value = _productForm.value.copy(brand = v) }
-    fun onProductCategoryChange(v: String) { _productForm.value = _productForm.value.copy(category = v) }
+    // ─── Product form setters ───────────────────────────────────────────────────
+    fun onProductNameChange(v: String)            { _productForm.value = _productForm.value.copy(name = v) }
+    fun onProductUnitChange(v: String)            { _productForm.value = _productForm.value.copy(unit = v) }
+    fun onProductBrandChange(v: String)           { _productForm.value = _productForm.value.copy(brand = v) }
+    fun onProductCategoryChange(v: String)        { _productForm.value = _productForm.value.copy(category = v) }
     fun onProductInitialQuantityChange(v: String) { _productForm.value = _productForm.value.copy(initialQuantity = v) }
+    fun onProductStoreChange(v: String)           { _productForm.value = _productForm.value.copy(store = v) }
+    fun onProductPricePerUnitChange(v: String)    { _productForm.value = _productForm.value.copy(pricePerUnit = v) }
+    fun onProductPriceTotalChange(v: String)      { _productForm.value = _productForm.value.copy(priceTotal = v) }
 
     fun submitProduct() {
         val form = _productForm.value
@@ -196,17 +213,17 @@ class InventoryViewModel(
                     brand       = form.brand.takeIf { it.isNotBlank() },
                     category    = form.category.takeIf { it.isNotBlank() }
                 )
-                // Si ingresaron cantidad inicial, crear movimiento "in"
+                // Si hay cantidad inicial, registrar como movimiento "in"
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
                         householdId  = householdId,
                         itemId       = product.id,
                         quantity     = initialQty,
                         movementDate = LocalDate.now().toString(),
-                        pricePerUnit = null,
-                        priceTotal   = null,
-                        brand        = null,
-                        store        = null
+                        pricePerUnit = form.pricePerUnit.toDoubleOrNull(),
+                        priceTotal   = form.priceTotal.toDoubleOrNull(),
+                        brand        = form.brand.takeIf { it.isNotBlank() },
+                        store        = form.store.takeIf { it.isNotBlank() }
                     )
                 }
                 _productForm.value = ProductFormState(success = true)
@@ -222,15 +239,15 @@ class InventoryViewModel(
 
     fun resetProductForm() { _productForm.value = ProductFormState() }
 
-    // ─── Movement form ─────────────────────────────────────────────────────────
+    // ─── Movement form setters ──────────────────────────────────────────────────
     fun onMovementProductSelect(p: Product) { _movementForm.value = _movementForm.value.copy(selectedProduct = p) }
-    fun onMovementTypeChange(t: String) { _movementForm.value = _movementForm.value.copy(movementType = t) }
+    fun onMovementTypeChange(t: String)     { _movementForm.value = _movementForm.value.copy(movementType = t) }
     fun onMovementQuantityChange(v: String) { _movementForm.value = _movementForm.value.copy(quantity = v) }
     fun onMovementPricePerUnitChange(v: String) { _movementForm.value = _movementForm.value.copy(pricePerUnit = v) }
-    fun onMovementPriceTotalChange(v: String) { _movementForm.value = _movementForm.value.copy(priceTotal = v) }
-    fun onMovementBrandChange(v: String) { _movementForm.value = _movementForm.value.copy(brand = v) }
-    fun onMovementStoreChange(v: String) { _movementForm.value = _movementForm.value.copy(store = v) }
-    fun onMovementDateChange(v: String) { _movementForm.value = _movementForm.value.copy(movementDate = v) }
+    fun onMovementPriceTotalChange(v: String)   { _movementForm.value = _movementForm.value.copy(priceTotal = v) }
+    fun onMovementBrandChange(v: String)    { _movementForm.value = _movementForm.value.copy(brand = v) }
+    fun onMovementStoreChange(v: String)    { _movementForm.value = _movementForm.value.copy(store = v) }
+    fun onMovementDateChange(v: String)     { _movementForm.value = _movementForm.value.copy(movementDate = v) }
 
     fun submitMovement() {
         val form = _movementForm.value
