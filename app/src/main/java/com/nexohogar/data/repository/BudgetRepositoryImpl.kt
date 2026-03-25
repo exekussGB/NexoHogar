@@ -3,8 +3,7 @@ package com.nexohogar.data.repository
 import com.nexohogar.data.network.BudgetApi
 import com.nexohogar.data.remote.dto.CreateBudgetRequest
 import com.nexohogar.data.remote.dto.UpdateBudgetRequest
-import com.nexohogar.core.AppResult
-import com.nexohogar.domain.model.AppResult
+import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.model.Budget
 import com.nexohogar.domain.model.BudgetConsumption
 import com.nexohogar.domain.repository.BudgetRepository

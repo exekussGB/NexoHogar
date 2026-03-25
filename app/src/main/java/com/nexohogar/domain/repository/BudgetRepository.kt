@@ -1,6 +1,6 @@
 package com.nexohogar.domain.repository
 
-import com.nexohogar.domain.model.AppResult
+import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.model.Budget
 import com.nexohogar.domain.model.BudgetConsumption
 
