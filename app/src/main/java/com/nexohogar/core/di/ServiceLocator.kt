@@ -13,6 +13,9 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import com.nexohogar.data.network.BudgetApi
+import com.nexohogar.data.repository.BudgetRepositoryImpl
+import com.nexohogar.domain.repository.BudgetRepository
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -136,5 +139,13 @@ object ServiceLocator {
 
     val inventoryRepository: InventoryRepository by lazy {
         InventoryRepositoryImpl(inventoryApi)
+    }
+    // --- BUDGET ---
+    val budgetApi: BudgetApi by lazy {
+        retrofit.create(BudgetApi::class.java)
+    }
+
+    val budgetRepository: BudgetRepository by lazy {
+        BudgetRepositoryImpl(budgetApi)
     }
 }

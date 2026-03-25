@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.PieChart
 
 // ---------------------------------------------------------------------------
 // Modelo interno para cada botón del hub
@@ -48,6 +49,7 @@ fun HubScreen(
     onNavigateToInviteMember: () -> Unit,
     onNavigateToRecurringBills: () -> Unit,
     onNavigateToInventory: () -> Unit,
+    onNavigateToBudget: () -> Unit,
     onNavigateToOptions: () -> Unit
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
@@ -84,6 +86,14 @@ fun HubScreen(
             backgroundColor = Color(0xFFF3E5F5),
             iconColor       = Color(0xFF6A1B9A),
             onClick         = onNavigateToAccounts
+        ),
+        HubAction(
+            icon = Icons.Default.PieChart,
+            title = "Presupuestos",
+            subtitle = "Control de gastos mensual",
+            backgroundColor = Color(0xFFEDE7F6),
+            iconColor = Color(0xFF4527A0),
+            onClick = onNavigateToBudget
         ),
         HubAction(
             title           = "Invitar",

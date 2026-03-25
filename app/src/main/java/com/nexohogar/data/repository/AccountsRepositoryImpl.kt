@@ -2,8 +2,9 @@ package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.model.CreateAccountRequest
+import com.nexohogar.data.model.toDomain
+import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
@@ -14,8 +15,8 @@ class AccountsRepositoryImpl(
 ) : AccountsRepository {
 
     /**
-     * Obtiene los balances de las cuentas del hogar.
-     * Filtra las cuentas del sistema (_system_expense_, _system_income_).
+     * Obtiene balances usando el campo estático (compatibilidad).
+     * Filtra cuentas del sistema y cuentas eliminadas (filtro en API).
      */
     override suspend fun getAccountBalances(
         householdId: String
@@ -44,9 +45,23 @@ class AccountsRepositoryImpl(
     }
 
     /**
+     * Obtiene saldos CALCULADOS desde transacciones reales vía RPC.
+     */
+    override suspend fun getCalculatedBalances(
+        householdId: String
+    ): AppResult<List<AccountBalance>> {
+        return try {
+            val dtos = accountsApi.getCalculatedBalances(
+                body = mapOf("p_household_id" to householdId)
+            )
+            AppResult.Success(dtos.toDomain())
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al obtener saldos calculados")
+        }
+    }
+
+    /**
      * Crea una nueva cuenta para el hogar.
-     * account_type debe ser MAYÚSCULAS — CHECK constraint: ASSET, LIABILITY, EXPENSE, INCOME
-     * currency_code es NOT NULL → se envía "CLP" por defecto
      */
     override suspend fun createAccount(
         householdId: String,
@@ -57,9 +72,9 @@ class AccountsRepositoryImpl(
         return try {
             val request = CreateAccountRequest(
                 name         = name,
-                accountType  = accountType.uppercase(),   // CHECK: ASSET, LIABILITY, EXPENSE, INCOME
+                accountType  = accountType.uppercase(),
                 householdId  = householdId,
-                currencyCode = "CLP"                      // NOT NULL sin default en Supabase
+                currencyCode = "CLP"
             )
 
             val response = accountsApi.createAccount(request)
@@ -78,6 +93,24 @@ class AccountsRepositoryImpl(
             )
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al crear cuenta")
+        }
+    }
+
+    /**
+     * Elimina una cuenta (soft delete vía RPC).
+     */
+    override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
+        return try {
+            val response = accountsApi.deleteAccount(
+                body = mapOf("p_account_id" to accountId)
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Error("Error al eliminar cuenta: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al eliminar cuenta")
         }
     }
 }
