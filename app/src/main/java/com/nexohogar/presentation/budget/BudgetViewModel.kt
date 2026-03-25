@@ -2,16 +2,16 @@ package com.nexohogar.presentation.budget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.nexohogar.domain.model.AppResult
+import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.domain.model.BudgetConsumption
 import com.nexohogar.domain.repository.BudgetRepository
 import com.nexohogar.domain.repository.CategoriesRepository
-import com.nexohogar.data.local.TenantContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.time.YearMonth
 
 class BudgetViewModel(
@@ -32,8 +32,6 @@ class BudgetViewModel(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             val householdId = tenantContext.requireHouseholdId()
-            val year = _uiState.value.selectedYear
-            val month = _uiState.value.selectedMonth
 
             // Load categories (expense only for budget creation)
             when (val catResult = categoriesRepository.getCategories(householdId)) {
@@ -41,9 +39,8 @@ class BudgetViewModel(
                     val expenseCategories = catResult.data.filter { it.type == "expense" }
                     _uiState.update { it.copy(categories = expenseCategories) }
                 }
-                is AppResult.Error -> {
-                    // Non-blocking: categories needed only for create dialog
-                }
+                is AppResult.Error -> { /* Non-blocking */ }
+                is AppResult.Loading -> Unit
             }
 
             // Load budget consumption
@@ -76,12 +73,10 @@ class BudgetViewModel(
                 }
                 is AppResult.Error -> {
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = result.message
-                        )
+                        it.copy(isLoading = false, errorMessage = result.message)
                     }
                 }
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -106,21 +101,16 @@ class BudgetViewModel(
             )) {
                 is AppResult.Success -> {
                     _uiState.update {
-                        it.copy(
-                            isCreating = false,
-                            showCreateDialog = false
-                        )
+                        it.copy(isCreating = false, showCreateDialog = false)
                     }
                     loadBudgets()
                 }
                 is AppResult.Error -> {
                     _uiState.update {
-                        it.copy(
-                            isCreating = false,
-                            errorMessage = result.message
-                        )
+                        it.copy(isCreating = false, errorMessage = result.message)
                     }
                 }
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -142,12 +132,10 @@ class BudgetViewModel(
                 }
                 is AppResult.Error -> {
                     _uiState.update {
-                        it.copy(
-                            isCreating = false,
-                            errorMessage = result.message
-                        )
+                        it.copy(isCreating = false, errorMessage = result.message)
                     }
                 }
+                is AppResult.Loading -> Unit
             }
         }
     }
@@ -155,20 +143,17 @@ class BudgetViewModel(
     fun deleteBudget(budgetId: String) {
         viewModelScope.launch {
             when (val result = budgetRepository.deleteBudget(budgetId)) {
-                is AppResult.Success -> {
-                    loadBudgets()
-                }
+                is AppResult.Success -> loadBudgets()
                 is AppResult.Error -> {
                     _uiState.update { it.copy(errorMessage = result.message) }
                 }
+                is AppResult.Loading -> Unit
             }
         }
     }
 
     fun changeMonth(year: Int, month: Int) {
-        _uiState.update {
-            it.copy(selectedYear = year, selectedMonth = month)
-        }
+        _uiState.update { it.copy(selectedYear = year, selectedMonth = month) }
         loadBudgets()
     }
 
@@ -199,19 +184,13 @@ class BudgetViewModel(
 
     fun showEditDialog(budget: BudgetConsumption) {
         _uiState.update {
-            it.copy(
-                showEditDialog = true,
-                editingBudget = budget
-            )
+            it.copy(showEditDialog = true, editingBudget = budget)
         }
     }
 
     fun hideEditDialog() {
         _uiState.update {
-            it.copy(
-                showEditDialog = false,
-                editingBudget = null
-            )
+            it.copy(showEditDialog = false, editingBudget = null)
         }
     }
 
@@ -219,7 +198,7 @@ class BudgetViewModel(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    private fun filterBySelectedMember(budgets: List<com.nexohogar.domain.model.BudgetConsumption>): List<com.nexohogar.domain.model.BudgetConsumption> {
+    private fun filterBySelectedMember(budgets: List<BudgetConsumption>): List<BudgetConsumption> {
         val memberId = _uiState.value.selectedMemberId
         return if (memberId == null) {
             budgets
