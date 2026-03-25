@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
@@ -51,11 +52,15 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
             when {
                 uiState.isLoading -> LoadingOverlay()
                 uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadAccounts() }
-                else -> AccountsList(uiState.accounts)
+                else -> AccountsList(
+                    accounts = uiState.accounts,
+                    onDelete = { account -> viewModel.onRequestDelete(account) }
+                )
             }
         }
     }
 
+    // Diálogo crear cuenta
     if (uiState.showCreateDialog) {
         CreateAccountDialog(
             isCreating  = uiState.isCreating,
@@ -64,6 +69,88 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
             onCreate    = { name, type, subtype -> viewModel.createAccount(name, type, subtype) }
         )
     }
+
+    // Diálogo confirmar eliminación
+    uiState.accountToDelete?.let { account ->
+        DeleteAccountDialog(
+            account    = account,
+            isDeleting = uiState.isDeleting,
+            error      = uiState.deleteError,
+            onConfirm  = { viewModel.confirmDelete() },
+            onDismiss  = { viewModel.onDismissDelete() }
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Diálogo de confirmación de eliminación
+// ---------------------------------------------------------------------------
+
+@Composable
+fun DeleteAccountDialog(
+    account: AccountBalance,
+    isDeleting: Boolean,
+    error: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isDeleting) onDismiss() },
+        icon = {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = { Text("Eliminar cuenta") },
+        text = {
+            Column {
+                Text("¿Estás seguro de eliminar \"${account.accountName}\"?")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Las transacciones asociadas se mantendrán en el historial.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (error != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                if (isDeleting) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Eliminando...")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isDeleting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Eliminar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isDeleting) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -72,14 +159,10 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
 
 data class AccountTypeOption(
     val label: String,
-    val accountType: String,    // SIEMPRE LOWERCASE — Supabase CHECK constraint
+    val accountType: String,
     val accountSubtype: String
 )
 
-/**
- * Los valores de accountType deben coincidir con el CHECK constraint de Supabase.
- * Valores válidos: "asset", "liability", "income", "expense"
- */
 val accountTypeOptions = listOf(
     AccountTypeOption("Billetera / Efectivo", "asset",     "cash"),
     AccountTypeOption("Cuenta Bancaria",       "asset",     "bank"),
@@ -106,8 +189,6 @@ fun CreateAccountDialog(
         title = { Text("Nueva cuenta") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                // Campo nombre
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -117,7 +198,6 @@ fun CreateAccountDialog(
                     enabled = !isCreating
                 )
 
-                // Dropdown tipo de cuenta
                 ExposedDropdownMenuBox(
                     expanded = dropdownExpanded,
                     onExpandedChange = { if (!isCreating) dropdownExpanded = it }
@@ -149,7 +229,6 @@ fun CreateAccountDialog(
                     }
                 }
 
-                // Mensaje de error
                 if (createError != null) {
                     Text(
                         text = createError,
@@ -158,7 +237,6 @@ fun CreateAccountDialog(
                     )
                 }
 
-                // Spinner mientras crea
                 if (isCreating) {
                     Row(
                         horizontalArrangement = Arrangement.Center,
@@ -196,7 +274,10 @@ fun CreateAccountDialog(
 // ---------------------------------------------------------------------------
 
 @Composable
-fun AccountsList(accounts: List<AccountBalance>) {
+fun AccountsList(
+    accounts: List<AccountBalance>,
+    onDelete: (AccountBalance) -> Unit
+) {
     if (accounts.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -219,17 +300,22 @@ fun AccountsList(accounts: List<AccountBalance>) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(accounts) { account ->
-                AccountItem(account)
+                AccountItem(
+                    account = account,
+                    onDelete = { onDelete(account) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun AccountItem(account: AccountBalance) {
+fun AccountItem(
+    account: AccountBalance,
+    onDelete: () -> Unit
+) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
-    // Maneja tanto lowercase como uppercase por compatibilidad
     val (icon, iconColor) = when (account.accountType.lowercase()) {
         "asset"     -> Icons.Default.Savings             to Color(0xFF1565C0)
         "liability" -> Icons.Default.CreditCard          to Color(0xFFC62828)
@@ -244,7 +330,7 @@ fun AccountItem(account: AccountBalance) {
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -272,13 +358,21 @@ fun AccountItem(account: AccountBalance) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    text = clpFormat.format(account.movementBalance),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                )
             }
-            Text(
-                text = clpFormat.format(account.movementBalance),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-            )
+            // Botón eliminar
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Eliminar cuenta",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }

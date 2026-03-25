@@ -27,4 +27,9 @@ interface DashboardApi {
     suspend fun getAccountBalances(
         @Query("p_household_id") householdId: String
     ): Response<List<AccountBalanceDto>>
+    // Saldos calculados desde transacciones reales
+    @POST("rest/v1/rpc/get_calculated_balances")
+    suspend fun getCalculatedBalances(
+        @Body body: Map<String, String>
+    ): Response<List<AccountBalanceDto>>
 }

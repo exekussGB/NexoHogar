@@ -56,14 +56,31 @@ class DashboardRepositoryImpl(
 
     override suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>> {
         return try {
+            // Intentar usar saldos calculados primero
+            val calcResponse = dashboardApi.getCalculatedBalances(
+                mapOf("p_household_id" to householdId)
+            )
+            if (calcResponse.isSuccessful && !calcResponse.body().isNullOrEmpty()) {
+                val balances = calcResponse.body()!!.map { dto ->
+                    AccountBalance(
+                        accountId       = dto.accountId,
+                        accountName     = dto.accountName,
+                        accountType     = dto.accountType,
+                        movementBalance = (dto.calculatedBalance ?: dto.movementBalance ?: 0.0).toLong()
+                    )
+                }
+                return AppResult.Success(balances)
+            }
+
+            // Fallback al RPC anterior
             val response = dashboardApi.getAccountBalances(householdId)
             if (response.isSuccessful) {
                 val balances = response.body()?.map { dto ->
                     AccountBalance(
-                        accountId      = dto.accountId,
-                        accountName    = dto.accountName,
-                        accountType    = dto.accountType,
-                        movementBalance = dto.movementBalance.toLong()
+                        accountId       = dto.accountId,
+                        accountName     = dto.accountName,
+                        accountType     = dto.accountType,
+                        movementBalance = (dto.calculatedBalance ?: dto.movementBalance ?: 0.0).toLong()
                     )
                 } ?: emptyList()
                 AppResult.Success(balances)

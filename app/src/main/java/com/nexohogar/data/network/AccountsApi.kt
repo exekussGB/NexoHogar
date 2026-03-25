@@ -1,44 +1,52 @@
 package com.nexohogar.data.network
 
+import com.nexohogar.data.model.AccountBalanceDto
 import com.nexohogar.data.model.AccountDto
-import com.nexohogar.data.model.CreateAccountRequest       // ← CORRECCIÓN: paquete correcto
+import com.nexohogar.data.model.CreateAccountRequest
 import com.nexohogar.data.remote.dto.AccountResponse
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 
-/**
- * API de cuentas para Supabase.
- * AuthInterceptor inyecta el token automáticamente en todas las requests.
- *
- * CORRECCIÓN v5: eliminada @Query("is_active") — esa columna no existe
- * en la tabla accounts del usuario, causando HTTP 400 en todas las llamadas.
- *
- * CORRECCIÓN v7: import de CreateAccountRequest movido a com.nexohogar.data.model
- */
 interface AccountsApi {
 
     /**
-     * Obtiene las cuentas de un hogar.
-     * IMPORTANTE: householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
+     * Obtiene las cuentas activas (no eliminadas) de un hogar.
+     * householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
      */
     @GET("rest/v1/accounts")
     suspend fun getAccounts(
         @Query("household_id") householdId: String,
+        @Query("is_deleted")   isDeleted: String = "eq.false",
         @Query("select")       select: String = "*",
         @Query("order")        order: String = "name.asc"
     ): List<AccountDto>
 
     /**
      * Crea una nueva cuenta.
-     * account_type debe ser UPPERCASE: "ASSET", "LIABILITY", "INCOME", "EXPENSE"
-     * currency_code es obligatorio: se envía "CLP"
      */
     @Headers("Prefer: return=representation")
     @POST("rest/v1/accounts")
     suspend fun createAccount(
         @Body request: CreateAccountRequest
     ): List<AccountResponse>
+
+    /**
+     * Soft-delete de cuenta vía RPC.
+     */
+    @POST("rest/v1/rpc/rpc_delete_account")
+    suspend fun deleteAccount(
+        @Body body: Map<String, String>
+    ): Response<Unit>
+
+    /**
+     * Saldos calculados desde transacciones reales.
+     */
+    @POST("rest/v1/rpc/get_calculated_balances")
+    suspend fun getCalculatedBalances(
+        @Body body: Map<String, String>
+    ): List<AccountBalanceDto>
 }

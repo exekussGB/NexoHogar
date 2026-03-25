@@ -36,6 +36,8 @@ import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
+import com.nexohogar.presentation.budget.BudgetScreen
+import com.nexohogar.presentation.budget.BudgetViewModel
 
 // ---------------------------------------------------------------------------
 // Rutas de la app
@@ -53,6 +55,8 @@ sealed class Screen(val route: String) {
     object Settings          : Screen("settings")
     object HouseholdMembers  : Screen("household_members")
     object Inventory         : Screen("inventory")
+
+    object Budget : Screen("budget")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -144,6 +148,7 @@ fun NavGraph(
                 onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
                 onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
                 onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
+                onNavigateToBudget         = { navController.navigate(Screen.Budget.route) },
                 onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -298,6 +303,25 @@ fun NavGraph(
             InventoryScreen(
                 viewModel = vm,
                 onBack    = { navController.popBackStack() }
+            )
+        }
+        // ── Budget ─────────────────────────────────────────────────────
+        composable(Screen.Budget.route) {
+            val vm: BudgetViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return BudgetViewModel(
+                            ServiceLocator.budgetRepository,
+                            ServiceLocator.categoriesRepository,
+                            ServiceLocator.tenantContext
+                        ) as T
+                    }
+                }
+            )
+            BudgetScreen(
+                viewModel = vm,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
