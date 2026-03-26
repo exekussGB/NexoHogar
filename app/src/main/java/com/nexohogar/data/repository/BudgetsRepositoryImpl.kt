@@ -6,6 +6,7 @@ import com.nexohogar.data.model.CreateBudgetRequest
 import com.nexohogar.data.model.ExpenseByCategoryDto
 import com.nexohogar.data.network.BudgetsApi
 import com.nexohogar.data.network.CategoriesApi
+import com.nexohogar.data.remote.dto.CategoryResponse
 import com.nexohogar.domain.model.Budget
 import com.nexohogar.domain.repository.BudgetsRepository
 import java.util.Calendar
@@ -20,8 +21,9 @@ class BudgetsRepositoryImpl(
         return try {
             val budgetDtos = budgetsApi.getBudgets("eq.$householdId")
             val categories = try {
-                categoriesApi.getCategories("eq.$householdId")
-            } catch (_: Exception) { emptyList() }
+                val response = categoriesApi.getCategories("eq.$householdId")
+                response.body() ?: emptyList<CategoryResponse>()
+            } catch (_: Exception) { emptyList<CategoryResponse>() }
 
             val categoryMap = categories.associate { it.id to it.name }
 
