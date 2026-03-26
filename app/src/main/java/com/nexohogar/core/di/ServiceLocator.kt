@@ -1,142 +1,367 @@
-package com.nexohogar.core.di
+package com.nexohogar.presentation.navigation
 
-import android.annotation.SuppressLint
-import android.content.Context
-import com.nexohogar.core.network.AuthInterceptor
-import com.nexohogar.core.network.SupabaseConfig
-import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.local.SessionManager
-import com.nexohogar.data.network.*
-import com.nexohogar.data.repository.*
-import com.nexohogar.domain.repository.*
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.presentation.accounts.AccountsScreen
+import com.nexohogar.presentation.accounts.AccountsViewModel
+import com.nexohogar.presentation.addtransaction.AddTransactionScreen
+import com.nexohogar.presentation.addmovement.AddMovementViewModel
+import com.nexohogar.presentation.budget.BudgetScreen
+import com.nexohogar.presentation.budget.BudgetViewModel
+import com.nexohogar.presentation.categoryexpenses.CategoryExpensesScreen
+import com.nexohogar.presentation.categoryexpenses.CategoryExpensesViewModel
+import com.nexohogar.presentation.dashboard.DashboardScreen
+import com.nexohogar.presentation.dashboard.DashboardViewModel
+import com.nexohogar.presentation.household.HouseholdScreen
+import com.nexohogar.presentation.household.HouseholdViewModel
+import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
+import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
+import com.nexohogar.presentation.hub.HubScreen
+import com.nexohogar.presentation.inventory.InventoryScreen
+import com.nexohogar.presentation.inventory.InventoryViewModel
+import com.nexohogar.presentation.invitemember.InviteMemberScreen
+import com.nexohogar.presentation.invitemember.InviteMemberViewModel
+import com.nexohogar.presentation.login.LoginScreen
+import com.nexohogar.presentation.login.LoginViewModel
+import com.nexohogar.presentation.personaldashboard.PersonalDashboardScreen
+import com.nexohogar.presentation.personaldashboard.PersonalDashboardViewModel
+import com.nexohogar.presentation.recurringbills.RecurringBillsScreen
+import com.nexohogar.presentation.recurringbills.RecurringBillsViewModel
+import com.nexohogar.presentation.register.RegisterScreen
+import com.nexohogar.presentation.register.RegisterViewModel
+import com.nexohogar.presentation.settings.SettingsScreen
+import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
+import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
+import com.nexohogar.presentation.transactions.TransactionsScreen
+import com.nexohogar.presentation.transactions.TransactionsViewModel
 
-@SuppressLint("StaticFieldLeak")
-object ServiceLocator {
+// ---------------------------------------------------------------------------
+// Rutas de la app
+// ---------------------------------------------------------------------------
+sealed class Screen(val route: String) {
+    object Login              : Screen("login")
+    object Register           : Screen("register")
+    object Household          : Screen("household")
+    object Hub                : Screen("hub")
+    object Dashboard          : Screen("dashboard")
+    object Accounts           : Screen("accounts")
+    object Transactions       : Screen("transactions")
+    object InviteMember       : Screen("invite_member")
+    object RecurringBills     : Screen("recurring_bills")
+    object Settings           : Screen("settings")
+    object HouseholdMembers   : Screen("household_members")
+    object Inventory          : Screen("inventory")
+    object Budget             : Screen("budget")
+    object CategoryExpenses   : Screen("category_expenses")
+    object PersonalDashboard  : Screen("personal_dashboard")
 
-    private var databaseContext: Context? = null
+    object AddTransaction : Screen("add_transaction/{type}") {
+        fun createRoute(type: String) = "add_transaction/$type"
+    }
+    object TransactionDetail : Screen("transaction_detail/{transactionId}") {
+        fun createRoute(transactionId: String) = "transaction_detail/$transactionId"
+    }
+}
 
-    fun init(context: Context) {
-        if (databaseContext == null) {
-            databaseContext = context.applicationContext
+// ---------------------------------------------------------------------------
+// NavGraph
+// ---------------------------------------------------------------------------
+@Composable
+fun NavGraph(navController: NavHostController) {
+    val sessionManager              = ServiceLocator.sessionManager
+    val authRepository              = ServiceLocator.authRepository
+    val householdRepository         = ServiceLocator.householdRepository
+    val dashboardRepository         = ServiceLocator.dashboardRepository
+    val accountsRepository          = ServiceLocator.accountsRepository
+    val transactionsRepository      = ServiceLocator.transactionsRepository
+    val categoriesRepository        = ServiceLocator.categoriesRepository
+    val transactionDetailRepository = ServiceLocator.transactionDetailRepository
+    val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
+    val inventoryRepository         = ServiceLocator.inventoryRepository
+    val budgetRepository            = ServiceLocator.budgetRepository
+    val categoryExpensesRepository  = ServiceLocator.categoryExpensesRepository
+    val personalDashboardRepository = ServiceLocator.personalDashboardRepository
+    val tenantContext               = ServiceLocator.tenantContext
+
+    val startDestination =
+        if (sessionManager.fetchAuthToken() != null) Screen.Household.route
+        else Screen.Login.route
+
+    NavHost(navController = navController, startDestination = startDestination) {
+
+        // ── Login ──────────────────────────────────────────────────────────
+        composable(Screen.Login.route) {
+            val vm = LoginViewModel(authRepository, sessionManager)
+            LoginScreen(
+                viewModel            = vm,
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                onLoginSuccess       = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            )
         }
-    }
 
-    private val context: Context
-        get() = databaseContext ?: throw IllegalStateException("ServiceLocator must be initialized with context")
-
-    // ── Core & Local ──────────────────────────────────────────────────────────
-
-    val sessionManager: SessionManager by lazy {
-        SessionManager(context)
-    }
-
-    val tenantContext: TenantContext by lazy {
-        TenantContext(sessionManager)
-    }
-
-    // ── Network ───────────────────────────────────────────────────────────────
-
-    private val authInterceptor: AuthInterceptor by lazy {
-        AuthInterceptor(sessionManager)
-    }
-
-    private val okHttpClient: OkHttpClient by lazy {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        // ── Register ───────────────────────────────────────────────────────
+        composable(Screen.Register.route) {
+            val vm = RegisterViewModel(authRepository, sessionManager)
+            RegisterScreen(
+                viewModel         = vm,
+                onNavigateToLogin = { navController.popBackStack() },
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            )
         }
-        OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
-            .addInterceptor(logging)
-            .build()
-    }
 
-    private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl("https://fpsdkpurugviwygfuljp.supabase.co/")
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
+        // ── Household ──────────────────────────────────────────────────────
+        composable(Screen.Household.route) {
+            val vm = HouseholdViewModel(householdRepository, tenantContext)
+            HouseholdScreen(viewModel = vm) { householdId ->
+                tenantContext.setHouseholdId(householdId)
+                navController.navigate(Screen.Hub.route) {
+                    popUpTo(Screen.Household.route) { inclusive = true }
+                }
+            }
+        }
 
-    // ── API interfaces ────────────────────────────────────────────────────────
+        // ── Hub ────────────────────────────────────────────────────────────
+        composable(Screen.Hub.route) {
+            HubScreen(
+                householdName              = "",
+                onNavigateToDashboard      = { navController.navigate(Screen.Dashboard.route) },
+                onNavigateToTransactions   = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToAddMovement    = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
+                onNavigateToAccounts       = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
+                onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
+                onNavigateToBudget         = { navController.navigate(Screen.Budget.route) },
+                onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
+                onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
+            )
+        }
 
-    val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
+        // ── Dashboard (Fondo Común) ────────────────────────────────────────
+        composable(Screen.Dashboard.route) {
+            val vm: DashboardViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return DashboardViewModel(
+                            dashboardRepository,
+                            transactionsRepository,
+                            accountsRepository,   // ← FIX: faltaba este parámetro
+                            tenantContext
+                        ) as T
+                    }
+                }
+            )
+            DashboardScreen(
+                viewModel               = vm,
+                onTransactionClick      = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onSeeAllClick           = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToCategoryExp = { navController.navigate(Screen.CategoryExpenses.route) },
+                onNavigateToPersonal    = { navController.navigate(Screen.PersonalDashboard.route) }
+            )
+        }
 
-    val dashboardApi: DashboardApi by lazy { retrofit.create(DashboardApi::class.java) }
+        // ── Accounts ───────────────────────────────────────────────────────
+        composable(Screen.Accounts.route) {
+            val vm = AccountsViewModel(accountsRepository, tenantContext)
+            AccountsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val accountsApi: AccountsApi by lazy { retrofit.create(AccountsApi::class.java) }
+        // ── Transactions ───────────────────────────────────────────────────
+        composable(Screen.Transactions.route) {
+            val vm = TransactionsViewModel(transactionsRepository, tenantContext)
+            TransactionsScreen(
+                viewModel             = vm,
+                onTransactionClick    = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
+                onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) }
+            )
+        }
 
-    val transactionsApi: TransactionsApi by lazy { retrofit.create(TransactionsApi::class.java) }
+        // ── AddTransaction ─────────────────────────────────────────────────
+        composable(
+            route     = Screen.AddTransaction.route,
+            arguments = listOf(navArgument("type") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val type = backStackEntry.arguments?.getString("type") ?: "expense"
+            val vm: AddMovementViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return AddMovementViewModel(
+                            transactionsRepository,
+                            categoriesRepository,
+                            recurringBillsRepository,
+                            tenantContext
+                        ) as T
+                    }
+                }
+            )
+            AddTransactionScreen(
+                transactionType = type,
+                viewModel       = vm,
+                onNavigateBack  = { navController.popBackStack() }
+            )
+        }
 
-    val transactionDetailApi: TransactionDetailApi by lazy { retrofit.create(TransactionDetailApi::class.java) }
+        // ── TransactionDetail ──────────────────────────────────────────────
+        composable(
+            route     = Screen.TransactionDetail.route,
+            arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+            val vm: TransactionDetailViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return TransactionDetailViewModel(transactionDetailRepository) as T
+                    }
+                }
+            )
+            TransactionDetailScreen(
+                transactionId  = transactionId,
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val categoriesApi: CategoriesApi by lazy { retrofit.create(CategoriesApi::class.java) }
+        // ── InviteMember ───────────────────────────────────────────────────
+        composable(Screen.InviteMember.route) {
+            val vm = InviteMemberViewModel(householdRepository, tenantContext)
+            InviteMemberScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val recurringBillsApi: RecurringBillsApi by lazy { retrofit.create(RecurringBillsApi::class.java) }
+        // ── RecurringBills ─────────────────────────────────────────────────
+        composable(Screen.RecurringBills.route) {
+            val vm: RecurringBillsViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return RecurringBillsViewModel(recurringBillsRepository, tenantContext) as T
+                    }
+                }
+            )
+            RecurringBillsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
+        // ── Settings ───────────────────────────────────────────────────────
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                sessionManager    = sessionManager,
+                onNavigateBack    = { navController.popBackStack() },
+                onLogout          = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onChangeHousehold = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Hub.route) { inclusive = true }
+                    }
+                },
+                onViewMembers = { navController.navigate(Screen.HouseholdMembers.route) }
+            )
+        }
 
-    val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
+        // ── HouseholdMembers ───────────────────────────────────────────────
+        composable(Screen.HouseholdMembers.route) {
+            val vm = HouseholdMembersViewModel(householdRepository, tenantContext)
+            HouseholdMembersScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
+        // ── Inventory ──────────────────────────────────────────────────────
+        composable(Screen.Inventory.route) {
+            val vm: InventoryViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return InventoryViewModel(inventoryRepository, tenantContext) as T
+                    }
+                }
+            )
+            InventoryScreen(
+                viewModel = vm,
+                onBack    = { navController.popBackStack() }
+            )
+        }
 
-    val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
+        // ── Budget ─────────────────────────────────────────────────────────
+        composable(Screen.Budget.route) {
+            val vm: BudgetViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return BudgetViewModel(budgetRepository, tenantContext) as T
+                    }
+                }
+            )
+            BudgetScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    // ── Repositories ──────────────────────────────────────────────────────────
+        // ── CategoryExpenses ───────────────────────────────────────────────
+        composable(Screen.CategoryExpenses.route) {
+            val vm: CategoryExpensesViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return CategoryExpensesViewModel(categoryExpensesRepository, tenantContext) as T
+                    }
+                }
+            )
+            CategoryExpensesScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
-    val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(authApi, sessionManager)
-    }
-
-    val householdRepository: HouseholdRepository by lazy {
-        HouseholdRepositoryImpl(authApi)
-    }
-
-    val dashboardRepository: DashboardRepository by lazy {
-        DashboardRepositoryImpl(dashboardApi)
-    }
-
-    val accountsRepository: AccountsRepository by lazy {
-        AccountsRepositoryImpl(accountsApi, sessionManager)
-    }
-
-    val transactionsRepository: TransactionsRepository by lazy {
-        TransactionsRepositoryImpl(
-            api            = transactionsApi,
-            accountsApi    = accountsApi,
-            sessionManager = sessionManager
-        )
-    }
-
-    val transactionDetailRepository: TransactionDetailRepository by lazy {
-        TransactionDetailRepositoryImpl(transactionDetailApi)
-    }
-
-    val categoriesRepository: CategoriesRepository by lazy {
-        CategoriesRepositoryImpl(categoriesApi)
-    }
-
-    val recurringBillsRepository: RecurringBillsRepository by lazy {
-        RecurringBillsRepositoryImpl(recurringBillsApi)
-    }
-
-    val inventoryRepository: InventoryRepository by lazy {
-        InventoryRepositoryImpl(inventoryApi)
-    }
-
-    val budgetRepository: BudgetRepository by lazy {
-        BudgetRepositoryImpl(budgetApi)
-    }
-
-    val categoryExpensesRepository: CategoryExpensesRepository by lazy {
-        CategoryExpensesRepositoryImpl(categoryExpensesApi, tenantContext)
-    }
-
-    val personalDashboardRepository: PersonalDashboardRepository by lazy {
-        PersonalDashboardRepositoryImpl(personalDashboardApi)
+        // ── PersonalDashboard ──────────────────────────────────────────────
+        composable(Screen.PersonalDashboard.route) {
+            val vm: PersonalDashboardViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return PersonalDashboardViewModel(
+                            personalDashboardRepository,
+                            tenantContext,
+                            sessionManager   // ← FIX: faltaba sessionManager
+                        ) as T
+                    }
+                }
+            )
+            PersonalDashboardScreen(
+                viewModel          = vm,
+                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) }, // ← FIX: faltaba onTransactionClick
+                onNavigateBack     = { navController.popBackStack() }
+            )
+        }
     }
 }

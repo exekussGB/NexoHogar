@@ -17,7 +17,6 @@ class AccountsRepositoryImpl(
     /**
      * Obtiene los saldos reales desde la VISTA account_balances.
      * balance_clp = initial_balance_clp + suma de transaction_entries.
-     * Filtra cuentas del sistema.
      */
     override suspend fun getAccountBalances(
         householdId: String
@@ -39,22 +38,64 @@ class AccountsRepositoryImpl(
     }
 
     /**
+     * Retorna true si el usuario tiene al menos una cuenta personal (is_shared = false).
+     */
+    override suspend fun hasPersonalAccounts(
+        householdId: String,
+        userId: String
+    ): AppResult<Boolean> {
+        return try {
+            val balances = accountsApi.getBalances(
+                householdId = "eq.$householdId"
+            )
+            val hasPersonal = balances.any { it.isShared == false && it.ownerUserId == userId }
+            AppResult.Success(hasPersonal)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al verificar cuentas personales")
+        }
+    }
+
+    /**
+     * Retorna los saldos de cuentas personales del usuario (is_shared = false).
+     */
+    override suspend fun getPersonalAccountBalances(
+        householdId: String,
+        userId: String
+    ): AppResult<List<AccountBalance>> {
+        return try {
+            val balances = accountsApi.getBalances(
+                householdId = "eq.$householdId"
+            )
+            val personal = balances
+                .filter { it.isShared == false && it.ownerUserId == userId }
+                .map { it.toDomain() }
+            AppResult.Success(personal)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al obtener cuentas personales")
+        }
+    }
+
+    /**
      * Crea una nueva cuenta.
      * account_type debe ir en MAYÚSCULAS — CHECK constraint: ASSET, LIABILITY, EXPENSE, INCOME
-     * currency_code es NOT NULL → se envía "CLP"
      */
     override suspend fun createAccount(
-        householdId  : String,
-        name         : String,
-        accountType  : String,
-        accountSubtype: String
+        householdId   : String,
+        name          : String,
+        accountType   : String,
+        accountSubtype: String,
+        isShared      : Boolean,
+        ownerUserId   : String?
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
-                name         = name,
-                accountType  = accountType.uppercase(),
-                householdId  = householdId,
-                currencyCode = "CLP"
+                name          = name,
+                accountType   = accountType.uppercase(),
+                householdId   = householdId,
+                currencyCode  = "CLP",
+                accountSubtype = accountSubtype,
+                isShared      = isShared,
+                ownerUserId   = ownerUserId
             )
             val response = accountsApi.createAccount(request)
             val created  = response.firstOrNull()
@@ -71,6 +112,18 @@ class AccountsRepositoryImpl(
             )
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al crear cuenta")
+        }
+    }
+
+    /**
+     * Elimina una cuenta por ID (DELETE en Supabase).
+     */
+    override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
+        return try {
+            accountsApi.deleteAccount(id = "eq.$accountId")
+            AppResult.Success(Unit)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al eliminar cuenta")
         }
     }
 }
