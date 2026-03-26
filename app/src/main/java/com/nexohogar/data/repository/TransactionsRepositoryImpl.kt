@@ -37,12 +37,13 @@ class TransactionsRepositoryImpl(
             val result = dtoList
                 .map { dto ->
                     Transaction(
-                        id          = dto.id,
-                        accountId   = dto.accountId,
-                        amount      = dto.amountClp,
-                        description = dto.description,
-                        createdAt   = dto.createdAt,
-                        type        = dto.type
+                        id            = dto.id,
+                        accountId     = dto.accountId,
+                        amount        = dto.amountClp,
+                        description   = dto.description,
+                        createdAt     = dto.createdAt,
+                        type          = dto.type,
+                        createdByName = dto.createdByName
                     )
                 }
                 // ── Ordenar de más reciente a más antiguo ──────────────────────
@@ -75,15 +76,21 @@ class TransactionsRepositoryImpl(
 
     override suspend fun createTransfer(request: CreateTransferRequest): AppResult<Unit> {
         return try {
+            Log.d("TRANSFER_DEBUG", "Creating transfer request: from=${request.fromAccountId}, to=${request.toAccountId}, amount=${request.amountClp}, household=${request.householdId}, desc=${request.description}, date=${request.transactionDate}")
             val response = api.createTransfer(request)
+            Log.d("TRANSFER_DEBUG", "Transfer response code: ${response.code()}")
             if (response.isSuccessful) {
+                val body = response.body()
+                Log.d("TRANSFER_DEBUG", "Transfer success, body: $body")
                 AppResult.Success(Unit)
             } else {
                 val errorBody = response.errorBody()?.string()
+                Log.e("TRANSFER_DEBUG", "Transfer error HTTP ${response.code()}: $errorBody")
                 Log.e("TransactionsRepository", "Error creating transfer: $errorBody")
                 AppResult.Error("Error al crear transferencia")
             }
         } catch (e: Exception) {
+            Log.e("TRANSFER_DEBUG", "Transfer exception: ${e.message}", e)
             Log.e("TransactionsRepository", "Error creating transfer", e)
             AppResult.Error(e.message ?: "Error desconocido")
         }

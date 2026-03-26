@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
@@ -144,10 +145,17 @@ fun TransactionItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = transaction.createdAt.ifBlank { "Fecha no disponible" },
+                    text = DateFormatter.formatForDisplay(transaction.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                transaction.createdByName?.let { name ->
+                    Text(
+                        text = "por $name",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Text(

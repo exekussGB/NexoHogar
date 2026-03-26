@@ -37,5 +37,20 @@ data class TransactionResponse(
 
     // Join con tabla accounts — null si la query no incluye el join
     @SerializedName("accounts")
-    val accounts: AccountInfo? = null
+    val accounts: AccountInfo? = null,
+
+    @SerializedName("created_by")
+    val createdBy: String? = null,
+
+    @SerializedName("created_by_name")
+    val createdByName: String? = null,
+
+    @SerializedName("to_account_id")
+    val toAccountId: String? = null,
+
+    @SerializedName("transaction_date")
+    val transactionDate: String? = null,
+
+    @SerializedName("category_id")
+    val categoryId: String? = null
 )

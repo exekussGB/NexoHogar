@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.addmovement
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
@@ -213,6 +214,7 @@ class AddMovementViewModel(
                     _uiState.update { it.copy(isLoading = false, error = "Las cuentas deben ser distintas") }
                     return@launch
                 }
+                Log.d("TRANSFER_DEBUG", "Creating transfer: from=${state.selectedFromAccount.id}, to=${state.selectedToAccount.id}, amount=$amountLong")
                 transactionsRepository.createTransfer(
                     CreateTransferRequest(
                         householdId   = householdId,
@@ -263,7 +265,10 @@ class AddMovementViewModel(
                     }
                     _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                 }
-                is AppResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is AppResult.Error -> {
+                    Log.e("TRANSFER_DEBUG", "Transfer failed: ${result.message}")
+                    _uiState.update { it.copy(isLoading = false, error = result.message) }
+                }
                 else -> {}
             }
         }

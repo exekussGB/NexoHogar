@@ -1,5 +1,6 @@
 package com.nexohogar.data.network
 
+import com.google.gson.JsonElement
 import com.nexohogar.data.remote.dto.CreateTransactionRequest
 import com.nexohogar.data.remote.dto.CreateTransferRequest
 import com.nexohogar.data.remote.dto.TransactionResponse
@@ -14,9 +15,10 @@ import retrofit2.http.Query
  */
 interface TransactionsApi {
 
-    @GET("rest/v1/transactions")
+    @GET("rest/v1/v_transactions_with_user")
     suspend fun getTransactions(
-        @Query("household_id") householdFilter: String
+        @Query("household_id") householdFilter: String,
+        @Query("select") select: String = "*"
     ): Response<List<TransactionResponse>>
 
     @POST("rest/v1/rpc/rpc_create_transaction")
@@ -27,5 +29,5 @@ interface TransactionsApi {
     @POST("rest/v1/rpc/rpc_transfer")
     suspend fun createTransfer(
         @Body request: CreateTransferRequest
-    ): Response<Unit>
+    ): Response<JsonElement>
 }
