@@ -161,6 +161,7 @@ fun NavGraph(navController: NavHostController) {
                         return DashboardViewModel(
                             dashboardRepository,
                             transactionsRepository,
+                            accountsRepository,
                             tenantContext
                         ) as T
                     }
@@ -350,14 +351,16 @@ fun NavGraph(navController: NavHostController) {
                         @Suppress("UNCHECKED_CAST")
                         return PersonalDashboardViewModel(
                             personalDashboardRepository,
-                            tenantContext
+                            tenantContext,
+                            sessionManager
                         ) as T
                     }
                 }
             )
             PersonalDashboardScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel          = vm,
+                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onNavigateBack     = { navController.popBackStack() }
             )
         }
     }
