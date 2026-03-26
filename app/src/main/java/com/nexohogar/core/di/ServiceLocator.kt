@@ -64,45 +64,27 @@ object ServiceLocator {
 
     // ── API interfaces ────────────────────────────────────────────────────────
 
-    val authApi: AuthApi by lazy {
-        retrofit.create(AuthApi::class.java)
-    }
+    val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
 
-    val dashboardApi: DashboardApi by lazy {
-        retrofit.create(DashboardApi::class.java)
-    }
+    val dashboardApi: DashboardApi by lazy { retrofit.create(DashboardApi::class.java) }
 
-    val personalDashboardApi: PersonalDashboardApi by lazy {
-        retrofit.create(PersonalDashboardApi::class.java)
-    }
+    val accountsApi: AccountsApi by lazy { retrofit.create(AccountsApi::class.java) }
 
-    val accountsApi: AccountsApi by lazy {
-        retrofit.create(AccountsApi::class.java)
-    }
+    val transactionsApi: TransactionsApi by lazy { retrofit.create(TransactionsApi::class.java) }
 
-    val transactionsApi: TransactionsApi by lazy {
-        retrofit.create(TransactionsApi::class.java)
-    }
+    val transactionDetailApi: TransactionDetailApi by lazy { retrofit.create(TransactionDetailApi::class.java) }
 
-    val transactionDetailApi: TransactionDetailApi by lazy {
-        retrofit.create(TransactionDetailApi::class.java)
-    }
+    val categoriesApi: CategoriesApi by lazy { retrofit.create(CategoriesApi::class.java) }
 
-    val categoriesApi: CategoriesApi by lazy {
-        retrofit.create(CategoriesApi::class.java)
-    }
+    val recurringBillsApi: RecurringBillsApi by lazy { retrofit.create(RecurringBillsApi::class.java) }
 
-    val recurringBillsApi: RecurringBillsApi by lazy {
-        retrofit.create(RecurringBillsApi::class.java)
-    }
+    val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
 
-    val inventoryApi: InventoryApi by lazy {
-        retrofit.create(InventoryApi::class.java)
-    }
+    val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
 
-    val categoryExpensesApi: CategoryExpensesApi by lazy {
-        retrofit.create(CategoryExpensesApi::class.java)
-    }
+    val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
+
+    val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
 
     // ── Repositories ──────────────────────────────────────────────────────────
 
@@ -116,10 +98,6 @@ object ServiceLocator {
 
     val dashboardRepository: DashboardRepository by lazy {
         DashboardRepositoryImpl(dashboardApi)
-    }
-
-    val personalDashboardRepository: PersonalDashboardRepository by lazy {
-        PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
 
     val accountsRepository: AccountsRepository by lazy {
@@ -150,7 +128,15 @@ object ServiceLocator {
         InventoryRepositoryImpl(inventoryApi)
     }
 
+    val budgetRepository: BudgetRepository by lazy {
+        BudgetRepositoryImpl(budgetApi)
+    }
+
     val categoryExpensesRepository: CategoryExpensesRepository by lazy {
-        CategoryExpensesRepositoryImpl(categoryExpensesApi)
+        CategoryExpensesRepositoryImpl(categoryExpensesApi, tenantContext)
+    }
+
+    val personalDashboardRepository: PersonalDashboardRepository by lazy {
+        PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
 }

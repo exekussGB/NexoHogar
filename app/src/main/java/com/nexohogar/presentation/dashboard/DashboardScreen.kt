@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,7 +16,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -32,20 +30,50 @@ import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Formateador de fecha para Chile (America/Santiago)
+// ─────────────────────────────────────────────────────────────────────────────
+private val chileZone      = ZoneId.of("America/Santiago")
+private val dateFormatter  = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val dtFormatter    = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+
+internal fun formatChileDate(isoString: String): String {
+    return try {
+        val instant = Instant.parse(isoString)
+        val zoned   = instant.atZone(chileZone)
+        if (isoString.length > 10) zoned.format(dtFormatter) else zoned.format(dateFormatter)
+    } catch (_: Exception) {
+        try {
+            // Fallback: tomar solo los primeros 10 chars "yyyy-MM-dd" y reformatear
+            val parts = isoString.take(10).split("-")
+            if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}"
+            else isoString.take(10)
+        } catch (_: Exception) {
+            isoString.take(10)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DashboardScreen — toggle Fondo Común / Mis Cuentas
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun DashboardScreen(
-    viewModel                      : DashboardViewModel,
-    onTransactionClick             : (String) -> Unit,
-    onSeeAllClick                  : () -> Unit,
-    onNavigateToPersonalDashboard  : () -> Unit = {},
-    onNavigateToCategoryExpenses   : () -> Unit = {},
-    hasPersonalAccounts            : Boolean    = true
+    viewModel              : DashboardViewModel,
+    onTransactionClick     : (String) -> Unit,
+    onSeeAllClick          : () -> Unit,
+    onNavigateToCategoryExp: () -> Unit,
+    onNavigateToPersonal   : (() -> Unit)? = null
 ) {
-    val uiState   by viewModel.uiState.collectAsState()
-    val clpFormat  = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    val uiState  by viewModel.uiState.collectAsState()
+    val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
+    // Refresca al volver a la pantalla (ej. tras agregar un movimiento)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -61,34 +89,48 @@ fun DashboardScreen(
         LazyColumn(
             modifier            = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding      = PaddingValues(bottom = 24.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ── Toggle Fondo Común / Mis Cuentas ─────────────────────────────
-            item {
-                Spacer(Modifier.height(12.dp))
-                DashboardToggleBar(
-                    hasPersonalAccounts           = hasPersonalAccounts,
-                    onNavigateToPersonalDashboard = onNavigateToPersonalDashboard
-                )
-            }
-
-            item {
-                uiState.summary?.let {
-                    BalanceCard(summary = it, format = clpFormat)
+            // ── Botón "Mis Cuentas" (solo si se proporciona callback) ──────
+            if (onNavigateToPersonal != null) {
+                item {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        OutlinedButton(
+                            onClick      = onNavigateToPersonal,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector        = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier           = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Mis Cuentas", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
 
+            // ── Balance card ───────────────────────────────────────────────
+            item {
+                uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+            }
+
+            // ── Gráfico de tendencia ───────────────────────────────────────
             item {
                 MonthlyChart(monthlyData = uiState.monthlyBalance)
             }
 
-            // ── Gastos por Categoría ──────────────────────────────────────────
+            // ── Gastos por categoría (botón) ───────────────────────────────
             item {
-                CategoryExpensesRow(onClick = onNavigateToCategoryExpenses)
+                CategoryExpensesButton(onClick = onNavigateToCategoryExp)
             }
 
+            // ── Últimos movimientos ────────────────────────────────────────
             item {
                 RecentTransactionsList(
                     transactions       = uiState.recentTransactions,
@@ -102,90 +144,15 @@ fun DashboardScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DashboardToggleBar  — Fondo Común (activo) | Mis Cuentas
+// Botón acceso rápido Gastos por Categoría
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun DashboardToggleBar(
-    hasPersonalAccounts           : Boolean,
-    onNavigateToPersonalDashboard : () -> Unit
-) {
-    Row(
-        modifier              = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // Chip activo: Fondo Común
-        Surface(
-            shape  = RoundedCornerShape(50),
-            color  = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.defaultMinSize(minHeight = 38.dp)
-        ) {
-            Row(
-                modifier            = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment   = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    imageVector        = Icons.Default.Group,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.onPrimary,
-                    modifier           = Modifier.size(16.dp)
-                )
-                Text(
-                    text       = "Fondo Común",
-                    color      = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    style      = MaterialTheme.typography.labelLarge
-                )
-            }
-        }
-
-        // Chip Mis Cuentas — solo si tiene cuentas personales
-        if (hasPersonalAccounts) {
-            Surface(
-                shape    = RoundedCornerShape(50),
-                color    = Color.Transparent,
-                border   = androidx.compose.foundation.BorderStroke(
-                    1.5.dp,
-                    MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier
-                    .defaultMinSize(minHeight = 38.dp)
-                    .clickable { onNavigateToPersonalDashboard() }
-            ) {
-                Row(
-                    modifier              = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector        = Icons.Default.Person,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.primary,
-                        modifier           = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text       = "Mis Cuentas",
-                        color      = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        style      = MaterialTheme.typography.labelLarge
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CategoryExpensesRow
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun CategoryExpensesRow(onClick: () -> Unit) {
+fun CategoryExpensesButton(onClick: () -> Unit) {
     Card(
         modifier  = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier              = Modifier
@@ -194,32 +161,22 @@ private fun CategoryExpensesRow(onClick: () -> Unit) {
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF5C6BC0).copy(alpha = 0.12f),
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector        = Icons.Default.PieChart,
-                            contentDescription = null,
-                            tint               = Color(0xFF5C6BC0),
-                            modifier           = Modifier.size(22.dp)
-                        )
-                    }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector        = Icons.Default.PieChart,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.primary,
+                    modifier           = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text       = "Gastos por Categoría",
-                        fontWeight = FontWeight.SemiBold,
-                        style      = MaterialTheme.typography.bodyLarge
+                        "Gastos por Categoría",
+                        style      = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text  = "Desglose de gastos por categoría",
+                        "Ver desglose del mes actual",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -237,12 +194,11 @@ private fun CategoryExpensesRow(onClick: () -> Unit) {
 // ─────────────────────────────────────────────────────────────────────────────
 // BalanceCard
 // ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
+        colors   = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
         ),
@@ -265,10 +221,10 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
             ) {
                 SummaryInfo("Ingresos", summary.totalIncome,  Color(0xFF4CAF50), format)
                 VerticalDivider(
-                    modifier = Modifier.height(40.dp),
-                    color    = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                    modifier  = Modifier.height(40.dp),
+                    color     = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                 )
-                SummaryInfo("Gastos", summary.totalExpense, Color(0xFFF44336), format)
+                SummaryInfo("Gastos",   summary.totalExpense, Color(0xFFF44336), format)
             }
         }
     }
@@ -290,7 +246,6 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
 // ─────────────────────────────────────────────────────────────────────────────
 // MonthlyChart — con tooltip al tocar una barra
 // ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
@@ -333,9 +288,11 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                     val monthName = monthNames.getOrElse(item.monthNum - 1) { "?" }
                     val netColor  = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        shape    = RoundedCornerShape(8.dp),
-                        colors   = CardDefaults.cardColors(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        shape  = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.inverseSurface
                         )
                     ) {
@@ -377,7 +334,9 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val hasData = monthlyData.any { it.net != 0L }
             if (!hasData) {
                 Box(
-                    modifier        = Modifier.fillMaxWidth().height(130.dp),
+                    modifier         = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -409,7 +368,7 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                     .height(130.dp)
                     .pointerInput(monthlyData) {
                         detectTapGestures { offset ->
-                            val count = monthlyData.size
+                            val count  = monthlyData.size
                             if (count == 0) return@detectTapGestures
                             val slotW  = size.width / count.toFloat()
                             val tapped = (offset.x / slotW).toInt().coerceIn(0, count - 1)
@@ -417,12 +376,12 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                         }
                     }
             ) {
-                val count     = monthlyData.size
-                val slotWidth = size.width / count
-                val barWidth  = slotWidth * 0.5f
-                val barAreaH  = size.height * 0.72f
-                val baselineY = size.height * 0.72f
-                val labelY    = size.height - 4f
+                val count      = monthlyData.size
+                val slotWidth  = size.width / count
+                val barWidth   = slotWidth * 0.5f
+                val barAreaH   = size.height * 0.72f
+                val baselineY  = size.height * 0.72f
+                val labelY     = size.height - 4f
 
                 drawLine(
                     color       = Color(0xFFBDBDBD),
@@ -440,34 +399,32 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                     val topY       = if (item.net >= 0) baselineY - barH else baselineY
 
                     val barColor = when {
-                        isSelected   -> selectedColor
+                        isSelected  -> selectedColor
                         item.net >= 0 -> positiveColor
-                        else          -> negativeColor
+                        else        -> negativeColor
                     }
                     val alpha = when {
                         isSelected         -> 1f
                         selectedIndex != null -> 0.35f
-                        i == count - 1    -> 1f
-                        else              -> 0.75f
+                        i == count - 1     -> 1f
+                        else               -> 0.75f
                     }
 
                     drawRect(
-                        color   = barColor,
-                        topLeft = Offset(barLeft, topY),
-                        size    = Size(barWidth, barH),
-                        alpha   = alpha
+                        color    = barColor,
+                        topLeft  = Offset(barLeft, topY),
+                        size     = Size(barWidth, barH),
+                        alpha    = alpha
                     )
 
                     val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
                     drawContext.canvas.nativeCanvas.drawText(
-                        label,
-                        centerX,
-                        labelY,
+                        label, centerX, labelY,
                         android.graphics.Paint().apply {
-                            color     = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
-                                        else labelColor.toArgb()
-                            textSize  = 28f
-                            textAlign = android.graphics.Paint.Align.CENTER
+                            color      = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
+                            else labelColor.toArgb()
+                            textSize   = 28f
+                            textAlign  = android.graphics.Paint.Align.CENTER
                             isAntiAlias = true
                         }
                     )
@@ -480,13 +437,12 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
 // ─────────────────────────────────────────────────────────────────────────────
 // RecentTransactionsList
 // ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun RecentTransactionsList(
-    transactions       : List<Transaction>,
-    format             : NumberFormat,
-    onTransactionClick : (String) -> Unit,
-    onSeeAllClick      : () -> Unit
+    transactions      : List<Transaction>,
+    format            : NumberFormat,
+    onTransactionClick: (String) -> Unit,
+    onSeeAllClick     : () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -520,9 +476,9 @@ fun RecentTransactionsList(
 
 @Composable
 private fun TransactionRowItem(
-    transaction : Transaction,
-    format      : NumberFormat,
-    onClick     : (String) -> Unit
+    transaction: Transaction,
+    format     : NumberFormat,
+    onClick    : (String) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -556,8 +512,9 @@ private fun TransactionRowItem(
                     style      = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
+                // ── Fecha formateada para Chile ────────────────────────────
                 Text(
-                    text  = transaction.createdAt,
+                    text  = formatChileDate(transaction.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

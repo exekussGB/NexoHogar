@@ -1,8 +1,7 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.model.AccountBalanceDto
 import com.nexohogar.data.model.DashboardDto
-import com.nexohogar.data.model.DualDashboardDto
+import com.nexohogar.data.remote.dto.AccountBalanceViewDto
 import com.nexohogar.data.remote.dto.MonthlyBalanceDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -12,23 +11,27 @@ import retrofit2.http.Query
 
 interface DashboardApi {
 
+    /** Resumen del dashboard desde la vista v_dashboard. */
     @GET("rest/v1/v_dashboard")
     suspend fun getDashboardSummary(
         @Query("household_id") householdFilter: String
     ): Response<List<DashboardDto>>
 
+    /** Tendencia mensual desde la RPC rpc_monthly_balance. */
     @POST("rest/v1/rpc/rpc_monthly_balance")
     suspend fun getMonthlyBalance(
         @Body body: Map<String, String>
     ): Response<List<MonthlyBalanceDto>>
 
-    @POST("rest/v1/rpc/get_account_balances_v2")
-    suspend fun getAccountBalancesV2(
-        @Body body: Map<String, String>
-    ): Response<List<AccountBalanceDto>>
-
-    @POST("rest/v1/rpc/rpc_dashboard_dual")
-    suspend fun getDualDashboard(
-        @Body body: Map<String, String>
-    ): Response<List<DualDashboardDto>>
+    /**
+     * Saldos de cuentas desde la VISTA account_balances.
+     * balance_clp = saldo real calculado (initial + movimientos).
+     * householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
+     */
+    @GET("rest/v1/account_balances")
+    suspend fun getAccountBalances(
+        @Query("household_id") householdId: String,
+        @Query("select")       select: String = "account_id,name,account_type,balance_clp",
+        @Query("order")        order: String  = "name.asc"
+    ): Response<List<AccountBalanceViewDto>>
 }
