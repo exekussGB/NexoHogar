@@ -22,40 +22,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
-// ---------------------------------------------------------------------------
-// Modelo interno para cada botón del hub
-// ---------------------------------------------------------------------------
 private data class HubAction(
-    val title           : String,
-    val subtitle        : String,
-    val icon            : ImageVector,
-    val backgroundColor : Color,
-    val iconColor       : Color,
-    val enabled         : Boolean = true,
-    val onClick         : () -> Unit
+    val title          : String,
+    val subtitle       : String,
+    val icon           : ImageVector,
+    val backgroundColor: Color,
+    val iconColor      : Color,
+    val enabled        : Boolean = true,
+    val onClick        : () -> Unit
 )
 
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
 // HubScreen
-// ---------------------------------------------------------------------------
+// Orden de la grilla (2 columnas):
+//   Resumen      | Agregar
+//   Cuentas      | Recurrentes
+//   Presupuesto  | Inventario
+//   Invitar      | Opciones
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun HubScreen(
-    householdName              : String = "",
-    onNavigateToDashboard      : () -> Unit,
-    onNavigateToAddMovement    : (String) -> Unit,
-    onNavigateToAccounts       : () -> Unit,
-    onNavigateToInviteMember   : () -> Unit,
-    onNavigateToRecurringBills : () -> Unit,
-    onNavigateToInventory      : () -> Unit,
-    onNavigateToOptions        : () -> Unit
+    householdName             : String = "",
+    onNavigateToDashboard     : () -> Unit,
+    onNavigateToTransactions  : () -> Unit,
+    onNavigateToAddMovement   : (String) -> Unit,
+    onNavigateToAccounts      : () -> Unit,
+    onNavigateToInviteMember  : () -> Unit,
+    onNavigateToRecurringBills: () -> Unit,
+    onNavigateToBudget        : () -> Unit,
+    onNavigateToInventory     : () -> Unit,
+    onNavigateToOptions       : () -> Unit
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
 
-    // ── Grilla ordenada:
-    // Resumen    | Agregar
-    // Cuentas    | Recurrentes
-    // Presupuesto| Inventario
-    // Invitar    | Opciones
+    // Grilla en el orden solicitado:
+    // Fila 1: Resumen / Agregar
+    // Fila 2: Cuentas / Recurrentes
+    // Fila 3: Presupuesto / Inventario
+    // Fila 4: Invitar / Opciones
     val actions = listOf(
         HubAction(
             title           = "Resumen",
@@ -91,19 +95,18 @@ fun HubScreen(
         ),
         HubAction(
             title           = "Presupuesto",
-            subtitle        = "Próximamente",
-            icon            = Icons.Default.Savings,
-            backgroundColor = Color(0xFFFFF3E0),
-            iconColor       = Color(0xFFE65100),
-            enabled         = false,
-            onClick         = {}
+            subtitle        = "Control de gastos",
+            icon            = Icons.Default.AccountBalanceWallet,
+            backgroundColor = Color(0xFFE8EAF6),
+            iconColor       = Color(0xFF283593),
+            onClick         = onNavigateToBudget
         ),
         HubAction(
             title           = "Inventario",
             subtitle        = "Control de stock",
             icon            = Icons.Default.Inventory,
-            backgroundColor = Color(0xFFE8EAF6),
-            iconColor       = Color(0xFF283593),
+            backgroundColor = Color(0xFFF1F8E9),
+            iconColor       = Color(0xFF33691E),
             onClick         = onNavigateToInventory
         ),
         HubAction(
@@ -149,8 +152,7 @@ fun HubScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        val rows = actions.chunked(2)
-        rows.forEachIndexed { _, rowActions ->
+        actions.chunked(2).forEach { rowActions ->
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -158,9 +160,7 @@ fun HubScreen(
                 rowActions.forEach { action ->
                     HubActionCard(action = action, modifier = Modifier.weight(1f))
                 }
-                if (rowActions.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+                if (rowActions.size == 1) Spacer(modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(14.dp))
         }
@@ -170,7 +170,7 @@ fun HubScreen(
 
     if (showAddTypeDialog) {
         AddMovementTypeDialog(
-            onDismiss      = { showAddTypeDialog = false },
+            onDismiss     = { showAddTypeDialog = false },
             onTypeSelected = { type ->
                 showAddTypeDialog = false
                 onNavigateToAddMovement(type)
@@ -179,26 +179,19 @@ fun HubScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tarjeta de acción individual
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Tarjeta de acción
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun HubActionCard(
-    action   : HubAction,
-    modifier : Modifier = Modifier
-) {
+private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
     Card(
         modifier  = modifier
             .height(130.dp)
             .alpha(if (action.enabled) 1f else 0.45f)
             .clickable(enabled = action.enabled) { action.onClick() },
         shape     = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (action.enabled) 2.dp else 0.dp
-        ),
-        colors    = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = if (action.enabled) 2.dp else 0.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier            = Modifier
@@ -207,7 +200,7 @@ private fun HubActionCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
-                modifier        = Modifier
+                modifier         = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(action.backgroundColor),
@@ -228,22 +221,22 @@ private fun HubActionCard(
                     color      = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text  = action.subtitle,
+                    text     = action.subtitle,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
             }
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Diálogo: selector de tipo de movimiento
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Diálogo selector tipo de movimiento
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun AddMovementTypeDialog(
-    onDismiss      : () -> Unit,
-    onTypeSelected : (String) -> Unit
+    onDismiss     : () -> Unit,
+    onTypeSelected: (String) -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -301,24 +294,24 @@ private fun AddMovementTypeDialog(
 
 @Composable
 private fun MovementTypeOption(
-    icon        : ImageVector,
-    label       : String,
-    description : String,
-    iconColor   : Color,
-    bgColor     : Color,
-    onClick     : () -> Unit
+    icon       : ImageVector,
+    label      : String,
+    description: String,
+    iconColor  : Color,
+    bgColor    : Color,
+    onClick    : () -> Unit
 ) {
     Row(
-        modifier              = Modifier
+        modifier          = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
-        verticalAlignment     = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(
-            modifier        = Modifier
+            modifier         = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
                 .background(bgColor),

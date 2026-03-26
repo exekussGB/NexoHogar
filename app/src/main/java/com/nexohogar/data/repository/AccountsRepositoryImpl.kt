@@ -4,63 +4,60 @@ import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.model.CreateAccountRequest
+import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
 
 class AccountsRepositoryImpl(
-    private val accountsApi: AccountsApi,
+    private val accountsApi   : AccountsApi,
     private val sessionManager: SessionManager
 ) : AccountsRepository {
 
+    /**
+     * Obtiene los saldos reales desde la VISTA account_balances.
+     * balance_clp = initial_balance_clp + suma de transaction_entries.
+     * Filtra cuentas del sistema.
+     */
     override suspend fun getAccountBalances(
         householdId: String
     ): AppResult<List<AccountBalance>> {
         return try {
-            val accounts = accountsApi.getAccounts(householdId = "eq.$householdId")
-            val balances = accounts
+            val balances = accountsApi.getBalances(
+                householdId = "eq.$householdId"
+            )
+            val domain = balances
                 .filter { dto ->
-                    val nameLower = dto.name.lowercase()
-                    !nameLower.contains("system")
+                    !dto.accountName.lowercase().contains("system") &&
+                            !dto.accountName.startsWith("_")
                 }
-                .map { dto ->
-                    AccountBalance(
-                        accountId       = dto.id,
-                        accountName     = dto.name,
-                        accountType     = dto.accountType ?: "ASSET",
-                        movementBalance = dto.balance?.toLong() ?: 0L,
-                        isShared        = dto.isShared ?: true,
-                        ownerUserId     = dto.ownerUserId
-                    )
-                }
-            AppResult.Success(balances)
+                .map { it.toDomain() }
+            AppResult.Success(domain)
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al obtener cuentas")
         }
     }
 
+    /**
+     * Crea una nueva cuenta.
+     * account_type debe ir en MAYÚSCULAS — CHECK constraint: ASSET, LIABILITY, EXPENSE, INCOME
+     * currency_code es NOT NULL → se envía "CLP"
+     */
     override suspend fun createAccount(
-        householdId: String,
-        name: String,
-        accountType: String,
-        accountSubtype: String,
-        isShared: Boolean,
-        ownerUserId: String?
+        householdId  : String,
+        name         : String,
+        accountType  : String,
+        accountSubtype: String
     ): AppResult<Account> {
         return try {
-            val userId = sessionManager.fetchSession()?.userId
             val request = CreateAccountRequest(
                 name         = name,
                 accountType  = accountType.uppercase(),
                 householdId  = householdId,
-                currencyCode = "CLP",
-                accountSubtype = accountSubtype,
-                isShared     = isShared,
-                ownerUserId  = if (!isShared) (ownerUserId ?: userId) else null
+                currencyCode = "CLP"
             )
-
             val response = accountsApi.createAccount(request)
-            val created = response.firstOrNull()
+            val created  = response.firstOrNull()
                 ?: return AppResult.Error("No se recibió respuesta del servidor")
 
             AppResult.Success(
@@ -69,61 +66,11 @@ class AccountsRepositoryImpl(
                     name        = created.name,
                     type        = created.accountType ?: accountType,
                     balance     = created.balance?.toLong() ?: 0L,
-                    householdId = householdId,
-                    isShared    = isShared,
-                    ownerUserId = ownerUserId ?: userId
+                    householdId = householdId
                 )
             )
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al crear cuenta")
-        }
-    }
-
-    override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
-        return try {
-            val response = accountsApi.deleteAccount("eq.$accountId")
-            if (response.isSuccessful) {
-                AppResult.Success(Unit)
-            } else {
-                AppResult.Error("Error al eliminar cuenta: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al eliminar cuenta")
-        }
-    }
-
-    override suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean> {
-        return try {
-            val accounts = accountsApi.getAccounts(householdId = "eq.$householdId")
-            val hasPersonal = accounts.any { dto ->
-                dto.isShared == false && dto.ownerUserId == userId && dto.isSystem != true
-            }
-            AppResult.Success(hasPersonal)
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al verificar cuentas personales")
-        }
-    }
-
-    override suspend fun getPersonalAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>> {
-        return try {
-            val accounts = accountsApi.getAccounts(householdId = "eq.$householdId")
-            val balances = accounts
-                .filter { dto ->
-                    dto.isShared == false && dto.ownerUserId == userId && !dto.name.lowercase().contains("system")
-                }
-                .map { dto ->
-                    AccountBalance(
-                        accountId       = dto.id,
-                        accountName     = dto.name,
-                        accountType     = dto.accountType ?: "ASSET",
-                        movementBalance = dto.balance?.toLong() ?: 0L,
-                        isShared        = false,
-                        ownerUserId     = dto.ownerUserId
-                    )
-                }
-            AppResult.Success(balances)
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al obtener cuentas personales")
         }
     }
 }

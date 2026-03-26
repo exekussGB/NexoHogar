@@ -4,56 +4,54 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.AccountBalance
+import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
-    viewModel: AccountsViewModel,
-    onNavigateBack: () -> Unit
+    viewModel     : AccountsViewModel,
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val clpFormat = remember { NumberFormat.getIntegerInstance(Locale("es", "CL")) }
-
-    // Error snackbar
-    LaunchedEffect(uiState.error) {
-        if (uiState.error != null) {
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearError()
-        }
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Cuentas") },
+                title = { Text("Mis Cuentas") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.showCreateDialog() }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Crear cuenta")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { viewModel.onShowCreateDialog() }) {
+                Icon(Icons.Default.Add, contentDescription = "Agregar cuenta")
+            }
         }
     ) { padding ->
         Box(
@@ -61,279 +59,139 @@ fun AccountsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // ── Cuentas compartidas ──
-                    item {
-                        Text(
-                            text = "Cuentas Compartidas",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-
-                    if (uiState.sharedAccounts.isEmpty()) {
-                        item {
-                            Text(
-                                "No hay cuentas compartidas",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    } else {
-                        items(uiState.sharedAccounts, key = { it.accountId }) { account ->
-                            AccountCard(
-                                account = account,
-                                canDelete = true, // Shared accounts: any household member can delete
-                                onDelete = { viewModel.showDeleteConfirm(account.accountId) },
-                                clpFormat = clpFormat
-                            )
-                        }
-                    }
-
-                    // ── Cuentas personales ──
-                    if (uiState.personalAccounts.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Mis Cuentas Personales",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-
-                        items(uiState.personalAccounts, key = { it.accountId }) { account ->
-                            AccountCard(
-                                account = account,
-                                canDelete = account.ownerUserId == uiState.currentUserId,
-                                onDelete = { viewModel.showDeleteConfirm(account.accountId) },
-                                clpFormat = clpFormat
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Error message
-            if (uiState.error != null) {
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
-                ) {
-                    Text(uiState.error ?: "")
-                }
+            when {
+                uiState.isLoading -> LoadingOverlay()
+                uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadAccounts() }
+                else -> AccountsList(uiState.accounts)
             }
         }
     }
 
-    // ── Dialog: Crear cuenta ─────────────────────────────────────────────────
     if (uiState.showCreateDialog) {
         CreateAccountDialog(
-            name         = uiState.newAccountName,
-            subtype      = uiState.newAccountSubtype,
-            isShared     = uiState.newAccountIsShared,
-            isCreating   = uiState.isCreating,
-            onNameChange = viewModel::onNameChange,
-            onSubtypeChange = viewModel::onSubtypeChange,
-            onIsSharedChange = viewModel::onIsSharedChange,
-            onConfirm    = viewModel::createAccount,
-            onDismiss    = viewModel::dismissCreateDialog
-        )
-    }
-
-    // ── Dialog: Confirmar eliminación ────────────────────────────────────────
-    if (uiState.showDeleteConfirm != null) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissDeleteConfirm,
-            title = { Text("Eliminar cuenta") },
-            text = { Text("¿Estás seguro de que quieres eliminar esta cuenta? Esta acción no se puede deshacer.") },
-            confirmButton = {
-                TextButton(
-                    onClick = viewModel::deleteAccount,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Eliminar") }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissDeleteConfirm) { Text("Cancelar") }
-            }
+            isCreating  = uiState.isCreating,
+            createError = uiState.createError,
+            onDismiss   = { viewModel.onDismissCreateDialog() },
+            onCreate    = { name, type, subtype -> viewModel.createAccount(name, type, subtype) }
         )
     }
 }
 
-@Composable
-private fun AccountCard(
-    account: AccountBalance,
-    canDelete: Boolean,
-    onDelete: () -> Unit,
-    clpFormat: NumberFormat
-) {
-    val subtypeIcon = when (account.accountType) {
-        "LIABILITY" -> Icons.Filled.CreditCard
-        else -> Icons.Filled.AccountBalance
-    }
-    val balanceColor = when {
-        account.movementBalance > 0 -> Color(0xFF2E7D32)
-        account.movementBalance < 0 -> Color(0xFFC62828)
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+// ---------------------------------------------------------------------------
+// Diálogo de creación de cuenta
+// ---------------------------------------------------------------------------
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = subtypeIcon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Column {
-                    Text(
-                        text = account.accountName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = account.accountType,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-            }
-            Text(
-                text = "$${clpFormat.format(account.movementBalance)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = balanceColor
-            )
-            if (canDelete) {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Eliminar",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
-}
+data class AccountTypeOption(
+    val label: String,
+    val accountType: String,    // SIEMPRE LOWERCASE — Supabase CHECK constraint
+    val accountSubtype: String
+)
+
+/**
+ * Los valores de accountType deben coincidir con el CHECK constraint de Supabase.
+ * Valores válidos: "asset", "liability", "income", "expense"
+ */
+val accountTypeOptions = listOf(
+    AccountTypeOption("Billetera / Efectivo", "asset",     "cash"),
+    AccountTypeOption("Cuenta Bancaria",       "asset",     "bank"),
+    AccountTypeOption("Tarjeta de Crédito",    "liability", "credit_card"),
+    AccountTypeOption("Categoría de Gasto",    "expense",   "other"),
+    AccountTypeOption("Fuente de Ingreso",     "income",    "other"),
+    AccountTypeOption("Otro",                  "asset",     "other")
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CreateAccountDialog(
-    name: String,
-    subtype: String,
-    isShared: Boolean,
+fun CreateAccountDialog(
     isCreating: Boolean,
-    onNameChange: (String) -> Unit,
-    onSubtypeChange: (String) -> Unit,
-    onIsSharedChange: (Boolean) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    createError: String?,
+    onDismiss: () -> Unit,
+    onCreate: (name: String, accountType: String, accountSubtype: String) -> Unit
 ) {
-    val subtypes = listOf(
-        "cash" to "Efectivo",
-        "debit" to "Cuenta Débito",
-        "credit_card" to "Tarjeta de Crédito",
-        "savings" to "Cuenta de Ahorro",
-        "other" to "Otra"
-    )
-
-    var nameError by remember { mutableStateOf<String?>(null) }
+    var name by remember { mutableStateOf("") }
+    var selectedOption by remember { mutableStateOf(accountTypeOptions[0]) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
-        title = { Text("Nueva Cuenta") },
+        title = { Text("Nueva cuenta") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                // Campo nombre
                 OutlinedTextField(
                     value = name,
-                    onValueChange = {
-                        onNameChange(it)
-                        nameError = if (it.trim().isBlank()) "El nombre es obligatorio" else null
-                    },
+                    onValueChange = { name = it },
                     label = { Text("Nombre de la cuenta") },
-                    isError = nameError != null,
-                    supportingText = nameError?.let { { Text(it) } },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isCreating
                 )
 
-                Text("Tipo de cuenta", style = MaterialTheme.typography.labelMedium)
-                Column {
-                    subtypes.forEach { (value, label) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            RadioButton(
-                                selected = subtype == value,
-                                onClick = { onSubtypeChange(value) }
+                // Dropdown tipo de cuenta
+                ExposedDropdownMenuBox(
+                    expanded = dropdownExpanded,
+                    onExpandedChange = { if (!isCreating) dropdownExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedOption.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tipo de cuenta") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        enabled = !isCreating
+                    )
+                    ExposedDropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false }
+                    ) {
+                        accountTypeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.label) },
+                                onClick = {
+                                    selectedOption = option
+                                    dropdownExpanded = false
+                                }
                             )
-                            Text(label, modifier = Modifier.padding(start = 4.dp))
                         }
                     }
                 }
 
-                HorizontalDivider()
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                // Mensaje de error
+                if (createError != null) {
                     Text(
-                        text = if (isShared) "Cuenta Compartida" else "Cuenta Personal",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = isShared,
-                        onCheckedChange = onIsSharedChange
+                        text = createError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
-                Text(
-                    text = if (isShared) "Todos los miembros del hogar pueden usarla"
-                    else "Solo tú puedes ver y usar esta cuenta",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
+
+                // Spinner mientras crea
+                if (isCreating) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Creando cuenta...")
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = onConfirm,
-                enabled = !isCreating && name.trim().isNotBlank()
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onCreate(name.trim(), selectedOption.accountType, selectedOption.accountSubtype)
+                    }
+                },
+                enabled = !isCreating && name.isNotBlank()
             ) {
-                if (isCreating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Crear")
-                }
+                Text("Crear")
             }
         },
         dismissButton = {
@@ -342,4 +200,109 @@ private fun CreateAccountDialog(
             }
         }
     )
+}
+
+// ---------------------------------------------------------------------------
+// Lista de cuentas
+// ---------------------------------------------------------------------------
+
+@Composable
+fun AccountsList(accounts: List<AccountBalance>) {
+    if (accounts.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "No tienes cuentas registradas.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Usa el botón + para agregar una.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(accounts) { account ->
+                AccountItem(account)
+            }
+        }
+    }
+}
+
+@Composable
+fun AccountItem(account: AccountBalance) {
+    val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+
+    // Maneja tanto lowercase como uppercase por compatibilidad
+    val (icon, iconColor) = when (account.accountType.lowercase()) {
+        "asset"     -> Icons.Default.Savings             to Color(0xFF1565C0)
+        "liability" -> Icons.Default.CreditCard          to Color(0xFFC62828)
+        "income"    -> Icons.Default.TrendingUp          to Color(0xFF2E7D32)
+        "expense"   -> Icons.Default.TrendingDown        to Color(0xFFE65100)
+        else        -> Icons.Default.AccountBalanceWallet to MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = account.accountName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = when (account.accountType.lowercase()) {
+                        "asset"     -> "Activo"
+                        "liability" -> "Pasivo / Deuda"
+                        "income"    -> "Fuente de ingresos"
+                        "expense"   -> "Categoría de gasto"
+                        else        -> account.accountType
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = clpFormat.format(account.movementBalance),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+            )
+        }
+    }
+}
+
+@Composable
+fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = message, color = MaterialTheme.colorScheme.error)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onRetry) { Text("Reintentar") }
+    }
 }
