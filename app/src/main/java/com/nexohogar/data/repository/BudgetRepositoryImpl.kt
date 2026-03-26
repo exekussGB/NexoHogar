@@ -16,7 +16,7 @@ class BudgetRepositoryImpl(
         month       : Int
     ): AppResult<List<BudgetItem>> {
         return try {
-            val body = mapOf<String, Any>(
+            val body = hashMapOf<String, Any>(
                 "p_household_id" to householdId,
                 "p_year"         to year,
                 "p_month"        to month

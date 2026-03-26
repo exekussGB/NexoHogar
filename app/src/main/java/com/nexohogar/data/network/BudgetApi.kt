@@ -13,6 +13,6 @@ interface BudgetApi {
      */
     @POST("rest/v1/rpc/rpc_get_budget_consumption")
     suspend fun getBudgetConsumption(
-        @Body body: Map<String, Any>
+        @Body body: HashMap<String, Any>
     ): Response<List<BudgetConsumptionDto>>
 }
