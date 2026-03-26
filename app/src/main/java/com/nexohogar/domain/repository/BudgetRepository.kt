@@ -5,18 +5,13 @@ import com.nexohogar.domain.model.BudgetItem
 
 interface BudgetRepository {
     suspend fun getBudgetConsumption(
-        householdId : String,
-        year        : Int,
-        month       : Int
+        householdId : String
     ): AppResult<List<BudgetItem>>
 
     suspend fun createBudget(
-        householdId : String,
-        categoryId  : String,
-        amountClp   : Long,
-        year        : Int,
-        month       : Int,
-        memberId    : String?
+        householdId  : String,
+        categoryName : String,
+        amountClp    : Long
     ): AppResult<Unit>
 
     suspend fun updateBudget(
