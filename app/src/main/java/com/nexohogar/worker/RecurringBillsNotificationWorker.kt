@@ -11,6 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.presentation.MainActivity
 import java.time.LocalDate
 
@@ -40,17 +41,24 @@ class RecurringBillsNotificationWorker(
 
             val result = ServiceLocator.recurringBillsRepository.getRecurringBills(householdId)
 
-            if (result is AppResult.Success) {
-                val today     = LocalDate.now()
+            if (result is AppResult.Success<*>) {
+                @Suppress("UNCHECKED_CAST")
+                val bills = result.data as? List<RecurringBill> ?: emptyList()
+
+                val today      = LocalDate.now()
                 val dayOfMonth = today.dayOfMonth
 
-                val billsDue = result.data.filter { bill ->
+                val billsDue = bills.filter { bill: RecurringBill ->
                     if (!bill.isActive) return@filter false
 
                     // ¿Está pagada este mes?
                     val lastPaid = bill.lastPaidDate
                     if (lastPaid != null) {
-                        val paidDate = try { LocalDate.parse(lastPaid.take(10)) } catch (e: Exception) { null }
+                        val paidDate = try {
+                            LocalDate.parse(lastPaid.take(10))
+                        } catch (e: Exception) {
+                            null
+                        }
                         if (paidDate != null &&
                             paidDate.year == today.year &&
                             paidDate.monthValue == today.monthValue) {
@@ -63,7 +71,7 @@ class RecurringBillsNotificationWorker(
                     daysUntilDue in -30..DAYS_AHEAD
                 }
 
-                billsDue.forEachIndexed { index, bill ->
+                billsDue.forEachIndexed { index, bill: RecurringBill ->
                     val daysUntilDue = bill.dueDayOfMonth - dayOfMonth
                     val message = when {
                         daysUntilDue < 0  -> "Vencida hace ${-daysUntilDue} día(s)"
