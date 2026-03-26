@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
@@ -396,7 +397,7 @@ private fun TransactionRowItem(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = transaction.createdAt,
+                    text = DateFormatter.formatForDisplay(transaction.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

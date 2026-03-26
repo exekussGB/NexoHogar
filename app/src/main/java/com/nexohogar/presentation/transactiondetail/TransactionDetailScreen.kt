@@ -16,12 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.TransactionDetail
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,7 +161,7 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
                 }
 
                 detail.transactionDate?.let { date ->
-                    DetailRow(Icons.Default.CalendarToday, "Fecha", formatDate(date))
+                    DetailRow(Icons.Default.CalendarToday, "Fecha", DateFormatter.formatForDisplay(date))
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
 
@@ -177,6 +175,11 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         DetailRow(Icons.Default.AccountBalance, "Cuenta destino", name)
                     }
+                }
+
+                detail.createdByName?.let { name ->
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    DetailRow(Icons.Default.Person, "Registrado por", name)
                 }
 
                 detail.status?.let { status ->
@@ -244,29 +247,4 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onRetry) { Text("Reintentar") }
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-private fun formatDate(isoDate: String): String {
-    return try {
-        val dt = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        buildDateString(dt)
-    } catch (e: Exception) {
-        try {
-            val dt = LocalDateTime.parse(isoDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            buildDateString(dt)
-        } catch (e2: Exception) {
-            isoDate
-        }
-    }
-}
-
-private fun buildDateString(dt: LocalDateTime): String {
-    val month = dt.month.getDisplayName(TextStyle.SHORT, Locale("es", "ES"))
-    val hh = dt.hour.toString().padStart(2, '0')
-    val mm = dt.minute.toString().padStart(2, '0')
-    return "${dt.dayOfMonth} $month ${dt.year} · $hh:$mm"
 }

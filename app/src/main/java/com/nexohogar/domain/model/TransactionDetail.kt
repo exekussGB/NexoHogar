@@ -10,5 +10,6 @@ data class TransactionDetail(
     val fromAccountId: String?,
     val toAccountId: String?,
     val fromAccountName: String?,
-    val toAccountName: String?
+    val toAccountName: String?,
+    val createdByName: String? = null
 )

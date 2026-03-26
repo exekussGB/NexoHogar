@@ -14,7 +14,8 @@ fun TransactionResponse.toDomain(): Transaction {
         amount = amountClp,         // ambos Long, sin conversión
         accountId = accountId,
         createdAt = createdAt,
-        type = type
+        type = type,
+        createdByName = createdByName
     )
 }
 

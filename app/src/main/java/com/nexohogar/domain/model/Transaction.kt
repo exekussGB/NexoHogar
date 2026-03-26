@@ -10,5 +10,6 @@ data class Transaction(
     val amount: Long,           // Long: CLP no tiene decimales
     val accountId: String,
     val createdAt: String,
-    val type: String
+    val type: String,
+    val createdByName: String? = null
 )
