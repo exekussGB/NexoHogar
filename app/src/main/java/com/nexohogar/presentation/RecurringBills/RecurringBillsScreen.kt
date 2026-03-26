@@ -1,8 +1,10 @@
 package com.nexohogar.presentation.recurringbills
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,15 +12,35 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.nexohogar.domain.model.BillStatus
 import com.nexohogar.domain.model.RecurringBill
-import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.Locale
+
+// ── Colores del semáforo ─────────────────────────────────────────────────────
+private val SemaforoGreen  = Color(0xFF4CAF50)
+private val SemaforoYellow = Color(0xFFFFC107)
+private val SemaforoRed    = Color(0xFFF44336)
+private val SemaforoGray   = Color(0xFF9E9E9E)
+
+private fun BillStatus.color(): Color = when (this) {
+    BillStatus.GREEN    -> SemaforoGreen
+    BillStatus.YELLOW   -> SemaforoYellow
+    BillStatus.RED      -> SemaforoRed
+    BillStatus.INACTIVE -> SemaforoGray
+}
+
+private fun BillStatus.cardBackground(): Color = when (this) {
+    BillStatus.RED    -> Color(0xFFFFEBEE)
+    BillStatus.YELLOW -> Color(0xFFFFF8E1)
+    else              -> Color.Transparent
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,12 +94,12 @@ fun RecurringBillsScreen(
                 uiState.bills.isEmpty() -> EmptyBillsState { viewModel.onShowCreateDialog() }
 
                 else -> {
-                    // Separar activas e inactivas
-                    val active   = uiState.bills.filter { it.isActive }
-                    val inactive = uiState.bills.filter { !it.isActive }
+                    // Separar activas e inactivas, ordenar por due_day
+                    val active   = uiState.bills.filter { it.isActive }.sortedBy { it.dueDayOfMonth }
+                    val inactive = uiState.bills.filter { !it.isActive }.sortedBy { it.dueDayOfMonth }
                     val alertCount = active.count {
-                        val st = it.status()
-                        st == RecurringBillStatus.OVERDUE || st == RecurringBillStatus.DUE_SOON
+                        val st = it.getStatus()
+                        st == BillStatus.RED || st == BillStatus.YELLOW
                     }
 
                     LazyColumn(
@@ -85,12 +107,17 @@ fun RecurringBillsScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Banner de alertas
+                        // ── Leyenda del semáforo ─────────────────────────────
+                        item {
+                            SemaforoLegend()
+                        }
+
+                        // ── Banner de alertas ────────────────────────────────
                         if (alertCount > 0) {
                             item {
                                 Card(
                                     colors = CardDefaults.cardColors(
-                                        containerColor = Color(0xFFFF6F00).copy(alpha = 0.12f)
+                                        containerColor = SemaforoRed.copy(alpha = 0.1f)
                                     )
                                 ) {
                                     Row(
@@ -98,19 +125,20 @@ fun RecurringBillsScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFF6F00))
+                                        Icon(Icons.Default.Warning, contentDescription = null, tint = SemaforoRed)
                                         Text(
-                                            text = if (alertCount == 1) "1 cuenta vence pronto o está vencida"
-                                            else "$alertCount cuentas vencen pronto o están vencidas",
+                                            text = if (alertCount == 1) "1 cuenta requiere atención"
+                                            else "$alertCount cuentas requieren atención",
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFE65100)
+                                            color = Color(0xFFC62828)
                                         )
                                     }
                                 }
                             }
                         }
 
+                        // ── Activas ──────────────────────────────────────────
                         if (active.isNotEmpty()) {
                             item {
                                 Text(
@@ -121,7 +149,7 @@ fun RecurringBillsScreen(
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
-                            items(active) { bill ->
+                            items(active, key = { it.id }) { bill ->
                                 RecurringBillItem(
                                     bill = bill,
                                     format = clpFormat,
@@ -132,6 +160,7 @@ fun RecurringBillsScreen(
                             }
                         }
 
+                        // ── Pausadas ─────────────────────────────────────────
                         if (inactive.isNotEmpty()) {
                             item {
                                 Text(
@@ -142,7 +171,7 @@ fun RecurringBillsScreen(
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                             }
-                            items(inactive) { bill ->
+                            items(inactive, key = { it.id }) { bill ->
                                 RecurringBillItem(
                                     bill = bill,
                                     format = clpFormat,
@@ -175,7 +204,7 @@ fun RecurringBillsScreen(
     if (billToPay != null) {
         AlertDialog(
             onDismissRequest = { if (!uiState.isMarkingPaid) viewModel.dismissPayDialog() },
-            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32)) },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SemaforoGreen) },
             title = { Text("Marcar como pagado") },
             text = {
                 Text("¿Confirmas que ya pagaste \"${billToPay.name}\" hoy?")
@@ -205,7 +234,53 @@ fun RecurringBillsScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item de cuenta recurrente
+// Leyenda del semáforo
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SemaforoLegend() {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LegendItem(color = SemaforoGreen, label = "Al día")
+            LegendItem(color = SemaforoYellow, label = "Por vencer")
+            LegendItem(color = SemaforoRed, label = "Vencido")
+            LegendItem(color = SemaforoGray, label = "Pausado")
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Item de cuenta recurrente con indicador circular de semáforo
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -216,15 +291,9 @@ private fun RecurringBillItem(
     onToggleActive: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val status = bill.status()
-
-    val (statusColor, statusLabel, statusIcon) = when (status) {
-        RecurringBillStatus.OVERDUE  -> Triple(Color(0xFFB71C1C), "VENCIDO", Icons.Default.ErrorOutline)
-        RecurringBillStatus.DUE_SOON -> Triple(Color(0xFFE65100), "VENCE PRONTO", Icons.Default.Warning)
-        RecurringBillStatus.PAID     -> Triple(Color(0xFF2E7D32), "PAGADO", Icons.Default.CheckCircle)
-        RecurringBillStatus.OK       -> Triple(Color(0xFF1565C0), "Al día ${bill.dueDayOfMonth}", Icons.Default.CalendarToday)
-        RecurringBillStatus.INACTIVE -> Triple(Color(0xFF757575), "PAUSADO", Icons.Default.PauseCircle)
-    }
+    val status = bill.getStatus()
+    val statusColor = status.color()
+    val label = bill.statusLabel()
 
     var expanded by remember { mutableStateOf(false) }
 
@@ -232,10 +301,8 @@ private fun RecurringBillItem(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = if (bill.isActive) 2.dp else 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = when (status) {
-                RecurringBillStatus.OVERDUE  -> Color(0xFFFFEBEE)
-                RecurringBillStatus.DUE_SOON -> Color(0xFFFFF3E0)
-                else                         -> MaterialTheme.colorScheme.surface
+            containerColor = status.cardBackground().let { bg ->
+                if (bg == Color.Transparent) MaterialTheme.colorScheme.surface else bg
             }
         )
     ) {
@@ -246,22 +313,39 @@ private fun RecurringBillItem(
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(28.dp))
+                // ── Indicador circular de semáforo ───────────────────────
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(statusColor)
+                )
+
                 Spacer(modifier = Modifier.width(12.dp))
+
+                // ── Info ─────────────────────────────────────────────────
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(bill.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        bill.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = statusLabel,
+                            text = label,
                             style = MaterialTheme.typography.labelSmall,
                             color = statusColor,
                             fontWeight = FontWeight.Bold
                         )
                         if (bill.amountClp > 0) {
-                            Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                "·",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall
+                            )
                             Text(
                                 text = format.format(bill.amountClp),
                                 style = MaterialTheme.typography.labelSmall,
@@ -270,16 +354,37 @@ private fun RecurringBillItem(
                         }
                     }
                 }
-                // Menú de 3 puntos
+
+                // ── Menú de opciones ─────────────────────────────────────
                 Box {
                     IconButton(onClick = { expanded = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        if (bill.isActive && status != RecurringBillStatus.PAID) {
+                        if (bill.isActive && status != BillStatus.GREEN) {
                             DropdownMenuItem(
                                 text = { Text("Marcar como pagado") },
-                                leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32)) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = SemaforoGreen
+                                    )
+                                },
+                                onClick = { expanded = false; onMarkAsPaid() }
+                            )
+                        }
+                        // Mostrar "Marcar como pagado" también si GREEN pero por holgura (no pagado aún)
+                        if (bill.isActive && status == BillStatus.GREEN && bill.daysUntilDue() != Int.MAX_VALUE) {
+                            DropdownMenuItem(
+                                text = { Text("Marcar como pagado") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = SemaforoGreen
+                                    )
+                                },
                                 onClick = { expanded = false; onMarkAsPaid() }
                             )
                         }
@@ -295,20 +400,26 @@ private fun RecurringBillItem(
                         )
                         DropdownMenuItem(
                             text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
                             onClick = { expanded = false; onDelete() }
                         )
                     }
                 }
             }
 
-            // Nota si existe
+            // ── Notas ────────────────────────────────────────────────────
             if (!bill.notes.isNullOrBlank()) {
                 Text(
                     text = bill.notes,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 12.dp)
+                    modifier = Modifier.padding(start = 44.dp, end = 16.dp, bottom = 12.dp)
                 )
             }
         }
@@ -333,10 +444,14 @@ private fun EmptyBillsState(onAdd: () -> Unit) {
             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Sin cuentas recurrentes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Sin cuentas recurrentes",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Agrega tus servicios mensuales (agua, luz, gas, internet...)\npara recibir alertas cuando vencen.",
+            "Agrega tus servicios mensuales (agua, luz, gas, internet...)\npara ver el semáforo de vencimientos.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -421,11 +536,18 @@ private fun CreateBillDialog(
                 )
 
                 if (createError != null) {
-                    Text(createError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        createError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
 
                 if (isCreating) {
-                    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Guardando...")
