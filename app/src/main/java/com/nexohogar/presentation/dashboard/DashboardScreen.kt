@@ -380,7 +380,7 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
             val sortedData = monthlyData.sortedWith(compareBy({ it.yearNum }, { it.monthNum })).takeLast(6)
 
-            val maxValue = sortedData.maxOfOrNull { maxOf(it.income, it.expense) } ?: 1.0
+            val maxValue = (sortedData.maxOfOrNull { maxOf(it.income, it.expense) } ?: 1L).toFloat()
             val monthNames = listOf("", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
 
             var selectedIndex by remember { mutableIntStateOf(-1) }
@@ -446,8 +446,8 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
 
                 sortedData.forEachIndexed { index, data ->
                     val groupStart = leftPadding + index * groupWidth
-                    val incomeHeight = if (maxValue > 0) (data.income / maxValue * chartHeight).toFloat() else 0f
-                    val expenseHeight = if (maxValue > 0) (data.expense / maxValue * chartHeight).toFloat() else 0f
+                    val incomeHeight = if (maxValue > 0f) (data.income.toFloat() / maxValue * chartHeight) else 0f
+                    val expenseHeight = if (maxValue > 0f) (data.expense.toFloat() / maxValue * chartHeight) else 0f
 
                     // Income bar
                     drawRect(
@@ -568,14 +568,14 @@ fun TransactionRowItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.description,
+                    text = transaction.description ?: "Sin descripción",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = transaction.date,
+                    text = transaction.createdAt,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
