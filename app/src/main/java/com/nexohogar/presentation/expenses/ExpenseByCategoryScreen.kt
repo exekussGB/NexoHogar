@@ -85,7 +85,7 @@ fun ExpenseByCategoryScreen(
             item {
                 var expanded by remember { mutableStateOf(false) }
                 val selectedName = if (uiState.selectedUserId == null) "Todos los miembros"
-                    else uiState.members.find { it.id == uiState.selectedUserId }?.displayName ?: "Seleccionar"
+                else uiState.members.find { it.id == uiState.selectedUserId }?.label() ?: "Seleccionar"
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -113,7 +113,7 @@ fun ExpenseByCategoryScreen(
                         )
                         uiState.members.forEach { member ->
                             DropdownMenuItem(
-                                text = { Text(member.displayName) },
+                                text = { Text(member.label()) },
                                 onClick = {
                                     viewModel.onUserFilterChanged(member.id)
                                     expanded = false
