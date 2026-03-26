@@ -26,13 +26,13 @@ import androidx.compose.ui.window.Dialog
 // Modelo interno para cada botón del hub
 // ---------------------------------------------------------------------------
 private data class HubAction(
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val backgroundColor: Color,
-    val iconColor: Color,
-    val enabled: Boolean = true,
-    val onClick: () -> Unit
+    val title           : String,
+    val subtitle        : String,
+    val icon            : ImageVector,
+    val backgroundColor : Color,
+    val iconColor       : Color,
+    val enabled         : Boolean = true,
+    val onClick         : () -> Unit
 )
 
 // ---------------------------------------------------------------------------
@@ -40,19 +40,22 @@ private data class HubAction(
 // ---------------------------------------------------------------------------
 @Composable
 fun HubScreen(
-    householdName: String = "",
-    onNavigateToDashboard: () -> Unit,
-    onNavigateToTransactions: () -> Unit,
-    onNavigateToAddMovement: (String) -> Unit,
-    onNavigateToAccounts: () -> Unit,
-    onNavigateToInviteMember: () -> Unit,
-    onNavigateToRecurringBills: () -> Unit,
-    onNavigateToInventory: () -> Unit,
-    onNavigateToOptions: () -> Unit,
-    onNavigateToPersonalDashboard: () -> Unit = {}
+    householdName              : String = "",
+    onNavigateToDashboard      : () -> Unit,
+    onNavigateToAddMovement    : (String) -> Unit,
+    onNavigateToAccounts       : () -> Unit,
+    onNavigateToInviteMember   : () -> Unit,
+    onNavigateToRecurringBills : () -> Unit,
+    onNavigateToInventory      : () -> Unit,
+    onNavigateToOptions        : () -> Unit
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
 
+    // ── Grilla ordenada:
+    // Resumen    | Agregar
+    // Cuentas    | Recurrentes
+    // Presupuesto| Inventario
+    // Invitar    | Opciones
     val actions = listOf(
         HubAction(
             title           = "Resumen",
@@ -61,14 +64,6 @@ fun HubScreen(
             backgroundColor = Color(0xFFE8F5E9),
             iconColor       = Color(0xFF2E7D32),
             onClick         = onNavigateToDashboard
-        ),
-        HubAction(
-            title           = "Movimientos",
-            subtitle        = "Historial completo",
-            icon            = Icons.Default.Receipt,
-            backgroundColor = Color(0xFFE3F2FD),
-            iconColor       = Color(0xFF1565C0),
-            onClick         = onNavigateToTransactions
         ),
         HubAction(
             title           = "Agregar",
@@ -87,22 +82,6 @@ fun HubScreen(
             onClick         = onNavigateToAccounts
         ),
         HubAction(
-            title           = "Personal",
-            subtitle        = "Mis finanzas",
-            icon            = Icons.Default.Person,
-            backgroundColor = Color(0xFFE0F2F1),
-            iconColor       = Color(0xFF00695C),
-            onClick         = onNavigateToPersonalDashboard
-        ),
-        HubAction(
-            title           = "Invitar",
-            subtitle        = "Agregar miembro",
-            icon            = Icons.Default.PersonAdd,
-            backgroundColor = Color(0xFFE0F7FA),
-            iconColor       = Color(0xFF00695C),
-            onClick         = onNavigateToInviteMember
-        ),
-        HubAction(
             title           = "Recurrentes",
             subtitle        = "Servicios mensuales",
             icon            = Icons.Default.Repeat,
@@ -111,12 +90,29 @@ fun HubScreen(
             onClick         = onNavigateToRecurringBills
         ),
         HubAction(
+            title           = "Presupuesto",
+            subtitle        = "Próximamente",
+            icon            = Icons.Default.Savings,
+            backgroundColor = Color(0xFFFFF3E0),
+            iconColor       = Color(0xFFE65100),
+            enabled         = false,
+            onClick         = {}
+        ),
+        HubAction(
             title           = "Inventario",
             subtitle        = "Control de stock",
             icon            = Icons.Default.Inventory,
             backgroundColor = Color(0xFFE8EAF6),
             iconColor       = Color(0xFF283593),
             onClick         = onNavigateToInventory
+        ),
+        HubAction(
+            title           = "Invitar",
+            subtitle        = "Agregar miembro",
+            icon            = Icons.Default.PersonAdd,
+            backgroundColor = Color(0xFFE0F7FA),
+            iconColor       = Color(0xFF00695C),
+            onClick         = onNavigateToInviteMember
         ),
         HubAction(
             title           = "Opciones",
@@ -138,17 +134,17 @@ fun HubScreen(
         Spacer(modifier = Modifier.height(52.dp))
 
         Text(
-            text = if (householdName.isNotBlank()) householdName else "Mi hogar",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
+            text       = if (householdName.isNotBlank()) householdName else "Mi hogar",
+            style      = MaterialTheme.typography.labelMedium,
+            color      = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "¿Qué quieres hacer?",
-            style = MaterialTheme.typography.headlineMedium,
+            text       = "¿Qué quieres hacer?",
+            style      = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color      = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -156,7 +152,7 @@ fun HubScreen(
         val rows = actions.chunked(2)
         rows.forEachIndexed { _, rowActions ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 rowActions.forEach { action ->
@@ -174,7 +170,7 @@ fun HubScreen(
 
     if (showAddTypeDialog) {
         AddMovementTypeDialog(
-            onDismiss    = { showAddTypeDialog = false },
+            onDismiss      = { showAddTypeDialog = false },
             onTypeSelected = { type ->
                 showAddTypeDialog = false
                 onNavigateToAddMovement(type)
@@ -188,47 +184,51 @@ fun HubScreen(
 // ---------------------------------------------------------------------------
 @Composable
 private fun HubActionCard(
-    action: HubAction,
-    modifier: Modifier = Modifier
+    action   : HubAction,
+    modifier : Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
+        modifier  = modifier
             .height(130.dp)
             .alpha(if (action.enabled) 1f else 0.45f)
             .clickable(enabled = action.enabled) { action.onClick() },
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (action.enabled) 2.dp else 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape     = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (action.enabled) 2.dp else 0.dp
+        ),
+        colors    = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
-            modifier = Modifier
+            modifier            = Modifier
                 .fillMaxSize()
                 .padding(18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
-                modifier = Modifier
+                modifier        = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(action.backgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = action.icon,
+                    imageVector        = action.icon,
                     contentDescription = action.title,
-                    tint = action.iconColor,
-                    modifier = Modifier.size(24.dp)
+                    tint               = action.iconColor,
+                    modifier           = Modifier.size(24.dp)
                 )
             }
             Column {
                 Text(
-                    text = action.title,
+                    text       = action.title,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize   = 15.sp,
+                    color      = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = action.subtitle,
+                    text  = action.subtitle,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
@@ -242,54 +242,54 @@ private fun HubActionCard(
 // ---------------------------------------------------------------------------
 @Composable
 private fun AddMovementTypeDialog(
-    onDismiss: () -> Unit,
-    onTypeSelected: (String) -> Unit
+    onDismiss      : () -> Unit,
+    onTypeSelected : (String) -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(24.dp),
+            shape     = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier            = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "¿Qué quieres registrar?",
+                    text       = "¿Qué quieres registrar?",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize   = 17.sp,
+                    color      = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(20.dp))
 
                 MovementTypeOption(
-                    icon = Icons.Default.ArrowDownward,
-                    label = "Ingreso",
+                    icon        = Icons.Default.ArrowDownward,
+                    label       = "Ingreso",
                     description = "Sueldo, venta u otro ingreso",
-                    iconColor = Color(0xFF2E7D32),
-                    bgColor = Color(0xFFE8F5E9),
-                    onClick = { onTypeSelected("income") }
+                    iconColor   = Color(0xFF2E7D32),
+                    bgColor     = Color(0xFFE8F5E9),
+                    onClick     = { onTypeSelected("income") }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
                 MovementTypeOption(
-                    icon = Icons.Default.ArrowUpward,
-                    label = "Gasto",
+                    icon        = Icons.Default.ArrowUpward,
+                    label       = "Gasto",
                     description = "Cuenta, compra u otro gasto",
-                    iconColor = Color(0xFFC62828),
-                    bgColor = Color(0xFFFFEBEE),
-                    onClick = { onTypeSelected("expense") }
+                    iconColor   = Color(0xFFC62828),
+                    bgColor     = Color(0xFFFFEBEE),
+                    onClick     = { onTypeSelected("expense") }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
                 MovementTypeOption(
-                    icon = Icons.Default.SwapHoriz,
-                    label = "Transferencia",
+                    icon        = Icons.Default.SwapHoriz,
+                    label       = "Transferencia",
                     description = "Mover dinero entre cuentas",
-                    iconColor = Color(0xFF1565C0),
-                    bgColor = Color(0xFFE3F2FD),
-                    onClick = { onTypeSelected("transfer") }
+                    iconColor   = Color(0xFF1565C0),
+                    bgColor     = Color(0xFFE3F2FD),
+                    onClick     = { onTypeSelected("transfer") }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -301,34 +301,39 @@ private fun AddMovementTypeDialog(
 
 @Composable
 private fun MovementTypeOption(
-    icon: ImageVector,
-    label: String,
-    description: String,
-    iconColor: Color,
-    bgColor: Color,
-    onClick: () -> Unit
+    icon        : ImageVector,
+    label       : String,
+    description : String,
+    iconColor   : Color,
+    bgColor     : Color,
+    onClick     : () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier              = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(
-            modifier = Modifier
+            modifier        = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
                 .background(bgColor),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+            Icon(
+                imageVector        = icon,
+                contentDescription = null,
+                tint               = iconColor,
+                modifier           = Modifier.size(22.dp)
+            )
         }
         Column {
-            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
+            Text(label,       fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(description, fontSize   = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
         }
     }
 }

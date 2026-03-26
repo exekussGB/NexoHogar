@@ -17,6 +17,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -31,19 +32,19 @@ import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun DashboardScreen(
-    viewModel: DashboardViewModel,
-    onTransactionClick: (String) -> Unit,
-    onSeeAllClick: () -> Unit,
-    onNavigateToExpensesByCategory: () -> Unit = {},
-    onNavigateToPersonalSummary: () -> Unit = {}
+    viewModel                      : DashboardViewModel,
+    onTransactionClick             : (String) -> Unit,
+    onSeeAllClick                  : () -> Unit,
+    onNavigateToPersonalDashboard  : () -> Unit = {},
+    onNavigateToCategoryExpenses   : () -> Unit = {},
+    hasPersonalAccounts            : Boolean    = true
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    val uiState   by viewModel.uiState.collectAsState()
+    val clpFormat  = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -58,101 +59,42 @@ fun DashboardScreen(
         if (uiState.isLoading) LoadingOverlay()
 
         LazyColumn(
-            modifier = Modifier
+            modifier            = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding      = PaddingValues(bottom = 24.dp)
         ) {
-            // ── Tabs: Fondo Común / Mis Cuentas ─────────────────────────────
-            if (uiState.hasPersonalAccounts) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilledTonalButton(
-                            onClick = { /* Already on Fondo Común */ },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        ) {
-                            Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Fondo Común", fontWeight = FontWeight.Bold)
-                        }
-                        OutlinedButton(
-                            onClick = onNavigateToPersonalSummary,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Mis Cuentas")
-                        }
-                    }
+            // ── Toggle Fondo Común / Mis Cuentas ─────────────────────────────
+            item {
+                Spacer(Modifier.height(12.dp))
+                DashboardToggleBar(
+                    hasPersonalAccounts           = hasPersonalAccounts,
+                    onNavigateToPersonalDashboard = onNavigateToPersonalDashboard
+                )
+            }
+
+            item {
+                uiState.summary?.let {
+                    BalanceCard(summary = it, format = clpFormat)
                 }
             }
 
-            // ── Saldo total ─────────────────────────────────────────────────
-            item {
-                uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
-            }
-
-            // ── Tendencia mensual ───────────────────────────────────────────
             item {
                 MonthlyChart(monthlyData = uiState.monthlyBalance)
             }
 
-            // ── Botón: Gastos por Categoría ─────────────────────────────────
+            // ── Gastos por Categoría ──────────────────────────────────────────
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigateToExpensesByCategory() },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.PieChart,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Gastos por Categoría",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                "Desglose de gastos por categoría y usuario",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                            )
-                        }
-                        Icon(
-                            Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
-                        )
-                    }
-                }
+                CategoryExpensesRow(onClick = onNavigateToCategoryExpenses)
             }
 
-            // ── Últimos movimientos ─────────────────────────────────────────
             item {
                 RecentTransactionsList(
-                    transactions = uiState.recentTransactions,
-                    format = clpFormat,
+                    transactions       = uiState.recentTransactions,
+                    format             = clpFormat,
                     onTransactionClick = onTransactionClick,
-                    onSeeAllClick = onSeeAllClick
+                    onSeeAllClick      = onSeeAllClick
                 )
             }
         }
@@ -160,31 +102,140 @@ fun DashboardScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Utilidad para formatear fechas ISO → "HH:mm dd/MM/yyyy"
+// DashboardToggleBar  — Fondo Común (activo) | Mis Cuentas
 // ─────────────────────────────────────────────────────────────────────────────
-
-private fun formatTransactionDate(isoDate: String): String {
-    return try {
-        val inputFormats = listOf(
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.getDefault()),
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault()),
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        )
-        val outputFormat = SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
-        for (fmt in inputFormats) {
-            try {
-                val date = fmt.parse(isoDate) ?: continue
-                return outputFormat.format(date)
-            } catch (_: Exception) { /* try next */ }
+@Composable
+private fun DashboardToggleBar(
+    hasPersonalAccounts           : Boolean,
+    onNavigateToPersonalDashboard : () -> Unit
+) {
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Chip activo: Fondo Común
+        Surface(
+            shape  = RoundedCornerShape(50),
+            color  = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.defaultMinSize(minHeight = 38.dp)
+        ) {
+            Row(
+                modifier            = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment   = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector        = Icons.Default.Group,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onPrimary,
+                    modifier           = Modifier.size(16.dp)
+                )
+                Text(
+                    text       = "Fondo Común",
+                    color      = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    style      = MaterialTheme.typography.labelLarge
+                )
+            }
         }
-        isoDate // fallback: return original if nothing works
-    } catch (_: Exception) {
-        isoDate
+
+        // Chip Mis Cuentas — solo si tiene cuentas personales
+        if (hasPersonalAccounts) {
+            Surface(
+                shape    = RoundedCornerShape(50),
+                color    = Color.Transparent,
+                border   = androidx.compose.foundation.BorderStroke(
+                    1.5.dp,
+                    MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 38.dp)
+                    .clickable { onNavigateToPersonalDashboard() }
+            ) {
+                Row(
+                    modifier              = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Person,
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.primary,
+                        modifier           = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text       = "Mis Cuentas",
+                        color      = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        style      = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+        }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BalanceCard — Solo saldo total, ingresos y gastos (sin cuentas individuales)
+// CategoryExpensesRow
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun CategoryExpensesRow(onClick: () -> Unit) {
+    Card(
+        modifier  = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier              = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF5C6BC0).copy(alpha = 0.12f),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector        = Icons.Default.PieChart,
+                            contentDescription = null,
+                            tint               = Color(0xFF5C6BC0),
+                            modifier           = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text       = "Gastos por Categoría",
+                        fontWeight = FontWeight.SemiBold,
+                        style      = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text  = "Desglose de gastos por categoría",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                imageVector        = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint               = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BalanceCard
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -193,29 +244,29 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier            = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Saldo Total", style = MaterialTheme.typography.labelMedium)
             Text(
-                text = format.format(summary.totalBalance),
-                style = MaterialTheme.typography.headlineLarge,
+                text       = format.format(summary.totalBalance),
+                style      = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                SummaryInfo("Ingresos", summary.totalIncome, Color(0xFF4CAF50), format)
+                SummaryInfo("Ingresos", summary.totalIncome,  Color(0xFF4CAF50), format)
                 VerticalDivider(
                     modifier = Modifier.height(40.dp),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                    color    = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                 )
                 SummaryInfo("Gastos", summary.totalExpense, Color(0xFFF44336), format)
             }
@@ -228,10 +279,10 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelSmall)
         Text(
-            text = format.format(amount),
-            style = MaterialTheme.typography.titleMedium,
+            text       = format.format(amount),
+            style      = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = color
+            color      = color
         )
     }
 }
@@ -243,26 +294,36 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
 @Composable
 fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
-    val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
+    val clpFormat  = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
+
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier  = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
-                Text("Tendencia Mensual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    text       = "Tendencia Mensual",
+                    style      = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
                 if (selectedIndex != null) {
-                    TextButton(onClick = { selectedIndex = null }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                    TextButton(
+                        onClick        = { selectedIndex = null },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
                         Text("✕ cerrar", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             val selIdx = selectedIndex
@@ -270,23 +331,44 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                 val item = monthlyData.getOrNull(selIdx)
                 if (item != null) {
                     val monthName = monthNames.getOrElse(item.monthNum - 1) { "?" }
-                    val netColor = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+                    val netColor  = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.inverseSurface)
+                        shape    = RoundedCornerShape(8.dp),
+                        colors   = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.inverseSurface
+                        )
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(),
+                            modifier              = Modifier
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment     = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("$monthName ${item.yearNum}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.inverseOnSurface)
-                                Text("Ingresos: ${clpFormat.format(item.income)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f))
-                                Text("Gastos: ${clpFormat.format(item.expense)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f))
+                                Text(
+                                    text  = "$monthName ${item.yearNum}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface
+                                )
+                                Text(
+                                    text  = "Ingresos: ${clpFormat.format(item.income)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text  = "Gastos: ${clpFormat.format(item.expense)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+                                )
                             }
-                            Text(clpFormat.format(item.net), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = netColor)
+                            Text(
+                                text       = clpFormat.format(item.net),
+                                style      = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color      = netColor
+                            )
                         }
                     }
                 }
@@ -294,10 +376,22 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
 
             val hasData = monthlyData.any { it.net != 0L }
             if (!hasData) {
-                Box(modifier = Modifier.fillMaxWidth().height(130.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier        = Modifier.fillMaxWidth().height(130.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.BarChart, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-                        Text("Sin movimientos aún", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            imageVector        = Icons.Default.BarChart,
+                            contentDescription = null,
+                            modifier           = Modifier.size(40.dp),
+                            tint               = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            "Sin movimientos aún",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 return@Column
@@ -306,8 +400,8 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val positiveColor = Color(0xFF4CAF50)
             val negativeColor = Color(0xFFF44336)
             val selectedColor = Color(0xFF1565C0)
-            val labelColor = Color(0xFF757575)
-            val maxAbs = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
+            val labelColor    = Color(0xFF757575)
+            val maxAbs        = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
 
             Canvas(
                 modifier = Modifier
@@ -317,49 +411,62 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                         detectTapGestures { offset ->
                             val count = monthlyData.size
                             if (count == 0) return@detectTapGestures
-                            val slotW = size.width / count.toFloat()
+                            val slotW  = size.width / count.toFloat()
                             val tapped = (offset.x / slotW).toInt().coerceIn(0, count - 1)
                             selectedIndex = if (selectedIndex == tapped) null else tapped
                         }
                     }
             ) {
-                val count = monthlyData.size
+                val count     = monthlyData.size
                 val slotWidth = size.width / count
-                val barWidth = slotWidth * 0.5f
-                val barAreaH = size.height * 0.72f
+                val barWidth  = slotWidth * 0.5f
+                val barAreaH  = size.height * 0.72f
                 val baselineY = size.height * 0.72f
-                val labelY = size.height - 4f
+                val labelY    = size.height - 4f
 
-                drawLine(color = Color(0xFFBDBDBD), start = Offset(0f, baselineY), end = Offset(size.width, baselineY), strokeWidth = 1.5f)
+                drawLine(
+                    color       = Color(0xFFBDBDBD),
+                    start       = Offset(0f, baselineY),
+                    end         = Offset(size.width, baselineY),
+                    strokeWidth = 1.5f
+                )
 
                 monthlyData.forEachIndexed { i, item ->
                     val isSelected = (selectedIndex == i)
-                    val centerX = slotWidth * i + slotWidth / 2f
-                    val barLeft = centerX - barWidth / 2f
-                    val fraction = item.net.toFloat() / maxAbs.toFloat()
-                    val barH = kotlin.math.abs(fraction) * barAreaH * 0.85f
-                    val topY = if (item.net >= 0) baselineY - barH else baselineY
+                    val centerX    = slotWidth * i + slotWidth / 2f
+                    val barLeft    = centerX - barWidth / 2f
+                    val fraction   = item.net.toFloat() / maxAbs.toFloat()
+                    val barH       = kotlin.math.abs(fraction) * barAreaH * 0.85f
+                    val topY       = if (item.net >= 0) baselineY - barH else baselineY
 
                     val barColor = when {
-                        isSelected -> selectedColor
+                        isSelected   -> selectedColor
                         item.net >= 0 -> positiveColor
-                        else -> negativeColor
+                        else          -> negativeColor
                     }
                     val alpha = when {
-                        isSelected -> 1f
+                        isSelected         -> 1f
                         selectedIndex != null -> 0.35f
-                        i == count - 1 -> 1f
-                        else -> 0.75f
+                        i == count - 1    -> 1f
+                        else              -> 0.75f
                     }
 
-                    drawRect(color = barColor, topLeft = Offset(barLeft, topY), size = Size(barWidth, barH), alpha = alpha)
+                    drawRect(
+                        color   = barColor,
+                        topLeft = Offset(barLeft, topY),
+                        size    = Size(barWidth, barH),
+                        alpha   = alpha
+                    )
 
                     val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
                     drawContext.canvas.nativeCanvas.drawText(
-                        label, centerX, labelY,
+                        label,
+                        centerX,
+                        labelY,
                         android.graphics.Paint().apply {
-                            color = if (isSelected) android.graphics.Color.rgb(21, 101, 192) else labelColor.toArgb()
-                            textSize = 28f
+                            color     = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
+                                        else labelColor.toArgb()
+                            textSize  = 28f
                             textAlign = android.graphics.Paint.Align.CENTER
                             isAntiAlias = true
                         }
@@ -376,28 +483,34 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
 
 @Composable
 fun RecentTransactionsList(
-    transactions: List<Transaction>,
-    format: NumberFormat,
-    onTransactionClick: (String) -> Unit,
-    onSeeAllClick: () -> Unit
+    transactions       : List<Transaction>,
+    format             : NumberFormat,
+    onTransactionClick : (String) -> Unit,
+    onSeeAllClick      : () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment     = Alignment.CenterVertically
         ) {
-            Text("Últimos Movimientos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Últimos Movimientos",
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             TextButton(onClick = onSeeAllClick) { Text("Ver todos") }
         }
 
         if (transactions.isEmpty()) {
             Text(
-                text = "No hay movimientos recientes.",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                text      = "No hay movimientos recientes.",
+                style     = MaterialTheme.typography.bodyMedium,
+                modifier  = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color     = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             transactions.forEach { TransactionRowItem(it, format, onTransactionClick) }
@@ -407,13 +520,15 @@ fun RecentTransactionsList(
 
 @Composable
 private fun TransactionRowItem(
-    transaction: Transaction,
-    format: NumberFormat,
-    onClick: (String) -> Unit
+    transaction : Transaction,
+    format      : NumberFormat,
+    onClick     : (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick(transaction.id) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(transaction.id) },
+        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             val (icon, iconColor) = when (transaction.type) {
@@ -423,21 +538,26 @@ private fun TransactionRowItem(
                 else       -> Icons.Default.AttachMoney   to Color(0xFF9E9E9E)
             }
             Surface(
-                shape = MaterialTheme.shapes.small,
-                color = iconColor.copy(alpha = 0.1f),
+                shape    = MaterialTheme.shapes.small,
+                color    = iconColor.copy(alpha = 0.1f),
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.padding(8.dp))
+                Icon(
+                    imageVector        = icon,
+                    contentDescription = null,
+                    tint               = iconColor,
+                    modifier           = Modifier.padding(8.dp)
+                )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.description ?: "Sin descripción",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text       = transaction.description ?: "Sin descripción",
+                    style      = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = formatTransactionDate(transaction.createdAt),
+                    text  = transaction.createdAt,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -449,10 +569,10 @@ private fun TransactionRowItem(
                 else       -> MaterialTheme.colorScheme.onSurface
             }
             Text(
-                text = format.format(transaction.amount),
-                style = MaterialTheme.typography.titleMedium,
+                text       = format.format(transaction.amount),
+                style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = amountColor
+                color      = amountColor
             )
         }
     }

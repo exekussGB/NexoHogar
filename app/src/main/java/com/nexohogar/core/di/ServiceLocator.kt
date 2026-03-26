@@ -100,6 +100,10 @@ object ServiceLocator {
         retrofit.create(InventoryApi::class.java)
     }
 
+    val categoryExpensesApi: CategoryExpensesApi by lazy {
+        retrofit.create(CategoryExpensesApi::class.java)
+    }
+
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
@@ -144,5 +148,9 @@ object ServiceLocator {
 
     val inventoryRepository: InventoryRepository by lazy {
         InventoryRepositoryImpl(inventoryApi)
+    }
+
+    val categoryExpensesRepository: CategoryExpensesRepository by lazy {
+        CategoryExpensesRepositoryImpl(categoryExpensesApi)
     }
 }
