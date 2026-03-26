@@ -6,6 +6,7 @@ import com.nexohogar.data.network.DashboardApi
 import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.model.DashboardSummary
+import com.nexohogar.domain.model.DualDashboard
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.repository.DashboardRepository
 
@@ -56,10 +57,14 @@ class DashboardRepositoryImpl(
     }
 
     /**
-     * Saldos desde la VISTA account_balances (balance_clp = real con transacciones).
-     * householdId se pasa sin prefijo — DashboardApi lo añade internamente.
+     * Saldos desde la VISTA account_balances.
+     * userId se recibe por firma de interfaz pero el filtro de cuentas
+     * compartidas/personales se hace en AccountsRepositoryImpl.
      */
-    override suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>> {
+    override suspend fun getAccountBalances(
+        householdId: String,
+        userId: String
+    ): AppResult<List<AccountBalance>> {
         return try {
             val response = dashboardApi.getAccountBalances("eq.$householdId")
             if (response.isSuccessful) {
@@ -80,5 +85,15 @@ class DashboardRepositoryImpl(
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al cargar saldos")
         }
+    }
+
+    /**
+     * No usado por ningún ViewModel actualmente — stub vacío para cumplir interfaz.
+     */
+    override suspend fun getDualDashboard(
+        householdId: String,
+        userId: String
+    ): AppResult<DualDashboard> {
+        return AppResult.Error("getDualDashboard no implementado")
     }
 }
