@@ -4,5 +4,6 @@ data class AccountBalance(
     val accountId: String,
     val accountName: String,
     val accountType: String,
-    val movementBalance: Long
+    val movementBalance: Long,
+    val isShared: Boolean = true
 )

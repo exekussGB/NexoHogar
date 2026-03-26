@@ -2,10 +2,8 @@ package com.nexohogar.data.model
 
 import com.google.gson.annotations.SerializedName
 import com.nexohogar.domain.model.DashboardSummary
+import com.nexohogar.domain.model.DashboardSection
 
-/**
- * DTO para la vista v_dashboard de Supabase.
- */
 data class DashboardDto(
     @SerializedName("household_id") val householdId: String,
     @SerializedName("total_balance") val totalBalance: Double,
@@ -15,9 +13,6 @@ data class DashboardDto(
     @SerializedName("transactions_count") val transactionsCount: Int
 )
 
-/**
- * Mapper extension to convert DTO to Domain model.
- */
 fun DashboardDto.toDomain(): DashboardSummary {
     return DashboardSummary(
         householdId = householdId,
@@ -29,11 +24,25 @@ fun DashboardDto.toDomain(): DashboardSummary {
     )
 }
 
-/**
- * DTO para la vista v_monthly_summary de Supabase.
- */
 data class MonthlyTrendDto(
     @SerializedName("month_name") val month: String,
     @SerializedName("total_income") val income: Double,
     @SerializedName("total_expense") val expense: Double
 )
+
+data class DualDashboardDto(
+    @SerializedName("section") val section: String,
+    @SerializedName("total_balance") val totalBalance: Double,
+    @SerializedName("total_income") val totalIncome: Double,
+    @SerializedName("total_expense") val totalExpense: Double,
+    @SerializedName("accounts_count") val accountsCount: Int
+)
+
+fun DualDashboardDto.toSection(): DashboardSection {
+    return DashboardSection(
+        totalBalance = totalBalance,
+        totalIncome = totalIncome,
+        totalExpense = totalExpense,
+        accountsCount = accountsCount
+    )
+}

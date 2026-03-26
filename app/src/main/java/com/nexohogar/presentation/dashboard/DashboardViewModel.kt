@@ -29,30 +29,38 @@ class DashboardViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val householdId = tenantContext.getCurrentHouseholdId()
-            if (householdId == null) {
-                _uiState.update { it.copy(isLoading = false, error = "No hay hogar seleccionado") }
+            val userId = tenantContext.getCurrentUserId()
+            if (householdId == null || userId == null) {
+                _uiState.update { it.copy(isLoading = false, error = "No hay hogar o usuario seleccionado") }
                 return@launch
             }
 
-            // Las cuatro cargas van en PARALELO — si una falla, las demás continúan
             val summaryDeferred      = async { dashboardRepository.getDashboardSummary(householdId) }
             val transactionsDeferred = async { transactionsRepository.getTransactions(householdId) }
             val monthlyDeferred      = async { dashboardRepository.getMonthlyBalance(householdId) }
-            val accountsDeferred     = async { dashboardRepository.getAccountBalances(householdId) }
+            val accountsDeferred     = async { dashboardRepository.getAccountBalances(householdId, userId) }
+            val dualDeferred         = async { dashboardRepository.getDualDashboard(householdId, userId) }
 
             val summaryResult      = summaryDeferred.await()
             val transactionsResult = transactionsDeferred.await()
             val monthlyResult      = monthlyDeferred.await()
             val accountsResult     = accountsDeferred.await()
+            val dualResult         = dualDeferred.await()
+
+            val allAccounts = if (accountsResult is AppResult.Success) accountsResult.data else emptyList()
 
             _uiState.update {
                 it.copy(
-                    summary          = if (summaryResult      is AppResult.Success) summaryResult.data           else null,
+                    summary            = if (summaryResult is AppResult.Success) summaryResult.data else null,
                     recentTransactions = if (transactionsResult is AppResult.Success) transactionsResult.data.take(5) else emptyList(),
-                    monthlyBalance   = if (monthlyResult      is AppResult.Success) monthlyResult.data           else emptyList(),
-                    accountBalances  = if (accountsResult     is AppResult.Success) accountsResult.data          else emptyList(),
-                    isLoading        = false,
-                    error            = if (summaryResult is AppResult.Error) summaryResult.message else null
+                    monthlyBalance     = if (monthlyResult is AppResult.Success) monthlyResult.data else emptyList(),
+                    accountBalances    = allAccounts,
+                    sharedSection      = if (dualResult is AppResult.Success) dualResult.data.shared else null,
+                    personalSection    = if (dualResult is AppResult.Success) dualResult.data.personal else null,
+                    sharedAccounts     = allAccounts.filter { ab -> ab.isShared },
+                    personalAccounts   = allAccounts.filter { ab -> !ab.isShared },
+                    isLoading          = false,
+                    error              = if (summaryResult is AppResult.Error) summaryResult.message else null
                 )
             }
         }
