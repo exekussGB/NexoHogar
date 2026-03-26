@@ -162,6 +162,7 @@ fun NavGraph(
                         return DashboardViewModel(
                             dashboardRepository,
                             transactionsRepository,
+                            accountsRepository,
                             tenantContext
                         ) as T
                     }
@@ -198,7 +199,10 @@ fun NavGraph(
         // ── Accounts ───────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
             val vm = AccountsViewModel(accountsRepository, tenantContext)
-            AccountsScreen(viewModel = vm)
+            AccountsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // ── Transactions ───────────────────────────────────────────────────
