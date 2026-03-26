@@ -1,199 +1,129 @@
 package com.nexohogar.presentation.budget
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.nexohogar.domain.model.BudgetItem
-import com.nexohogar.domain.model.Category
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateBudgetDialog(
-    categories: List<Category>,
-    existingCategoryIds: Set<String>,
-    isCreating: Boolean,
+    existingCategoryNames: Set<String>,
     onDismiss: () -> Unit,
-    onCreate: (categoryId: String, amount: Double, memberId: String?) -> Unit
+    onConfirm: (categoryName: String, amount: Long) -> Unit
 ) {
-    val availableCategories = categories.filter { it.id !in existingCategoryIds }
-
-    var selectedCategory by remember { mutableStateOf<Category?>(null) }
+    var categoryName by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
-    var categoryDropdownExpanded by remember { mutableStateOf(false) }
-
-    val isValid = selectedCategory != null &&
-            amountText.isNotBlank() &&
-            (amountText.replace(".", "").toDoubleOrNull() ?: 0.0) > 0
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var amountError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
-        onDismissRequest = { if (!isCreating) onDismiss() },
-        title = { Text("Nuevo presupuesto") },
+        onDismissRequest = onDismiss,
+        title = { Text("Nuevo Presupuesto") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Category Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = categoryDropdownExpanded,
-                    onExpandedChange = { categoryDropdownExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategory?.name ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Categoría") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryDropdownExpanded,
-                        onDismissRequest = { categoryDropdownExpanded = false }
-                    ) {
-                        if (availableCategories.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("Todas las categorías ya tienen presupuesto") },
-                                onClick = { categoryDropdownExpanded = false },
-                                enabled = false
-                            )
-                        } else {
-                            availableCategories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category.name) },
-                                    onClick = {
-                                        selectedCategory = category
-                                        categoryDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = categoryName,
+                    onValueChange = {
+                        categoryName = it
+                        nameError = null
+                    },
+                    label = { Text("Categoría") },
+                    placeholder = { Text("Ej: Alimentación, Transporte...") },
+                    singleLine = true,
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Amount Input
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { newValue ->
-                        val cleaned = newValue.filter { it.isDigit() }
-                        amountText = cleaned
+                    onValueChange = {
+                        amountText = it.filter { c -> c.isDigit() }
+                        amountError = null
                     },
-                    label = { Text("Monto (CLP)") },
-                    prefix = { Text("$") },
+                    label = { Text("Monto mensual (CLP)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    isError = amountError != null,
+                    supportingText = amountError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val amount = amountText.replace(".", "").toDoubleOrNull() ?: return@TextButton
-                    selectedCategory?.let { cat ->
-                        onCreate(cat.id, amount, null)
-                    }
-                },
-                enabled = isValid && !isCreating
-            ) {
-                Text(if (isCreating) "Creando..." else "Crear")
-            }
+            TextButton(onClick = {
+                val name = categoryName.trim()
+                val amount = amountText.toLongOrNull()
+                var valid = true
+                if (name.isBlank()) {
+                    nameError = "Ingresa un nombre"
+                    valid = false
+                } else if (existingCategoryNames.contains(name.lowercase())) {
+                    nameError = "Ya existe un presupuesto para esta categoría"
+                    valid = false
+                }
+                if (amount == null || amount <= 0) {
+                    amountError = "Ingresa un monto válido"
+                    valid = false
+                }
+                if (valid) onConfirm(name, amount!!)
+            }) { Text("Crear") }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isCreating
-            ) {
-                Text("Cancelar")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }
 
 @Composable
 fun EditBudgetDialog(
-    budgetItem: BudgetItem,
-    isUpdating: Boolean,
+    currentCategoryName: String,
+    currentAmount: Long,
     onDismiss: () -> Unit,
-    onUpdate: (newAmount: Double) -> Unit
+    onConfirm: (newAmount: Long) -> Unit
 ) {
-    var amountText by remember {
-        mutableStateOf(budgetItem.budgetedAmount.toString())
-    }
-
-    val isValid = amountText.isNotBlank() &&
-            (amountText.replace(".", "").toDoubleOrNull() ?: 0.0) > 0
+    var amountText by remember { mutableStateOf(currentAmount.toString()) }
+    var amountError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
-        onDismissRequest = { if (!isUpdating) onDismiss() },
-        title = { Text("Editar presupuesto") },
+        onDismissRequest = onDismiss,
+        title = { Text("Editar Presupuesto") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Category (read-only)
-                OutlinedTextField(
-                    value = budgetItem.categoryName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoría") },
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = currentCategoryName,
+                    style = MaterialTheme.typography.titleMedium
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Amount Input
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { newValue ->
-                        val cleaned = newValue.filter { it.isDigit() }
-                        amountText = cleaned
+                    onValueChange = {
+                        amountText = it.filter { c -> c.isDigit() }
+                        amountError = null
                     },
-                    label = { Text("Monto (CLP)") },
-                    prefix = { Text("$") },
+                    label = { Text("Monto mensual (CLP)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    isError = amountError != null,
+                    supportingText = amountError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val amount = amountText.replace(".", "").toDoubleOrNull() ?: return@TextButton
-                    onUpdate(amount)
-                },
-                enabled = isValid && !isUpdating
-            ) {
-                Text(if (isUpdating) "Guardando..." else "Guardar")
-            }
+            TextButton(onClick = {
+                val amount = amountText.toLongOrNull()
+                if (amount == null || amount <= 0) {
+                    amountError = "Ingresa un monto válido"
+                } else {
+                    onConfirm(amount)
+                }
+            }) { Text("Guardar") }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isUpdating
-            ) {
-                Text("Cancelar")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }
