@@ -1,7 +1,9 @@
 package com.nexohogar.data.network
 
+import com.nexohogar.data.remote.dto.CreateInventoryCategoryRequest
 import com.nexohogar.data.remote.dto.CreateInventoryMovementRequest
 import com.nexohogar.data.remote.dto.CreateProductRequest
+import com.nexohogar.data.remote.dto.InventoryCategoryDto
 import com.nexohogar.data.remote.dto.InventoryMovementDto
 import com.nexohogar.data.remote.dto.ProductDto
 import retrofit2.Response
@@ -35,4 +37,22 @@ interface InventoryApi {
     suspend fun addMovement(
         @Body request: CreateInventoryMovementRequest
     ): Response<List<InventoryMovementDto>>
-    }
+
+    // ---------- inventory_categories ----------
+    @GET("rest/v1/inventory_categories")
+    suspend fun getCategories(
+        @Query("household_id") householdId: String,
+        @Query("order") order: String = "sort_order.asc,name.asc"
+    ): Response<List<InventoryCategoryDto>>
+
+    @POST("rest/v1/inventory_categories")
+    @Headers("Prefer: return=representation")
+    suspend fun createCategory(
+        @Body request: CreateInventoryCategoryRequest
+    ): Response<List<InventoryCategoryDto>>
+
+    @DELETE("rest/v1/inventory_categories")
+    suspend fun deleteCategory(
+        @Query("id") id: String
+    ): Response<Unit>
+}

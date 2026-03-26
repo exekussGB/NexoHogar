@@ -2,6 +2,7 @@ package com.nexohogar.presentation.inventory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
@@ -12,22 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-
-// ─── Categorías predefinidas ───────────────────────────────────────────────────
-val INVENTORY_CATEGORIES = listOf(
-    "Carnes y Pescados",
-    "Lácteos y Huevos",
-    "Frutas y Verduras",
-    "Cereales y Panadería",
-    "Enlatados y Conservas",
-    "Bebidas",
-    "Limpieza y Hogar",
-    "Higiene Personal",
-    "Congelados",
-    "Snacks y Dulces",
-    "Condimentos y Salsas",
-    "Otros"
-)
 
 // ─── Estadística por categoría ─────────────────────────────────────────────────
 data class CategoryStat(
@@ -41,6 +26,7 @@ data class InventoryUiState(
     val products: List<Product> = emptyList(),
     val suggestions: List<PurchaseSuggestion> = emptyList(),
     val categoryStats: List<CategoryStat> = emptyList(),
+    val categories: List<InventoryCategory> = emptyList(),
     val selectedCategory: String? = null,      // null = "Todos"
     val isLoading: Boolean = false,
     val error: String? = null
@@ -50,23 +36,31 @@ data class InventoryUiState(
         get() = if (selectedCategory == null) products
                 else products.filter { it.category == selectedCategory }
 
-    // Categorías disponibles en los productos actuales
+    // Categorías disponibles: se derivan de las categorías cargadas del backend
     val availableCategories: List<String>
-        get() = products.mapNotNull { it.category }.distinct().sorted()
+        get() = categories.map { it.name }
 }
 
 // ─── Estado del formulario de producto ─────────────────────────────────────────
-// v6: agrega store, pricePerUnit, priceTotal para capturar detalles
-//     de la compra inicial directamente desde la pestaña Registrar
+// v7: initialQuantity es ahora opcional — se puede crear un producto con stock 0
 data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
     val category: String = "",
-    val initialQuantity: String = "",   // stock inicial obligatorio en flujo Registrar
+    val initialQuantity: String = "",   // stock inicial opcional
     val store: String = "",             // tienda de la compra inicial
     val pricePerUnit: String = "",      // precio por unidad de la compra inicial
     val priceTotal: String = "",        // precio total de la compra inicial
+    val isSubmitting: Boolean = false,
+    val error: String? = null,
+    val success: Boolean = false
+)
+
+// ─── Estado del formulario de categoría ──────────────────────────────────────
+data class CategoryFormState(
+    val name: String = "",
+    val icon: String = "",
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val success: Boolean = false
@@ -114,6 +108,9 @@ class InventoryViewModel(
     private val _movementsState = MutableStateFlow(MovementsUiState())
     val movementsState: StateFlow<MovementsUiState> = _movementsState.asStateFlow()
 
+    private val _categoryForm = MutableStateFlow(CategoryFormState())
+    val categoryForm: StateFlow<CategoryFormState> = _categoryForm.asStateFlow()
+
     init { loadData() }
 
     fun loadData() {
@@ -122,12 +119,14 @@ class InventoryViewModel(
             try {
                 val products = repository.getProducts(householdId)
                 val movements = try { repository.getMovements(householdId) } catch (e: Exception) { emptyList() }
+                val categories = try { repository.getCategories(householdId) } catch (e: Exception) { emptyList() }
                 val suggestions = calcSuggestions(products, movements)
                 val stats = calcCategoryStats(products, movements)
                 _uiState.value = _uiState.value.copy(
                     products = products,
                     suggestions = suggestions,
                     categoryStats = stats,
+                    categories = categories,
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -238,6 +237,50 @@ class InventoryViewModel(
     }
 
     fun resetProductForm() { _productForm.value = ProductFormState() }
+
+    // ─── Category form setters ──────────────────────────────────────────────────
+    fun onCategoryNameChange(v: String) { _categoryForm.value = _categoryForm.value.copy(name = v) }
+    fun onCategoryIconChange(v: String) { _categoryForm.value = _categoryForm.value.copy(icon = v) }
+
+    fun submitCategory() {
+        val form = _categoryForm.value
+        if (form.name.isBlank()) {
+            _categoryForm.value = form.copy(error = "El nombre es obligatorio")
+            return
+        }
+        viewModelScope.launch {
+            _categoryForm.value = form.copy(isSubmitting = true, error = null)
+            try {
+                repository.createCategory(
+                    householdId = householdId,
+                    name = form.name.trim(),
+                    icon = form.icon.takeIf { it.isNotBlank() }
+                )
+                _categoryForm.value = CategoryFormState(success = true)
+                loadData()
+            } catch (e: Exception) {
+                _categoryForm.value = _categoryForm.value.copy(
+                    isSubmitting = false,
+                    error = e.message ?: "Error al crear categoría"
+                )
+            }
+        }
+    }
+
+    fun deleteCategory(categoryId: String) {
+        viewModelScope.launch {
+            try {
+                repository.deleteCategory(categoryId)
+                loadData()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "Error al eliminar categoría: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun resetCategoryForm() { _categoryForm.value = CategoryFormState() }
 
     // ─── Movement form setters ──────────────────────────────────────────────────
     fun onMovementProductSelect(p: Product) { _movementForm.value = _movementForm.value.copy(selectedProduct = p) }

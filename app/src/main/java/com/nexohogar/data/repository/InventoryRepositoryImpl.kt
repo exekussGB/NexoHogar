@@ -1,8 +1,10 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.data.network.InventoryApi
+import com.nexohogar.data.remote.dto.CreateInventoryCategoryRequest
 import com.nexohogar.data.remote.dto.CreateInventoryMovementRequest
 import com.nexohogar.data.remote.dto.CreateProductRequest
+import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
@@ -164,5 +166,37 @@ class InventoryRepositoryImpl(
         }
 
         return suggestions.sortedByDescending { it.estimatedCost ?: 0.0 }
+    }
+
+    // ─── Categorías ──────────────────────────────────────────────────────────────
+
+    override suspend fun getCategories(householdId: String): List<InventoryCategory> {
+        val response = api.getCategories("eq.$householdId")
+        if (!response.isSuccessful) {
+            throw Exception("Error al obtener categorías: ${response.code()} ${response.errorBody()?.string()}")
+        }
+        return response.body()?.map { it.toDomain() } ?: emptyList()
+    }
+
+    override suspend fun createCategory(householdId: String, name: String, icon: String?): InventoryCategory {
+        val response = api.createCategory(
+            CreateInventoryCategoryRequest(
+                householdId = householdId,
+                name = name,
+                icon = icon
+            )
+        )
+        if (!response.isSuccessful) {
+            throw Exception("Error al crear categoría: ${response.code()} ${response.errorBody()?.string()}")
+        }
+        return response.body()?.firstOrNull()?.toDomain()
+            ?: throw Exception("Respuesta vacía al crear categoría")
+    }
+
+    override suspend fun deleteCategory(categoryId: String) {
+        val response = api.deleteCategory("eq.$categoryId")
+        if (!response.isSuccessful) {
+            throw Exception("Error al eliminar categoría: ${response.code()} ${response.errorBody()?.string()}")
+        }
     }
 }
