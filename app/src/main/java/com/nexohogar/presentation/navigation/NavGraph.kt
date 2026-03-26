@@ -14,12 +14,8 @@ import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 import com.nexohogar.presentation.addtransaction.AddTransactionScreen
 import com.nexohogar.presentation.addmovement.AddMovementViewModel
-import com.nexohogar.presentation.budgets.BudgetsScreen
-import com.nexohogar.presentation.budgets.BudgetsViewModel
 import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
-import com.nexohogar.presentation.expenses.ExpenseByCategoryScreen
-import com.nexohogar.presentation.expenses.ExpenseByCategoryViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
@@ -31,6 +27,8 @@ import com.nexohogar.presentation.invitemember.InviteMemberScreen
 import com.nexohogar.presentation.invitemember.InviteMemberViewModel
 import com.nexohogar.presentation.login.LoginScreen
 import com.nexohogar.presentation.login.LoginViewModel
+import com.nexohogar.presentation.personaldashboard.PersonalDashboardScreen
+import com.nexohogar.presentation.personaldashboard.PersonalDashboardViewModel
 import com.nexohogar.presentation.recurringbills.RecurringBillsScreen
 import com.nexohogar.presentation.recurringbills.RecurringBillsViewModel
 import com.nexohogar.presentation.register.RegisterScreen
@@ -45,20 +43,19 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 // Rutas de la app
 // ---------------------------------------------------------------------------
 sealed class Screen(val route: String) {
-    object Login              : Screen("login")
-    object Register           : Screen("register")
-    object Household          : Screen("household")
-    object Hub                : Screen("hub")
-    object Dashboard          : Screen("dashboard")
-    object Accounts           : Screen("accounts")
-    object Transactions       : Screen("transactions")
-    object InviteMember       : Screen("invite_member")
-    object RecurringBills     : Screen("recurring_bills")
-    object Settings           : Screen("settings")
-    object HouseholdMembers   : Screen("household_members")
-    object Inventory          : Screen("inventory")
-    object Budgets            : Screen("budgets")
-    object ExpensesByCategory : Screen("expenses_by_category")
+    object Login             : Screen("login")
+    object Register          : Screen("register")
+    object Household         : Screen("household")
+    object Hub               : Screen("hub")
+    object Dashboard         : Screen("dashboard")
+    object PersonalDashboard : Screen("personal_dashboard")
+    object Accounts          : Screen("accounts")
+    object Transactions      : Screen("transactions")
+    object InviteMember      : Screen("invite_member")
+    object RecurringBills    : Screen("recurring_bills")
+    object Settings          : Screen("settings")
+    object HouseholdMembers  : Screen("household_members")
+    object Inventory         : Screen("inventory")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -80,13 +77,13 @@ fun NavGraph(
     val authRepository              = ServiceLocator.authRepository
     val householdRepository         = ServiceLocator.householdRepository
     val dashboardRepository         = ServiceLocator.dashboardRepository
+    val personalDashboardRepository = ServiceLocator.personalDashboardRepository
     val accountsRepository          = ServiceLocator.accountsRepository
     val transactionsRepository      = ServiceLocator.transactionsRepository
     val categoriesRepository        = ServiceLocator.categoriesRepository
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
     val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
     val inventoryRepository         = ServiceLocator.inventoryRepository
-    val budgetsRepository           = ServiceLocator.budgetsRepository
     val tenantContext               = ServiceLocator.tenantContext
 
     val startDestination =
@@ -143,16 +140,16 @@ fun NavGraph(
         // ── Hub (menú principal) ───────────────────────────────────────────
         composable(Screen.Hub.route) {
             HubScreen(
-                householdName              = "",
-                onNavigateToDashboard      = { navController.navigate(Screen.Dashboard.route) },
-                onNavigateToTransactions   = { navController.navigate(Screen.Transactions.route) },
-                onNavigateToAddMovement    = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
-                onNavigateToAccounts       = { navController.navigate(Screen.Accounts.route) },
-                onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
-                onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
-                onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
-                onNavigateToBudgets        = { navController.navigate(Screen.Budgets.route) },
-                onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
+                householdName                  = "",
+                onNavigateToDashboard          = { navController.navigate(Screen.Dashboard.route) },
+                onNavigateToTransactions       = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToAddMovement        = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
+                onNavigateToAccounts           = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToInviteMember       = { navController.navigate(Screen.InviteMember.route) },
+                onNavigateToRecurringBills     = { navController.navigate(Screen.RecurringBills.route) },
+                onNavigateToInventory          = { navController.navigate(Screen.Inventory.route) },
+                onNavigateToOptions            = { navController.navigate(Screen.Settings.route) },
+                onNavigateToPersonalDashboard  = { navController.navigate(Screen.PersonalDashboard.route) }
             )
         }
 
@@ -165,68 +162,43 @@ fun NavGraph(
                         return DashboardViewModel(
                             dashboardRepository,
                             transactionsRepository,
-                            accountsRepository,
                             tenantContext
                         ) as T
                     }
                 }
             )
             DashboardScreen(
-                viewModel                = vm,
-                onTransactionClick       = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
-                onSeeAllClick            = { navController.navigate(Screen.Transactions.route) },
-                onNavigateToExpensesByCategory = { navController.navigate(Screen.ExpensesByCategory.route) },
-                onNavigateToPersonalSummary = { navController.navigate(Screen.Accounts.route) }
+                viewModel          = vm,
+                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onSeeAllClick      = { navController.navigate(Screen.Transactions.route) }
             )
         }
 
-        // ── ExpensesByCategory ─────────────────────────────────────────────
-        composable(Screen.ExpensesByCategory.route) {
-            val vm: ExpenseByCategoryViewModel = viewModel(
+        // ── Personal Dashboard ─────────────────────────────────────────────
+        composable(Screen.PersonalDashboard.route) {
+            val vm: PersonalDashboardViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
                         @Suppress("UNCHECKED_CAST")
-                        return ExpenseByCategoryViewModel(
-                            budgetsRepository,
-                            householdRepository,
-                            tenantContext
+                        return PersonalDashboardViewModel(
+                            personalDashboardRepository = personalDashboardRepository,
+                            tenantContext               = tenantContext,
+                            sessionManager              = sessionManager
                         ) as T
                     }
                 }
             )
-            ExpenseByCategoryScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // ── Budgets ────────────────────────────────────────────────────────
-        composable(Screen.Budgets.route) {
-            val vm: BudgetsViewModel = viewModel(
-                factory = object : ViewModelProvider.Factory {
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        @Suppress("UNCHECKED_CAST")
-                        return BudgetsViewModel(
-                            budgetsRepository,
-                            categoriesRepository,
-                            tenantContext
-                        ) as T
-                    }
-                }
-            )
-            BudgetsScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+            PersonalDashboardScreen(
+                viewModel          = vm,
+                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onNavigateBack     = { navController.popBackStack() }
             )
         }
 
         // ── Accounts ───────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
             val vm = AccountsViewModel(accountsRepository, tenantContext)
-            AccountsScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
-            )
+            AccountsScreen(viewModel = vm)
         }
 
         // ── Transactions ───────────────────────────────────────────────────
