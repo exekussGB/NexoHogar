@@ -1,5 +1,9 @@
 package com.nexohogar.domain.model
 
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
+
 /**
  * Modelo de dominio para una cuenta recurrente (servicios mensuales).
  *
@@ -17,51 +21,70 @@ data class RecurringBill(
     val notes: String?,
     val createdAt: String
 ) {
+    companion object {
+        private val ZONE = ZoneId.of("America/Santiago")
+    }
+
     /**
-     * Calcula cuántos días faltan para el próximo vencimiento.
-     * Retorna un número negativo si ya venció este mes sin pagar.
+     * Calcula cuántos días faltan para el vencimiento este mes.
+     * Retorna [Int.MAX_VALUE] si ya fue pagado este mes.
+     * Retorna negativo si ya venció sin pagar.
      */
     fun daysUntilDue(): Int {
-        val today = java.util.Calendar.getInstance()
-        val todayDay = today.get(java.util.Calendar.DAY_OF_MONTH)
-        val todayMonth = today.get(java.util.Calendar.MONTH)
-        val todayYear = today.get(java.util.Calendar.YEAR)
+        val today = LocalDate.now(ZONE)
 
-        // Verificar si ya se pagó este mes
+        // Si ya fue pagado este mes → no hay urgencia
         if (!lastPaidDate.isNullOrBlank()) {
             try {
-                val parts = lastPaidDate.split("-")
-                if (parts.size >= 3) {
-                    val paidYear = parts[0].toInt()
-                    val paidMonth = parts[1].toInt() - 1 // Calendar.MONTH es 0-indexed
-                    if (paidYear == todayYear && paidMonth == todayMonth) {
-                        // Ya pagado este mes
-                        return Int.MAX_VALUE
-                    }
+                val paidDate = LocalDate.parse(lastPaidDate)
+                if (paidDate.year == today.year && paidDate.monthValue == today.monthValue) {
+                    return Int.MAX_VALUE
                 }
             } catch (_: Exception) { }
         }
 
-        return dueDayOfMonth - todayDay
+        // Calcular fecha de vencimiento este mes (ajustar si el mes no tiene ese día)
+        val dueDate = today.withDayOfMonth(minOf(dueDayOfMonth, today.lengthOfMonth()))
+        return ChronoUnit.DAYS.between(today, dueDate).toInt()
     }
 
-    /** Estado visual de la cuenta. */
-    fun status(): RecurringBillStatus {
-        if (!isActive) return RecurringBillStatus.INACTIVE
+    /**
+     * Estado visual tipo semáforo.
+     *
+     * 🟢 GREEN  → pagado este mes O faltan > 3 días
+     * 🟡 YELLOW → faltan ≤ 3 días (y no pagado)
+     * 🔴 RED    → vencido (día actual > due_day y no pagado)
+     * ⚪ INACTIVE → cuenta pausada
+     */
+    fun getStatus(): BillStatus {
+        if (!isActive) return BillStatus.INACTIVE
         val days = daysUntilDue()
         return when {
-            days == Int.MAX_VALUE -> RecurringBillStatus.PAID
-            days < 0              -> RecurringBillStatus.OVERDUE
-            days <= 5             -> RecurringBillStatus.DUE_SOON
-            else                  -> RecurringBillStatus.OK
+            days == Int.MAX_VALUE -> BillStatus.GREEN   // Pagado
+            days < 0              -> BillStatus.RED     // Vencido
+            days <= 3             -> BillStatus.YELLOW  // Próximo a vencer
+            else                  -> BillStatus.GREEN   // Holgado
+        }
+    }
+
+    /** Texto descriptivo del estado */
+    fun statusLabel(): String {
+        if (!isActive) return "PAUSADO"
+        val days = daysUntilDue()
+        return when {
+            days == Int.MAX_VALUE -> "PAGADO"
+            days < 0              -> "VENCIDO"
+            days == 0             -> "VENCE HOY"
+            days == 1             -> "VENCE MAÑANA"
+            days <= 3             -> "VENCE EN $days DÍAS"
+            else                  -> "Día $dueDayOfMonth"
         }
     }
 }
 
-enum class RecurringBillStatus {
-    OK,        // más de 5 días
-    DUE_SOON,  // vence en 5 días o menos
-    OVERDUE,   // venció este mes sin pagar
-    PAID,      // ya pagado este mes
-    INACTIVE   // cuenta desactivada
+enum class BillStatus {
+    GREEN,    // pagado o faltan > 3 días
+    YELLOW,   // faltan ≤ 3 días
+    RED,      // vencido
+    INACTIVE  // cuenta desactivada
 }
