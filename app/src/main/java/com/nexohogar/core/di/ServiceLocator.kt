@@ -3,6 +3,7 @@ package com.nexohogar.core.di
 import android.annotation.SuppressLint
 import android.content.Context
 import com.nexohogar.core.network.AuthInterceptor
+import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
@@ -71,6 +72,10 @@ object ServiceLocator {
         retrofit.create(DashboardApi::class.java)
     }
 
+    val personalDashboardApi: PersonalDashboardApi by lazy {
+        retrofit.create(PersonalDashboardApi::class.java)
+    }
+
     val accountsApi: AccountsApi by lazy {
         retrofit.create(AccountsApi::class.java)
     }
@@ -95,10 +100,6 @@ object ServiceLocator {
         retrofit.create(InventoryApi::class.java)
     }
 
-    val budgetsApi: BudgetsApi by lazy {
-        retrofit.create(BudgetsApi::class.java)
-    }
-
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
@@ -111,6 +112,10 @@ object ServiceLocator {
 
     val dashboardRepository: DashboardRepository by lazy {
         DashboardRepositoryImpl(dashboardApi)
+    }
+
+    val personalDashboardRepository: PersonalDashboardRepository by lazy {
+        PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
 
     val accountsRepository: AccountsRepository by lazy {
@@ -139,9 +144,5 @@ object ServiceLocator {
 
     val inventoryRepository: InventoryRepository by lazy {
         InventoryRepositoryImpl(inventoryApi)
-    }
-
-    val budgetsRepository: BudgetsRepository by lazy {
-        BudgetsRepositoryImpl(budgetsApi, categoriesApi, sessionManager)
     }
 }

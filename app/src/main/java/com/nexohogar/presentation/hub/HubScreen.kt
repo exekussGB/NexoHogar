@@ -48,8 +48,8 @@ fun HubScreen(
     onNavigateToInviteMember: () -> Unit,
     onNavigateToRecurringBills: () -> Unit,
     onNavigateToInventory: () -> Unit,
-    onNavigateToBudgets: () -> Unit,
-    onNavigateToOptions: () -> Unit
+    onNavigateToOptions: () -> Unit,
+    onNavigateToPersonalDashboard: () -> Unit = {}
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
 
@@ -87,6 +87,14 @@ fun HubScreen(
             onClick         = onNavigateToAccounts
         ),
         HubAction(
+            title           = "Personal",
+            subtitle        = "Mis finanzas",
+            icon            = Icons.Default.Person,
+            backgroundColor = Color(0xFFE0F2F1),
+            iconColor       = Color(0xFF00695C),
+            onClick         = onNavigateToPersonalDashboard
+        ),
+        HubAction(
             title           = "Invitar",
             subtitle        = "Agregar miembro",
             icon            = Icons.Default.PersonAdd,
@@ -101,14 +109,6 @@ fun HubScreen(
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
             onClick         = onNavigateToRecurringBills
-        ),
-        HubAction(
-            title           = "Presupuestos",
-            subtitle        = "Control de gastos",
-            icon            = Icons.Default.Savings,
-            backgroundColor = Color(0xFFFFF3E0),
-            iconColor       = Color(0xFFE65100),
-            onClick         = onNavigateToBudgets
         ),
         HubAction(
             title           = "Inventario",
