@@ -176,6 +176,7 @@ fun NavGraph(
                 onTransactionClick       = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
                 onSeeAllClick            = { navController.navigate(Screen.Transactions.route) },
                 onNavigateToExpensesByCategory = { navController.navigate(Screen.ExpensesByCategory.route) },
+                onNavigateToPersonalSummary = { navController.navigate(Screen.Accounts.route) }
             )
         }
 
