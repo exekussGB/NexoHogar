@@ -31,6 +31,7 @@ import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
@@ -155,6 +156,30 @@ fun DashboardScreen(
                 )
             }
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilidad para formatear fechas ISO → "HH:mm dd/MM/yyyy"
+// ─────────────────────────────────────────────────────────────────────────────
+
+private fun formatTransactionDate(isoDate: String): String {
+    return try {
+        val inputFormats = listOf(
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.getDefault()),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault()),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        )
+        val outputFormat = SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
+        for (fmt in inputFormats) {
+            try {
+                val date = fmt.parse(isoDate) ?: continue
+                return outputFormat.format(date)
+            } catch (_: Exception) { /* try next */ }
+        }
+        isoDate // fallback: return original if nothing works
+    } catch (_: Exception) {
+        isoDate
     }
 }
 
@@ -412,7 +437,7 @@ private fun TransactionRowItem(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = transaction.createdAt,
+                    text = formatTransactionDate(transaction.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

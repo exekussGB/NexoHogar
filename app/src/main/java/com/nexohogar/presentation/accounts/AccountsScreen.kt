@@ -92,7 +92,7 @@ fun AccountsScreen(
                         items(uiState.sharedAccounts, key = { it.accountId }) { account ->
                             AccountCard(
                                 account = account,
-                                canDelete = account.createdBy == uiState.currentUserId,
+                                canDelete = true, // Shared accounts: any household member can delete
                                 onDelete = { viewModel.showDeleteConfirm(account.accountId) },
                                 clpFormat = clpFormat
                             )
@@ -114,7 +114,7 @@ fun AccountsScreen(
                         items(uiState.personalAccounts, key = { it.accountId }) { account ->
                             AccountCard(
                                 account = account,
-                                canDelete = account.createdBy == uiState.currentUserId,
+                                canDelete = account.ownerUserId == uiState.currentUserId,
                                 onDelete = { viewModel.showDeleteConfirm(account.accountId) },
                                 clpFormat = clpFormat
                             )

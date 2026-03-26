@@ -30,8 +30,7 @@ class AccountsRepositoryImpl(
                         accountType     = dto.accountType ?: "ASSET",
                         movementBalance = dto.balance?.toLong() ?: 0L,
                         isShared        = dto.isShared ?: true,
-                        ownerUserId     = dto.ownerUserId,
-                        createdBy       = dto.createdBy
+                        ownerUserId     = dto.ownerUserId
                     )
                 }
             AppResult.Success(balances)
@@ -57,8 +56,7 @@ class AccountsRepositoryImpl(
                 currencyCode = "CLP",
                 accountSubtype = accountSubtype,
                 isShared     = isShared,
-                ownerUserId  = if (!isShared) (ownerUserId ?: userId) else null,
-                createdBy    = userId
+                ownerUserId  = if (!isShared) (ownerUserId ?: userId) else null
             )
 
             val response = accountsApi.createAccount(request)
@@ -73,8 +71,7 @@ class AccountsRepositoryImpl(
                     balance     = created.balance?.toLong() ?: 0L,
                     householdId = householdId,
                     isShared    = isShared,
-                    ownerUserId = ownerUserId ?: userId,
-                    createdBy   = userId
+                    ownerUserId = ownerUserId ?: userId
                 )
             )
         } catch (e: Exception) {
@@ -121,8 +118,7 @@ class AccountsRepositoryImpl(
                         accountType     = dto.accountType ?: "ASSET",
                         movementBalance = dto.balance?.toLong() ?: 0L,
                         isShared        = false,
-                        ownerUserId     = dto.ownerUserId,
-                        createdBy       = dto.createdBy
+                        ownerUserId     = dto.ownerUserId
                     )
                 }
             AppResult.Success(balances)
