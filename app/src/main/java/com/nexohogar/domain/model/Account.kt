@@ -12,6 +12,5 @@ data class Account(
     val balance: Long,
     val householdId: String,
     val isShared: Boolean = true,
-    val ownerUserId: String? = null,
-    val createdBy: String? = null
+    val ownerUserId: String? = null
 )
