@@ -34,6 +34,23 @@ private val LightBlue   = Color(0xFFE3F2FD)
 private val GreenIn     = Color(0xFF2E7D32)
 private val RedOut      = Color(0xFFC62828)
 
+/** Returns user-friendly price label based on unit, e.g. "Precio por kg", "Precio por unidad" */
+private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
+    "kg" -> "Precio por kg"
+    "g", "gr" -> "Precio por g"
+    "l", "lt", "litro", "litros" -> "Precio por litro"
+    "ml" -> "Precio por ml"
+    "unidad", "unidades", "un" -> "Precio por unidad"
+    "docena" -> "Precio por docena"
+    "paquete" -> "Precio por paquete"
+    "caja" -> "Precio por caja"
+    "botella" -> "Precio por botella"
+    "lata" -> "Precio por lata"
+    "sobre" -> "Precio por sobre"
+    "rollo" -> "Precio por rollo"
+    else -> "Precio por $unit"
+}
+
 // ─── Pantalla principal ────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +207,7 @@ private fun ProductsTab(
                     } else {
                         Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
-                        Text("Ve a la pestaña Registrar para agregar tu primera compra", color = Color.Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
+                        Text("Ve a la pestaña Registrar para agregar productos a tu despensa", color = Color.Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(16.dp))
                         Button(
                             onClick = onAddToInventory,
@@ -556,7 +573,7 @@ private fun RegisterTab(
                     OutlinedTextField(
                         value = movForm.pricePerUnit,
                         onValueChange = viewModel::onMovementPricePerUnitChange,
-                        label = { Text("Precio por unidad") },
+                        label = { Text(pricePerUnitLabel(movForm.selectedProduct?.unit ?: "unidad")) },
                         prefix = { Text("$") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -708,56 +725,84 @@ private fun RegisterTab(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // ── Stock inicial ───
             HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-            Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
+            Text("Stock inicial (opcional)", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
+            Text("¿Tienes este producto en casa? Ingresa la cantidad actual.", fontSize = 11.sp, color = Color.Gray)
 
-            // Cantidad inicial (ahora opcional)
             OutlinedTextField(
                 value = prodForm.initialQuantity,
                 onValueChange = viewModel::onProductInitialQuantityChange,
-                label = { Text("Cantidad inicial (opcional)") },
+                label = { Text("Cantidad inicial") },
                 placeholder = { Text("Ej: 2.5") },
                 suffix = { Text(prodForm.unit) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Precio
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = prodForm.pricePerUnit,
-                    onValueChange = viewModel::onProductPricePerUnitChange,
-                    label = { Text("Precio por unidad") },
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = prodForm.priceTotal,
-                    onValueChange = viewModel::onProductPriceTotalChange,
-                    label = { Text("Precio total") },
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
+            // ── Registrar como compra (toggle) — solo visible si hay cantidad ───
+            val hasQuantity = prodForm.initialQuantity.toDoubleOrNull()?.let { it > 0 } ?: false
+            if (hasQuantity) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.onProductRegisterAsPurchaseChange(!prodForm.registerAsPurchase) }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Checkbox(
+                        checked = prodForm.registerAsPurchase,
+                        onCheckedChange = viewModel::onProductRegisterAsPurchaseChange,
+                        colors = CheckboxDefaults.colors(checkedColor = GreenIn)
+                    )
+                    Column {
+                        Text("Registrar como compra", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("Incluir en gastos del hogar", fontSize = 11.sp, color = Color.Gray)
+                    }
+                }
             }
 
-            // Tienda
-            OutlinedTextField(
-                value = prodForm.store,
-                onValueChange = viewModel::onProductStoreChange,
-                label = { Text("Tienda / Local") },
-                leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // ── Detalles de compra — solo visible si registerAsPurchase y hay cantidad ───
+            if (hasQuantity && prodForm.registerAsPurchase) {
+                HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
+                Text("Detalles de la compra", fontSize = 12.sp, color = GreenIn, fontWeight = FontWeight.SemiBold)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = prodForm.pricePerUnit,
+                        onValueChange = viewModel::onProductPricePerUnitChange,
+                        label = { Text(pricePerUnitLabel(prodForm.unit)) },
+                        prefix = { Text("$") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = prodForm.priceTotal,
+                        onValueChange = viewModel::onProductPriceTotalChange,
+                        label = { Text("Precio total") },
+                        prefix = { Text("$") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = prodForm.store,
+                    onValueChange = viewModel::onProductStoreChange,
+                    label = { Text("Tienda / Local") },
+                    leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             // Error
             prodForm.error?.let {
                 ErrorBanner(it)
             }
 
-            // Botón crear — texto dinámico según si hay cantidad
-            val hasQuantity = prodForm.initialQuantity.toDoubleOrNull()?.let { it > 0 } ?: false
+            // Botón crear — texto dinámico según si hay cantidad y si es compra
+            val hasQuantityForButton = prodForm.initialQuantity.toDoubleOrNull()?.let { it > 0 } ?: false
             Button(
                 onClick = { viewModel.submitProduct() },
                 enabled = !prodForm.isSubmitting,
@@ -769,13 +814,21 @@ private fun RegisterTab(
                     CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
                 } else {
                     Icon(
-                        if (hasQuantity) Icons.Default.AddShoppingCart else Icons.Default.Add,
+                        when {
+                            hasQuantityForButton && prodForm.registerAsPurchase -> Icons.Default.AddShoppingCart
+                            hasQuantityForButton -> Icons.Default.Inventory2
+                            else -> Icons.Default.Add
+                        },
                         contentDescription = null,
                         tint = Color.White, modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        if (hasQuantity) "Crear producto y registrar compra" else "Crear producto",
+                        when {
+                            hasQuantityForButton && prodForm.registerAsPurchase -> "Crear producto y registrar compra"
+                            hasQuantityForButton -> "Crear producto con stock inicial"
+                            else -> "Crear producto"
+                        },
                         fontWeight = FontWeight.Bold, fontSize = 15.sp
                     )
                 }

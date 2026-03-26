@@ -42,13 +42,14 @@ data class InventoryUiState(
 }
 
 // ─── Estado del formulario de producto ─────────────────────────────────────────
-// v7: initialQuantity es ahora opcional — se puede crear un producto con stock 0
+// v8: registerAsPurchase permite crear producto con stock pero sin registrar gasto
 data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
     val category: String = "",
     val initialQuantity: String = "",   // stock inicial opcional
+    val registerAsPurchase: Boolean = false, // si true, los precios cuentan como gasto
     val store: String = "",             // tienda de la compra inicial
     val pricePerUnit: String = "",      // precio por unidad de la compra inicial
     val priceTotal: String = "",        // precio total de la compra inicial
@@ -110,6 +111,10 @@ class InventoryViewModel(
 
     private val _categoryForm = MutableStateFlow(CategoryFormState())
     val categoryForm: StateFlow<CategoryFormState> = _categoryForm.asStateFlow()
+
+    // ─── Tracking de última edición de precio (para auto-cálculo) ──────────────
+    private var _productPriceEditSource: String? = null
+    private var _movementPriceEditSource: String? = null
 
     init { loadData() }
 
@@ -182,14 +187,64 @@ class InventoryViewModel(
     }
 
     // ─── Product form setters ───────────────────────────────────────────────────
-    fun onProductNameChange(v: String)            { _productForm.value = _productForm.value.copy(name = v) }
-    fun onProductUnitChange(v: String)            { _productForm.value = _productForm.value.copy(unit = v) }
-    fun onProductBrandChange(v: String)           { _productForm.value = _productForm.value.copy(brand = v) }
-    fun onProductCategoryChange(v: String)        { _productForm.value = _productForm.value.copy(category = v) }
-    fun onProductInitialQuantityChange(v: String) { _productForm.value = _productForm.value.copy(initialQuantity = v) }
-    fun onProductStoreChange(v: String)           { _productForm.value = _productForm.value.copy(store = v) }
-    fun onProductPricePerUnitChange(v: String)    { _productForm.value = _productForm.value.copy(pricePerUnit = v) }
-    fun onProductPriceTotalChange(v: String)      { _productForm.value = _productForm.value.copy(priceTotal = v) }
+    fun onProductNameChange(v: String)     { _productForm.value = _productForm.value.copy(name = v) }
+    fun onProductUnitChange(v: String)     { _productForm.value = _productForm.value.copy(unit = v) }
+    fun onProductBrandChange(v: String)    { _productForm.value = _productForm.value.copy(brand = v) }
+    fun onProductCategoryChange(v: String) { _productForm.value = _productForm.value.copy(category = v) }
+    fun onProductStoreChange(v: String)    { _productForm.value = _productForm.value.copy(store = v) }
+
+    fun onProductRegisterAsPurchaseChange(v: Boolean) {
+        _productForm.value = _productForm.value.copy(registerAsPurchase = v)
+    }
+
+    // ─── Product form: auto-cálculo bidireccional de precios ────────────────────
+    fun onProductPricePerUnitChange(v: String) {
+        _productPriceEditSource = "perUnit"
+        val form = _productForm.value
+        val perUnit = v.toDoubleOrNull()
+        val qty = form.initialQuantity.toDoubleOrNull()
+        val newTotal = if (perUnit != null && qty != null && qty > 0) {
+            String.format("%.0f", perUnit * qty)
+        } else ""
+        _productForm.value = form.copy(pricePerUnit = v, priceTotal = newTotal)
+    }
+
+    fun onProductPriceTotalChange(v: String) {
+        _productPriceEditSource = "total"
+        val form = _productForm.value
+        val total = v.toDoubleOrNull()
+        val qty = form.initialQuantity.toDoubleOrNull()
+        val newPerUnit = if (total != null && qty != null && qty > 0) {
+            String.format("%.0f", total / qty)
+        } else ""
+        _productForm.value = form.copy(priceTotal = v, pricePerUnit = newPerUnit)
+    }
+
+    fun onProductInitialQuantityChange(v: String) {
+        val form = _productForm.value
+        val qty = v.toDoubleOrNull()
+        val updatedForm = form.copy(initialQuantity = v)
+
+        if (qty != null && qty > 0) {
+            when (_productPriceEditSource) {
+                "perUnit" -> {
+                    val perUnit = form.pricePerUnit.toDoubleOrNull()
+                    if (perUnit != null) {
+                        _productForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty))
+                        return
+                    }
+                }
+                "total" -> {
+                    val total = form.priceTotal.toDoubleOrNull()
+                    if (total != null) {
+                        _productForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty))
+                        return
+                    }
+                }
+            }
+        }
+        _productForm.value = updatedForm
+    }
 
     fun submitProduct() {
         val form = _productForm.value
@@ -212,17 +267,17 @@ class InventoryViewModel(
                     brand       = form.brand.takeIf { it.isNotBlank() },
                     category    = form.category.takeIf { it.isNotBlank() }
                 )
-                // Si hay cantidad inicial, registrar como movimiento "in"
+                // Si hay cantidad inicial, registrar movimiento de entrada
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
                         householdId  = householdId,
                         itemId       = product.id,
                         quantity     = initialQty,
                         movementDate = LocalDate.now().toString(),
-                        pricePerUnit = form.pricePerUnit.toDoubleOrNull(),
-                        priceTotal   = form.priceTotal.toDoubleOrNull(),
+                        pricePerUnit = if (form.registerAsPurchase) form.pricePerUnit.toDoubleOrNull() else null,
+                        priceTotal   = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
                         brand        = form.brand.takeIf { it.isNotBlank() },
-                        store        = form.store.takeIf { it.isNotBlank() }
+                        store        = if (form.registerAsPurchase) form.store.takeIf { it.isNotBlank() } else null
                     )
                 }
                 _productForm.value = ProductFormState(success = true)
@@ -285,12 +340,58 @@ class InventoryViewModel(
     // ─── Movement form setters ──────────────────────────────────────────────────
     fun onMovementProductSelect(p: Product) { _movementForm.value = _movementForm.value.copy(selectedProduct = p) }
     fun onMovementTypeChange(t: String)     { _movementForm.value = _movementForm.value.copy(movementType = t) }
-    fun onMovementQuantityChange(v: String) { _movementForm.value = _movementForm.value.copy(quantity = v) }
-    fun onMovementPricePerUnitChange(v: String) { _movementForm.value = _movementForm.value.copy(pricePerUnit = v) }
-    fun onMovementPriceTotalChange(v: String)   { _movementForm.value = _movementForm.value.copy(priceTotal = v) }
     fun onMovementBrandChange(v: String)    { _movementForm.value = _movementForm.value.copy(brand = v) }
     fun onMovementStoreChange(v: String)    { _movementForm.value = _movementForm.value.copy(store = v) }
     fun onMovementDateChange(v: String)     { _movementForm.value = _movementForm.value.copy(movementDate = v) }
+
+    // ─── Movement form: auto-cálculo bidireccional de precios ───────────────────
+    fun onMovementPricePerUnitChange(v: String) {
+        _movementPriceEditSource = "perUnit"
+        val form = _movementForm.value
+        val perUnit = v.toDoubleOrNull()
+        val qty = form.quantity.toDoubleOrNull()
+        val newTotal = if (perUnit != null && qty != null && qty > 0) {
+            String.format("%.0f", perUnit * qty)
+        } else ""
+        _movementForm.value = form.copy(pricePerUnit = v, priceTotal = newTotal)
+    }
+
+    fun onMovementPriceTotalChange(v: String) {
+        _movementPriceEditSource = "total"
+        val form = _movementForm.value
+        val total = v.toDoubleOrNull()
+        val qty = form.quantity.toDoubleOrNull()
+        val newPerUnit = if (total != null && qty != null && qty > 0) {
+            String.format("%.0f", total / qty)
+        } else ""
+        _movementForm.value = form.copy(priceTotal = v, pricePerUnit = newPerUnit)
+    }
+
+    fun onMovementQuantityChange(v: String) {
+        val form = _movementForm.value
+        val qty = v.toDoubleOrNull()
+        val updatedForm = form.copy(quantity = v)
+
+        if (qty != null && qty > 0) {
+            when (_movementPriceEditSource) {
+                "perUnit" -> {
+                    val perUnit = form.pricePerUnit.toDoubleOrNull()
+                    if (perUnit != null) {
+                        _movementForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty))
+                        return
+                    }
+                }
+                "total" -> {
+                    val total = form.priceTotal.toDoubleOrNull()
+                    if (total != null) {
+                        _movementForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty))
+                        return
+                    }
+                }
+            }
+        }
+        _movementForm.value = updatedForm
+    }
 
     fun submitMovement() {
         val form = _movementForm.value
