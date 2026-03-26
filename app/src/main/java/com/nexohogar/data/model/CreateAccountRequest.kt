@@ -7,6 +7,8 @@ data class CreateAccountRequest(
     @SerializedName("account_type") val accountType: String,
     @SerializedName("household_id") val householdId: String,
     @SerializedName("currency_code") val currencyCode: String = "CLP",
+    @SerializedName("account_subtype") val accountSubtype: String? = null,
     @SerializedName("is_shared") val isShared: Boolean = true,
-    @SerializedName("owner_user_id") val ownerUserId: String? = null
+    @SerializedName("owner_user_id") val ownerUserId: String? = null,
+    @SerializedName("created_by") val createdBy: String? = null
 )

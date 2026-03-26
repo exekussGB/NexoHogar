@@ -43,8 +43,12 @@ data class RecurringBill(
             } catch (_: Exception) { }
         }
 
-        // Calcular fecha de vencimiento este mes (ajustar si el mes no tiene ese día)
-        val dueDate = today.withDayOfMonth(minOf(dueDayOfMonth, today.lengthOfMonth()))
+        // Calcular fecha de vencimiento: si el día ya pasó este mes, usar el mes siguiente
+        var dueDate = today.withDayOfMonth(minOf(dueDayOfMonth, today.lengthOfMonth()))
+        if (dueDate.isBefore(today)) {
+            val nextMonth = today.plusMonths(1)
+            dueDate = nextMonth.withDayOfMonth(minOf(dueDayOfMonth, nextMonth.lengthOfMonth()))
+        }
         return ChronoUnit.DAYS.between(today, dueDate).toInt()
     }
 

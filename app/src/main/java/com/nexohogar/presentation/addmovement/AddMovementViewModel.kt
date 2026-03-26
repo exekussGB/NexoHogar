@@ -1,6 +1,5 @@
 package com.nexohogar.presentation.addmovement
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
@@ -132,7 +131,11 @@ class AddMovementViewModel(
     fun onFromAccountSelected(account: Account)  { _uiState.update { it.copy(selectedFromAccount = account) } }
     fun onToAccountSelected(account: Account)    { _uiState.update { it.copy(selectedToAccount = account) } }
     fun onCategorySelected(category: Category)   { _uiState.update { it.copy(selectedCategory = category) } }
-    fun onAmountChange(amount: String)           { _uiState.update { it.copy(amount = amount) } }
+    fun onAmountChange(amount: String) {
+        if (amount.isEmpty() || amount.all { it.isDigit() }) {
+            _uiState.update { it.copy(amount = amount) }
+        }
+    }
     fun onDescriptionChange(description: String) { _uiState.update { it.copy(description = description) } }
 
     /**
@@ -214,7 +217,6 @@ class AddMovementViewModel(
                     _uiState.update { it.copy(isLoading = false, error = "Las cuentas deben ser distintas") }
                     return@launch
                 }
-                Log.d("TRANSFER_DEBUG", "Creating transfer: from=${state.selectedFromAccount.id}, to=${state.selectedToAccount.id}, amount=$amountLong")
                 transactionsRepository.createTransfer(
                     CreateTransferRequest(
                         householdId   = householdId,
@@ -265,10 +267,7 @@ class AddMovementViewModel(
                     }
                     _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                 }
-                is AppResult.Error -> {
-                    Log.e("TRANSFER_DEBUG", "Transfer failed: ${result.message}")
-                    _uiState.update { it.copy(isLoading = false, error = result.message) }
-                }
+                is AppResult.Error   -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 else -> {}
             }
         }

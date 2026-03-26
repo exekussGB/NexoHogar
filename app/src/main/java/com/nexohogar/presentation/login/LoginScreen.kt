@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.login
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,26 +19,43 @@ import com.nexohogar.presentation.components.LoadingOverlay
 fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit   // <-- nuevo parámetro
+    onNavigateToRegister: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
     val state by viewModel.loginState.observeAsState(LoginState.Idle)
     val context = LocalContext.current
 
+    fun validateEmail(): Boolean {
+        emailError = when {
+            email.isBlank() -> "El correo es obligatorio"
+            !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Correo inválido"
+            else -> null
+        }
+        return emailError == null
+    }
+
+    fun validatePassword(): Boolean {
+        passwordError = when {
+            password.isBlank() -> "La contraseña es obligatoria"
+            password.length < 6 -> "Mínimo 6 caracteres"
+            else -> null
+        }
+        return passwordError == null
+    }
+
     LaunchedEffect(state) {
-        if (state is LoginState.Success) {
-            onLoginSuccess()
-        } else if (state is LoginState.Error) {
+        if (state is LoginState.Success) onLoginSuccess()
+        else if (state is LoginState.Error) {
             Toast.makeText(context, (state as LoginState.Error).message, Toast.LENGTH_SHORT).show()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -46,48 +64,56 @@ fun LoginScreen(
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    if (emailError != null) validateEmail()
+                },
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true
+                singleLine = true,
+                isError = emailError != null,
+                supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    if (passwordError != null) validatePassword()
+                },
                 label = { Text("Contraseña") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true
+                singleLine = true,
+                isError = passwordError != null,
+                supportingText = passwordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = { viewModel.login(email, password) },
+                onClick = {
+                    val emailValid = validateEmail()
+                    val passValid = validatePassword()
+                    if (emailValid && passValid) {
+                        viewModel.login(email.trim(), password)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = state !is LoginState.Loading
-            ) {
-                Text("Iniciar Sesión")
-            }
+            ) { Text("Iniciar Sesión") }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Botón de registro ──────────────────────────────────
-            TextButton(
-                onClick = onNavigateToRegister,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            TextButton(onClick = onNavigateToRegister, modifier = Modifier.fillMaxWidth()) {
                 Text("¿No tienes cuenta? Regístrate")
             }
         }
 
-        if (state is LoginState.Loading) {
-            LoadingOverlay()
-        }
+        if (state is LoginState.Loading) LoadingOverlay()
     }
 }

@@ -14,8 +14,12 @@ import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 import com.nexohogar.presentation.addtransaction.AddTransactionScreen
 import com.nexohogar.presentation.addmovement.AddMovementViewModel
+import com.nexohogar.presentation.budgets.BudgetsScreen
+import com.nexohogar.presentation.budgets.BudgetsViewModel
 import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
+import com.nexohogar.presentation.expenses.ExpenseByCategoryScreen
+import com.nexohogar.presentation.expenses.ExpenseByCategoryViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
@@ -36,27 +40,25 @@ import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
-import com.nexohogar.presentation.budget.BudgetScreen
-import com.nexohogar.presentation.budget.BudgetViewModel
 
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
 sealed class Screen(val route: String) {
-    object Login             : Screen("login")
-    object Register          : Screen("register")
-    object Household         : Screen("household")
-    object Hub               : Screen("hub")
-    object Dashboard         : Screen("dashboard")
-    object Accounts          : Screen("accounts")
-    object Transactions      : Screen("transactions")
-    object InviteMember      : Screen("invite_member")
-    object RecurringBills    : Screen("recurring_bills")
-    object Settings          : Screen("settings")
-    object HouseholdMembers  : Screen("household_members")
-    object Inventory         : Screen("inventory")
-
-    object Budget : Screen("budget")
+    object Login              : Screen("login")
+    object Register           : Screen("register")
+    object Household          : Screen("household")
+    object Hub                : Screen("hub")
+    object Dashboard          : Screen("dashboard")
+    object Accounts           : Screen("accounts")
+    object Transactions       : Screen("transactions")
+    object InviteMember       : Screen("invite_member")
+    object RecurringBills     : Screen("recurring_bills")
+    object Settings           : Screen("settings")
+    object HouseholdMembers   : Screen("household_members")
+    object Inventory          : Screen("inventory")
+    object Budgets            : Screen("budgets")
+    object ExpensesByCategory : Screen("expenses_by_category")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -84,7 +86,8 @@ fun NavGraph(
     val transactionDetailRepository = ServiceLocator.transactionDetailRepository
     val recurringBillsRepository    = ServiceLocator.recurringBillsRepository
     val inventoryRepository         = ServiceLocator.inventoryRepository
-    val tenantContext                = ServiceLocator.tenantContext
+    val budgetsRepository           = ServiceLocator.budgetsRepository
+    val tenantContext               = ServiceLocator.tenantContext
 
     val startDestination =
         if (sessionManager.fetchAuthToken() != null) Screen.Household.route
@@ -148,7 +151,7 @@ fun NavGraph(
                 onNavigateToInviteMember   = { navController.navigate(Screen.InviteMember.route) },
                 onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
                 onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
-                onNavigateToBudget         = { navController.navigate(Screen.Budget.route) },
+                onNavigateToBudgets        = { navController.navigate(Screen.Budgets.route) },
                 onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -162,22 +165,67 @@ fun NavGraph(
                         return DashboardViewModel(
                             dashboardRepository,
                             transactionsRepository,
+                            accountsRepository,
                             tenantContext
                         ) as T
                     }
                 }
             )
             DashboardScreen(
-                viewModel          = vm,
-                onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
-                onSeeAllClick      = { navController.navigate(Screen.Transactions.route) }
+                viewModel                = vm,
+                onTransactionClick       = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
+                onSeeAllClick            = { navController.navigate(Screen.Transactions.route) },
+                onNavigateToExpensesByCategory = { navController.navigate(Screen.ExpensesByCategory.route) },
+            )
+        }
+
+        // ── ExpensesByCategory ─────────────────────────────────────────────
+        composable(Screen.ExpensesByCategory.route) {
+            val vm: ExpenseByCategoryViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return ExpenseByCategoryViewModel(
+                            budgetsRepository,
+                            householdRepository,
+                            tenantContext
+                        ) as T
+                    }
+                }
+            )
+            ExpenseByCategoryScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ── Budgets ────────────────────────────────────────────────────────
+        composable(Screen.Budgets.route) {
+            val vm: BudgetsViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return BudgetsViewModel(
+                            budgetsRepository,
+                            categoriesRepository,
+                            tenantContext
+                        ) as T
+                    }
+                }
+            )
+            BudgetsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
         // ── Accounts ───────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
             val vm = AccountsViewModel(accountsRepository, tenantContext)
-            AccountsScreen(viewModel = vm)
+            AccountsScreen(
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // ── Transactions ───────────────────────────────────────────────────
@@ -303,25 +351,6 @@ fun NavGraph(
             InventoryScreen(
                 viewModel = vm,
                 onBack    = { navController.popBackStack() }
-            )
-        }
-        // ── Budget ─────────────────────────────────────────────────────
-        composable(Screen.Budget.route) {
-            val vm: BudgetViewModel = viewModel(
-                factory = object : ViewModelProvider.Factory {
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        @Suppress("UNCHECKED_CAST")
-                        return BudgetViewModel(
-                            ServiceLocator.budgetRepository,
-                            ServiceLocator.categoriesRepository,
-                            ServiceLocator.tenantContext
-                        ) as T
-                    }
-                }
-            )
-            BudgetScreen(
-                viewModel = vm,
-                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
