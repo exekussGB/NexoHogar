@@ -1,82 +1,78 @@
 package com.nexohogar.presentation.budget
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.nexohogar.domain.model.BudgetItem
+import androidx.compose.ui.unit.sp
+import com.nexohogar.domain.model.BudgetConsumption
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
 
-// ─── Colores semáforo ────────────────────────────────────────────────────────
-private val SemGreen  = Color(0xFF2E7D32)
-private val SemYellow = Color(0xFFF57F17)
-private val SemRed    = Color(0xFFC62828)
+// Semáforo colors
+private val SemaforoBlue   = Color(0xFF42A5F5)
+private val SemaforoGreen  = Color(0xFF66BB6A)
+private val SemaforoYellow = Color(0xFFFFA726)
+private val SemaforoRed    = Color(0xFFEF5350)
 
-/** Retorna el color semáforo según porcentaje de consumo. */
-private fun trafficColor(pct: Double): Color = when {
-    pct >= 100.0 -> SemRed
-    pct >= 80.0  -> SemYellow
-    pct >= 50.0  -> SemGreen
-    else         -> Color(0xFF1565C0) // azul tranquilo < 50 %
-}
-
-private val MONTH_NAMES = listOf(
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BudgetScreen(
-    viewModel     : BudgetViewModel,
+    viewModel: BudgetViewModel,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Snackbar
-    LaunchedEffect(uiState.snackMessage) {
-        uiState.snackMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearSnack()
-        }
-    }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var editingBudget by remember { mutableStateOf<BudgetConsumption?>(null) }
+    var deletingBudget by remember { mutableStateOf<BudgetConsumption?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Presupuestos") },
+                title = {
+                    Column {
+                        Text("Presupuestos", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Control mensual",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor    = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.showCreateDialog() }) {
+            FloatingActionButton(
+                onClick = { showCreateDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Nuevo presupuesto")
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -85,447 +81,267 @@ fun BudgetScreen(
         ) {
             when {
                 uiState.isLoading -> LoadingOverlay()
-                uiState.error != null -> ErrorContent(uiState.error!!) { viewModel.load() }
-                else -> BudgetContent(
-                    uiState    = uiState,
-                    clpFormat  = clpFormat,
-                    onPrevious = { viewModel.previousMonth() },
-                    onNext     = { viewModel.nextMonth() },
-                    onEdit     = { viewModel.showEditDialog(it) },
-                    onDelete   = { viewModel.showDeleteConfirm(it) }
-                )
-            }
-        }
-    }
 
-    // ── Dialogs ──────────────────────────────────────────────────────────────
-
-    if (uiState.showCreateDialog) {
-        CreateBudgetDialog(
-            categories          = uiState.categories,
-            existingCategoryIds = uiState.items.map { it.categoryId }.toSet(),
-            isCreating          = uiState.isCreating,
-            onDismiss           = { viewModel.hideCreateDialog() },
-            onCreate            = { catId, amount, memberId ->
-                viewModel.createBudget(catId, amount.toLong(), memberId)
-            }
-        )
-    }
-
-    uiState.showEditDialog?.let { item ->
-        EditBudgetDialog(
-            budgetItem = item,
-            isUpdating = uiState.isUpdating,
-            onDismiss  = { viewModel.hideEditDialog() },
-            onUpdate   = { newAmount -> viewModel.updateBudget(item.budgetId, newAmount.toLong()) }
-        )
-    }
-
-    uiState.showDeleteConfirm?.let { item ->
-        AlertDialog(
-            onDismissRequest = { viewModel.hideDeleteConfirm() },
-            icon  = { Icon(Icons.Default.Delete, contentDescription = null, tint = SemRed) },
-            title = { Text("Eliminar presupuesto") },
-            text  = { Text("¿Eliminar el presupuesto de \"${item.categoryName}\"?\nEsta acción no se puede deshacer.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.deleteBudget(item.budgetId) },
-                    enabled = !uiState.isDeleting
-                ) {
-                    Text(if (uiState.isDeleting) "Eliminando…" else "Eliminar", color = SemRed)
+                uiState.error != null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = uiState.error ?: "Error desconocido",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = viewModel::load) { Text("Reintentar") }
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { viewModel.hideDeleteConfirm() },
-                    enabled = !uiState.isDeleting
-                ) { Text("Cancelar") }
-            }
-        )
-    }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Content
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun BudgetContent(
-    uiState   : BudgetUiState,
-    clpFormat : NumberFormat,
-    onPrevious: () -> Unit,
-    onNext    : () -> Unit,
-    onEdit    : (BudgetItem) -> Unit,
-    onDelete  : (BudgetItem) -> Unit
-) {
-    LazyColumn(
-        modifier            = Modifier.fillMaxSize(),
-        contentPadding      = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // ── Selector de mes ─────────────────────────────────────────────────
-        item {
-            MonthSelector(
-                year       = uiState.year,
-                month      = uiState.month,
-                onPrevious = onPrevious,
-                onNext     = onNext
-            )
-        }
-
-        // ── Resumen total ───────────────────────────────────────────────────
-        if (uiState.items.isNotEmpty()) {
-            item { BudgetSummaryCard(uiState.items, clpFormat) }
-        }
-
-        // ── Sin presupuestos ────────────────────────────────────────────────
-        if (uiState.items.isEmpty()) {
-            item { EmptyState() }
-        } else {
-            // ── Ítems de presupuesto ────────────────────────────────────────
-            items(uiState.items) { item ->
-                BudgetItemCard(
-                    item      = item,
-                    clpFormat = clpFormat,
-                    onEdit    = { onEdit(item) },
-                    onDelete  = { onDelete(item) }
-                )
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Month Selector
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun MonthSelector(
-    year      : Int,
-    month     : Int,
-    onPrevious: () -> Unit,
-    onNext    : () -> Unit
-) {
-    val monthName = if (month in 1..12) MONTH_NAMES[month - 1] else "?"
-    Row(
-        modifier              = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPrevious) {
-            Icon(Icons.Default.ChevronLeft, contentDescription = "Mes anterior")
-        }
-        Text(
-            text       = "$monthName $year",
-            style      = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        IconButton(onClick = onNext) {
-            Icon(Icons.Default.ChevronRight, contentDescription = "Mes siguiente")
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Summary Card (with traffic light)
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun BudgetSummaryCard(
-    items    : List<BudgetItem>,
-    clpFormat: NumberFormat
-) {
-    val totalBudgeted  = items.sumOf { it.budgetedAmount }
-    val totalConsumed  = items.sumOf { it.consumedAmount }
-    val totalRemaining = totalBudgeted - totalConsumed
-    val globalPct      = if (totalBudgeted > 0) (totalConsumed.toDouble() / totalBudgeted.toDouble()) * 100.0 else 0.0
-    val progressColor  = trafficColor(globalPct)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Resumen del mes",
-                    style      = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color      = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                // Percentage badge
-                Surface(
-                    color = progressColor,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text     = "${String.format("%.1f", globalPct)}%",
-                        style    = MaterialTheme.typography.labelSmall,
-                        color    = Color.White,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        fontWeight = FontWeight.Bold
-                    )
+                uiState.budgets.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = "Sin presupuestos",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Toca + para crear uno",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress   = { (globalPct / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier   = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color      = progressColor,
-                trackColor = progressColor.copy(alpha = 0.2f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        "Gastado",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        clpFormat.format(totalConsumed),
-                        style      = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color      = progressColor
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "Presupuesto",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        clpFormat.format(totalBudgeted),
-                        style      = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color      = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(vertical = 16.dp)
+                    ) {
+                        // Summary card
+                        item {
+                            val totalBudgeted = uiState.budgets.sumOf { it.budgetedAmount }
+                            val totalSpent = uiState.budgets.sumOf { it.spentAmount }
+                            val overallPct = if (totalBudgeted > 0) (totalSpent * 100.0 / totalBudgeted) else 0.0
+                            val summaryColor = getSemaforoColor(overallPct)
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = summaryColor.copy(alpha = 0.12f)
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "Resumen general",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                            Text(
+                                                text = "${clpFormat.format(totalSpent)} / ${clpFormat.format(totalBudgeted)}",
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = summaryColor
+                                            )
+                                        }
+                                        SemaforoBadge(overallPct)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { (overallPct / 100.0).toFloat().coerceIn(0f, 1f) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                        color = summaryColor,
+                                        trackColor = summaryColor.copy(alpha = 0.2f)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+
+                        // Budget items
+                        items(uiState.budgets, key = { it.budgetId }) { budget ->
+                            val pct = if (budget.budgetedAmount > 0)
+                                (budget.spentAmount * 100.0 / budget.budgetedAmount)
+                            else 0.0
+                            val remaining = budget.budgetedAmount - budget.spentAmount
+                            val color = getSemaforoColor(pct)
+                            val isExceeded = remaining < 0
+
+                            val bgColor by animateColorAsState(
+                                targetValue = if (isExceeded) SemaforoRed.copy(alpha = 0.08f)
+                                else MaterialTheme.colorScheme.surface,
+                                label = "bg"
+                            )
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { editingBudget = budget },
+                                        onLongClick = { deletingBudget = budget }
+                                    ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                colors = CardDefaults.cardColors(containerColor = bgColor)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = budget.categoryName,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                text = "${clpFormat.format(budget.spentAmount)} / ${clpFormat.format(budget.budgetedAmount)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            if (isExceeded) {
+                                                Text(
+                                                    text = "Excedido: ${clpFormat.format(-remaining)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = SemaforoRed
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = "Disponible: ${clpFormat.format(remaining)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = color
+                                                )
+                                            }
+                                        }
+
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            SemaforoBadge(pct)
+                                            Spacer(Modifier.height(4.dp))
+                                            IconButton(
+                                                onClick = { deletingBudget = budget },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "Eliminar",
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { (pct / 100.0).toFloat().coerceIn(0f, 1f) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = color,
+                                        trackColor = color.copy(alpha = 0.15f)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            if (totalRemaining >= 0) {
-                Text(
-                    text  = "Disponible: ${clpFormat.format(totalRemaining)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+
+            // Dialogs
+            if (showCreateDialog) {
+                val existingNames = uiState.budgets.map { it.categoryName.lowercase() }.toSet()
+                CreateBudgetDialog(
+                    existingCategoryNames = existingNames,
+                    onDismiss = { showCreateDialog = false },
+                    onConfirm = { name, amount ->
+                        viewModel.createBudget(name, amount)
+                        showCreateDialog = false
+                    }
                 )
-            } else {
-                Text(
-                    text     = "⚠ Excedido en: ${clpFormat.format(-totalRemaining)}",
-                    style    = MaterialTheme.typography.bodySmall,
-                    color    = SemRed,
-                    fontWeight = FontWeight.Bold
+            }
+
+            editingBudget?.let { budget ->
+                EditBudgetDialog(
+                    currentCategoryName = budget.categoryName,
+                    currentAmount = budget.budgetedAmount,
+                    onDismiss = { editingBudget = null },
+                    onConfirm = { newAmount ->
+                        viewModel.updateBudget(budget.budgetId, newAmount)
+                        editingBudget = null
+                    }
+                )
+            }
+
+            deletingBudget?.let { budget ->
+                AlertDialog(
+                    onDismissRequest = { deletingBudget = null },
+                    title = { Text("Eliminar presupuesto") },
+                    text = { Text("¿Eliminar el presupuesto de \"${budget.categoryName}\"?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            viewModel.deleteBudget(budget.budgetId)
+                            deletingBudget = null
+                        }) {
+                            Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { deletingBudget = null }) { Text("Cancelar") }
+                    }
                 )
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Budget Item Card (with traffic light + edit/delete)
-// ─────────────────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BudgetItemCard(
-    item     : BudgetItem,
-    clpFormat: NumberFormat,
-    onEdit   : () -> Unit,
-    onDelete : () -> Unit
-) {
-    val pct      = item.consumptionPct
-    val barColor = trafficColor(pct)
-    val isOver   = item.remainingAmount < 0
-
-    Card(
-        modifier  = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick     = onEdit,
-                onLongClick = onDelete
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        // Red tinted card when overbudget
-        colors = if (isOver) CardDefaults.cardColors(
-            containerColor = SemRed.copy(alpha = 0.08f)
-        ) else CardDefaults.cardColors()
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header row: name + percentage badge + actions
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
-            ) {
-                Text(
-                    text       = item.categoryName,
-                    style      = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier.weight(1f)
-                )
-                // Traffic light badge
-                Surface(
-                    color = barColor,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text     = "${String.format("%.1f", pct)}%",
-                        style    = MaterialTheme.typography.labelSmall,
-                        color    = Color.White,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                // Edit button
-                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Editar",
-                        modifier = Modifier.size(18.dp),
-                        tint     = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                // Delete button
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Eliminar",
-                        modifier = Modifier.size(18.dp),
-                        tint     = SemRed.copy(alpha = 0.7f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Progress bar
-            LinearProgressIndicator(
-                progress   = { (pct / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier   = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp),
-                color      = barColor,
-                trackColor = barColor.copy(alpha = 0.15f)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Amounts row
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text  = "Gastado: ${clpFormat.format(item.consumedAmount)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text  = "de ${clpFormat.format(item.budgetedAmount)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Alert badges
-            if (pct >= 50.0) {
-                Spacer(modifier = Modifier.height(6.dp))
-                AlertBadge(pct = pct, isOver = isOver, clpFormat = clpFormat, overAmount = if (isOver) -item.remainingAmount else 0)
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Alert Badge (traffic-light style)
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun AlertBadge(pct: Double, isOver: Boolean, clpFormat: NumberFormat, overAmount: Long) {
-    val (icon, text, color) = when {
-        isOver       -> Triple("🔴", "Excedido en ${clpFormat.format(overAmount)} (${String.format("%.1f", pct)}%)", SemRed)
-        pct >= 100.0 -> Triple("🔴", "Presupuesto agotado", SemRed)
-        pct >= 80.0  -> Triple("🟡", "Atención: ${String.format("%.1f", pct)}% consumido", SemYellow)
-        pct >= 50.0  -> Triple("🟢", "${String.format("%.1f", pct)}% consumido", SemGreen)
-        else         -> return
+private fun SemaforoBadge(percentage: Double) {
+    val color = getSemaforoColor(percentage)
+    val label = when {
+        percentage < 50  -> "${String.format("%.0f", percentage)}%"
+        percentage < 80  -> "${String.format("%.0f", percentage)}% consumido"
+        percentage < 100 -> "Atención: ${String.format("%.0f", percentage)}%"
+        else             -> "Agotado: ${String.format("%.0f", percentage)}%"
     }
 
     Surface(
-        color = color.copy(alpha = 0.12f),
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth()
+        color = color.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = icon, style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text       = text,
-                style      = MaterialTheme.typography.labelSmall,
-                color      = color,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            color = color,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+        )
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun EmptyState() {
-    Box(
-        modifier         = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector        = Icons.Default.AccountBalanceWallet,
-                contentDescription = null,
-                modifier           = Modifier.size(56.dp),
-                tint               = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text      = "Sin presupuestos para este mes",
-                style     = MaterialTheme.typography.bodyLarge,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text      = "Usa el botón + para agregar uno.",
-                style     = MaterialTheme.typography.bodySmall,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
-                modifier  = Modifier.padding(top = 4.dp)
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Error content
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun ErrorContent(message: String, onRetry: () -> Unit) {
-    Column(
-        modifier            = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = message, color = MaterialTheme.colorScheme.error)
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) { Text("Reintentar") }
-    }
+private fun getSemaforoColor(percentage: Double): Color = when {
+    percentage < 50  -> SemaforoBlue
+    percentage < 80  -> SemaforoGreen
+    percentage < 100 -> SemaforoYellow
+    else             -> SemaforoRed
 }
