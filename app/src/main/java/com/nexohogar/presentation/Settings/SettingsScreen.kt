@@ -150,7 +150,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Gestión financiera familiar · Versión 1.2.2",
+                        text = "Gestión financiera familiar · Versión 1.2.3",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
