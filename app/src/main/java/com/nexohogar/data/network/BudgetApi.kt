@@ -1,9 +1,8 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.remote.dto.BudgetConsumptionDto
-import com.nexohogar.data.remote.dto.BudgetDto
-import com.nexohogar.data.remote.dto.CreateBudgetRequest
-import com.nexohogar.data.remote.dto.UpdateBudgetRequest
+import com.nexohogar.data.model.BudgetDto
+import com.nexohogar.data.model.CreateBudgetRequest
+import com.nexohogar.domain.model.BudgetConsumption
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -33,7 +32,7 @@ interface BudgetApi {
     @PATCH("rest/v1/budgets")
     suspend fun updateBudget(
         @Query("id") id: String,
-        @Body request: UpdateBudgetRequest,
+        @Body request: BudgetDto,
         @Header("Prefer") prefer: String = "return=minimal"
     ): Response<Unit>
 
@@ -45,5 +44,5 @@ interface BudgetApi {
     @POST("rest/v1/rpc/rpc_get_budget_consumption")
     suspend fun getBudgetConsumption(
         @Body params: Map<String, @JvmSuppressWildcards Any>
-    ): Response<List<BudgetConsumptionDto>>
+    ): Response<List<BudgetConsumption>>
 }
