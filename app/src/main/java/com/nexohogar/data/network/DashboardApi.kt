@@ -2,6 +2,7 @@ package com.nexohogar.data.network
 
 import com.nexohogar.data.model.AccountBalanceDto
 import com.nexohogar.data.model.DashboardDto
+import com.nexohogar.data.model.DualDashboardDto
 import com.nexohogar.data.remote.dto.MonthlyBalanceDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -16,20 +17,18 @@ interface DashboardApi {
         @Query("household_id") householdFilter: String
     ): Response<List<DashboardDto>>
 
-    // FIX: path corregido de "rpc/rpc_monthly_balance" → "rest/v1/rpc/rpc_monthly_balance"
     @POST("rest/v1/rpc/rpc_monthly_balance")
     suspend fun getMonthlyBalance(
         @Body body: Map<String, String>
     ): Response<List<MonthlyBalanceDto>>
 
-    // NUEVO: saldos de cuentas para el dashboard
-    @GET("rest/v1/rpc/get_account_balances")
-    suspend fun getAccountBalances(
-        @Query("p_household_id") householdId: String
-    ): Response<List<AccountBalanceDto>>
-    // Saldos calculados desde transacciones reales
-    @POST("rest/v1/rpc/get_calculated_balances")
-    suspend fun getCalculatedBalances(
+    @POST("rest/v1/rpc/get_account_balances_v2")
+    suspend fun getAccountBalancesV2(
         @Body body: Map<String, String>
     ): Response<List<AccountBalanceDto>>
+
+    @POST("rest/v1/rpc/rpc_dashboard_dual")
+    suspend fun getDualDashboard(
+        @Body body: Map<String, String>
+    ): Response<List<DualDashboardDto>>
 }

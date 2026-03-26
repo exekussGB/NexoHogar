@@ -1,10 +1,13 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.data.model.toSection
 import com.nexohogar.data.model.toDomain
 import com.nexohogar.data.network.DashboardApi
 import com.nexohogar.domain.model.AccountBalance
+import com.nexohogar.domain.model.DashboardSection
 import com.nexohogar.domain.model.DashboardSummary
+import com.nexohogar.domain.model.DualDashboard
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.repository.DashboardRepository
 
@@ -54,33 +57,19 @@ class DashboardRepositoryImpl(
         }
     }
 
-    override suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>> {
+    override suspend fun getAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>> {
         return try {
-            // Intentar usar saldos calculados primero
-            val calcResponse = dashboardApi.getCalculatedBalances(
-                mapOf("p_household_id" to householdId)
+            val response = dashboardApi.getAccountBalancesV2(
+                mapOf("p_household_id" to householdId, "p_user_id" to userId)
             )
-            if (calcResponse.isSuccessful && !calcResponse.body().isNullOrEmpty()) {
-                val balances = calcResponse.body()!!.map { dto ->
-                    AccountBalance(
-                        accountId       = dto.accountId,
-                        accountName     = dto.accountName,
-                        accountType     = dto.accountType,
-                        movementBalance = (dto.calculatedBalance ?: dto.movementBalance ?: 0.0).toLong()
-                    )
-                }
-                return AppResult.Success(balances)
-            }
-
-            // Fallback al RPC anterior
-            val response = dashboardApi.getAccountBalances(householdId)
             if (response.isSuccessful) {
                 val balances = response.body()?.map { dto ->
                     AccountBalance(
-                        accountId       = dto.accountId,
-                        accountName     = dto.accountName,
-                        accountType     = dto.accountType,
-                        movementBalance = (dto.calculatedBalance ?: dto.movementBalance ?: 0.0).toLong()
+                        accountId = dto.accountId,
+                        accountName = dto.accountName,
+                        accountType = dto.accountType,
+                        movementBalance = dto.movementBalance.toLong(),
+                        isShared = dto.isShared ?: true
                     )
                 } ?: emptyList()
                 AppResult.Success(balances)
@@ -89,6 +78,28 @@ class DashboardRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al cargar saldos")
+        }
+    }
+
+    override suspend fun getDualDashboard(householdId: String, userId: String): AppResult<DualDashboard> {
+        return try {
+            val response = dashboardApi.getDualDashboard(
+                mapOf("p_household_id" to householdId, "p_user_id" to userId)
+            )
+            if (response.isSuccessful) {
+                val rows = response.body() ?: emptyList()
+                val sharedRow = rows.find { it.section == "shared" }
+                val personalRow = rows.find { it.section == "personal" }
+
+                val shared = sharedRow?.toSection() ?: DashboardSection(0.0, 0.0, 0.0, 0)
+                val personal = personalRow?.toSection()?.takeIf { it.accountsCount > 0 }
+
+                AppResult.Success(DualDashboard(shared = shared, personal = personal))
+            } else {
+                AppResult.Error("Error dashboard dual: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al cargar dashboard dual")
         }
     }
 }
