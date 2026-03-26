@@ -21,7 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.nexohogar.domain.model.BudgetConsumption
+import com.nexohogar.domain.model.BudgetItem
 import com.nexohogar.domain.model.Category
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +95,6 @@ fun CreateBudgetDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { newValue ->
-                        // Allow only digits and dots for Chilean formatting
                         val cleaned = newValue.filter { it.isDigit() }
                         amountText = cleaned
                     },
@@ -133,13 +132,13 @@ fun CreateBudgetDialog(
 
 @Composable
 fun EditBudgetDialog(
-    budget: BudgetConsumption,
+    budgetItem: BudgetItem,
     isUpdating: Boolean,
     onDismiss: () -> Unit,
     onUpdate: (newAmount: Double) -> Unit
 ) {
     var amountText by remember {
-        mutableStateOf(budget.budgetedAmount.toLong().toString())
+        mutableStateOf(budgetItem.budgetedAmount.toString())
     }
 
     val isValid = amountText.isNotBlank() &&
@@ -152,7 +151,7 @@ fun EditBudgetDialog(
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Category (read-only)
                 OutlinedTextField(
-                    value = budget.categoryName,
+                    value = budgetItem.categoryName,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Categoría") },
