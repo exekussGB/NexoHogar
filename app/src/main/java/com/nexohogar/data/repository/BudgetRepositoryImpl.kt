@@ -5,21 +5,21 @@ import com.nexohogar.data.network.BudgetApi
 import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.domain.model.BudgetItem
 import com.nexohogar.domain.repository.BudgetRepository
+import java.util.Calendar
 
 class BudgetRepositoryImpl(
     private val budgetApi: BudgetApi
 ) : BudgetRepository {
 
     override suspend fun getBudgetConsumption(
-        householdId : String,
-        year        : Int,
-        month       : Int
+        householdId: String
     ): AppResult<List<BudgetItem>> {
         return try {
+            val cal = Calendar.getInstance()
             val body = hashMapOf<String, Any>(
                 "p_household_id" to householdId,
-                "p_year"         to year,
-                "p_month"        to month
+                "p_year"         to cal.get(Calendar.YEAR),
+                "p_month"        to (cal.get(Calendar.MONTH) + 1)
             )
             val response = budgetApi.getBudgetConsumption(body)
             if (response.isSuccessful) {
@@ -33,23 +33,20 @@ class BudgetRepositoryImpl(
     }
 
     override suspend fun createBudget(
-        householdId : String,
-        categoryId  : String,
-        amountClp   : Long,
-        year        : Int,
-        month       : Int,
-        memberId    : String?
+        householdId: String,
+        categoryName: String,
+        amountClp: Long
     ): AppResult<Unit> {
         return try {
+            val cal = Calendar.getInstance()
             val body = hashMapOf<String, Any>(
                 "household_id" to householdId,
-                "category_id"  to categoryId,
+                "category_id"  to categoryName,
                 "amount_clp"   to amountClp,
                 "period_type"  to "monthly",
-                "year_num"     to year,
-                "month_num"    to month
+                "year_num"     to cal.get(Calendar.YEAR),
+                "month_num"    to (cal.get(Calendar.MONTH) + 1)
             )
-            if (memberId != null) body["member_id"] = memberId
             val response = budgetApi.createBudget(body)
             if (response.isSuccessful) {
                 AppResult.Success(Unit)
@@ -62,8 +59,8 @@ class BudgetRepositoryImpl(
     }
 
     override suspend fun updateBudget(
-        budgetId  : String,
-        amountClp : Long
+        budgetId: String,
+        amountClp: Long
     ): AppResult<Unit> {
         return try {
             val body = hashMapOf<String, Any>(

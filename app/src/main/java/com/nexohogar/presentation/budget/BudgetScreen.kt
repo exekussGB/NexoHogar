@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nexohogar.domain.model.BudgetConsumption
+import com.nexohogar.domain.model.BudgetItem
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
@@ -42,8 +42,8 @@ fun BudgetScreen(
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var editingBudget by remember { mutableStateOf<BudgetConsumption?>(null) }
-    var deletingBudget by remember { mutableStateOf<BudgetConsumption?>(null) }
+    var editingBudget by remember { mutableStateOf<BudgetItem?>(null) }
+    var deletingBudget by remember { mutableStateOf<BudgetItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -153,7 +153,7 @@ fun BudgetScreen(
                                                 style = MaterialTheme.typography.labelMedium
                                             )
                                             Text(
-                                                text = "${clpFormat.format(totalSpent)} / ${clpFormat.format(totalBudgeted)}",
+                                                text = "${clpFormat.format(totalSpent.toLong())} / ${clpFormat.format(totalBudgeted.toLong())}",
                                                 style = MaterialTheme.typography.headlineSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = summaryColor

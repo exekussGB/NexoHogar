@@ -3,13 +3,6 @@ package com.nexohogar.data.remote.dto
 import com.google.gson.annotations.SerializedName
 import com.nexohogar.domain.model.BudgetItem
 
-/**
- * DTO para rpc_get_budget_consumption.
- * Columnas devueltas:
- *   budget_id, category_id, category_name,
- *   budgeted_amount, consumed_amount, remaining_amount,
- *   consumption_pct, member_id
- */
 data class BudgetConsumptionDto(
     @SerializedName("budget_id")        val budgetId        : String,
     @SerializedName("category_id")      val categoryId      : String,
@@ -25,7 +18,7 @@ fun BudgetConsumptionDto.toDomain() = BudgetItem(
     categoryId      = categoryId,
     categoryName    = categoryName,
     budgetedAmount  = budgetedAmount,
-    consumedAmount  = consumedAmount,
+    spentAmount     = consumedAmount,
     remainingAmount = remainingAmount,
     consumptionPct  = consumptionPct
 )
