@@ -1,5 +1,6 @@
 package com.nexohogar.domain.repository
 
+import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
@@ -31,4 +32,9 @@ interface InventoryRepository {
         movementDate: String
     ): InventoryMovement
     suspend fun getSuggestions(householdId: String): List<PurchaseSuggestion>
+
+    // ─── Categorías ──────────────────────────────────────────────────────────────
+    suspend fun getCategories(householdId: String): List<InventoryCategory>
+    suspend fun createCategory(householdId: String, name: String, icon: String? = null): InventoryCategory
+    suspend fun deleteCategory(categoryId: String)
 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
@@ -95,14 +96,20 @@ fun InventoryScreen(
                             viewModel.loadMovementsForProduct(p)
                         },
                         onQuickConsume = { p -> productToConsume = p },
-                        onSelectCategory = { viewModel.selectCategory(it) }
+                        onSelectCategory = { viewModel.selectCategory(it) },
+                        onAddToInventory = { selectedTab = 1 }
                     )
                     1 -> RegisterTab(
                         viewModel = viewModel,
                         allProducts = uiState.products,
+                        categories = uiState.categories,
                         onRegistered = { selectedTab = 0 }
                     )
-                    2 -> CategoryStatsTab(stats = uiState.categoryStats)
+                    2 -> CategoriesTab(
+                        viewModel = viewModel,
+                        categories = uiState.categories,
+                        stats = uiState.categoryStats
+                    )
                     3 -> SuggestionsTab(suggestions = uiState.suggestions)
                 }
             }
@@ -137,7 +144,8 @@ private fun ProductsTab(
     uiState: InventoryUiState,
     onProductClick: (Product) -> Unit,
     onQuickConsume: (Product) -> Unit,
-    onSelectCategory: (String?) -> Unit
+    onSelectCategory: (String?) -> Unit,
+    onAddToInventory: () -> Unit
 ) {
     val products = uiState.filteredProducts
     val categories = uiState.availableCategories
@@ -183,6 +191,16 @@ private fun ProductsTab(
                         Text("Sin productos aún", color = Color.Gray, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(8.dp))
                         Text("Ve a la pestaña Registrar para agregar tu primera compra", color = Color.Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = onAddToInventory,
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenIn),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Agregar a despensa", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -191,6 +209,19 @@ private fun ProductsTab(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                item {
+                    // Botón para agregar producto con stock 0
+                    OutlinedButton(
+                        onClick = onAddToInventory,
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, GreenIn),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = GreenIn, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Agregar a despensa", color = GreenIn, fontWeight = FontWeight.SemiBold)
+                    }
+                }
                 items(products, key = { it.id }) { product ->
                     ProductCard(
                         product = product,
@@ -328,6 +359,7 @@ private fun QuickConsumeDialog(
 private fun RegisterTab(
     viewModel: InventoryViewModel,
     allProducts: List<Product>,
+    categories: List<InventoryCategory>,
     onRegistered: () -> Unit
 ) {
     val movForm by viewModel.movementForm.collectAsState()
@@ -607,7 +639,7 @@ private fun RegisterTab(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Categoría
+            // Categoría — cargada desde backend
             ExposedDropdownMenuBox(
                 expanded = categoryDropdownExpanded,
                 onExpandedChange = { categoryDropdownExpanded = it }
@@ -627,10 +659,18 @@ private fun RegisterTab(
                         text = { Text("Sin categoría") },
                         onClick = { viewModel.onProductCategoryChange(""); categoryDropdownExpanded = false }
                     )
-                    INVENTORY_CATEGORIES.forEach { cat ->
+                    categories.forEach { cat ->
                         DropdownMenuItem(
-                            text = { Text(cat) },
-                            onClick = { viewModel.onProductCategoryChange(cat); categoryDropdownExpanded = false }
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (!cat.icon.isNullOrBlank()) {
+                                        Text(cat.icon, fontSize = 16.sp)
+                                    }
+                                    Text(cat.name)
+                                }
+                            },
+                            onClick = { viewModel.onProductCategoryChange(cat.name); categoryDropdownExpanded = false }
                         )
                     }
                 }
@@ -669,13 +709,13 @@ private fun RegisterTab(
             )
 
             HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-            Text("Detalles de la compra", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
+            Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
 
-            // Cantidad comprada (obligatoria en nuevo producto)
+            // Cantidad inicial (ahora opcional)
             OutlinedTextField(
                 value = prodForm.initialQuantity,
                 onValueChange = viewModel::onProductInitialQuantityChange,
-                label = { Text("Cantidad comprada *") },
+                label = { Text("Cantidad inicial (opcional)") },
                 placeholder = { Text("Ej: 2.5") },
                 suffix = { Text(prodForm.unit) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -716,7 +756,8 @@ private fun RegisterTab(
                 ErrorBanner(it)
             }
 
-            // Botón crear y registrar
+            // Botón crear — texto dinámico según si hay cantidad
+            val hasQuantity = prodForm.initialQuantity.toDoubleOrNull()?.let { it > 0 } ?: false
             Button(
                 onClick = { viewModel.submitProduct() },
                 enabled = !prodForm.isSubmitting,
@@ -727,10 +768,16 @@ private fun RegisterTab(
                 if (prodForm.isSubmitting) {
                     CircularProgressIndicator(Modifier.size(20.dp), color = Color.White)
                 } else {
-                    Icon(Icons.Default.AddShoppingCart, contentDescription = null,
-                        tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(
+                        if (hasQuantity) Icons.Default.AddShoppingCart else Icons.Default.Add,
+                        contentDescription = null,
+                        tint = Color.White, modifier = Modifier.size(20.dp)
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text("Crear producto y registrar compra", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        if (hasQuantity) "Crear producto y registrar compra" else "Crear producto",
+                        fontWeight = FontWeight.Bold, fontSize = 15.sp
+                    )
                 }
             }
         }
@@ -751,41 +798,203 @@ private fun ErrorBanner(message: String) {
     }
 }
 
-// ─── Pestaña: Categorías ──────────────────────────────────────────────────────
+// ─── Pestaña: Categorías (gestión + estadísticas) ──────────────────────────────
 @Composable
-private fun CategoryStatsTab(stats: List<CategoryStat>) {
-    if (stats.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                Icon(Icons.Default.BarChart, contentDescription = null,
-                    tint = PrimaryBlue, modifier = Modifier.size(64.dp))
-                Spacer(Modifier.height(16.dp))
-                Text("Sin estadísticas aún", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Spacer(Modifier.height(8.dp))
-                Text("Registra compras con precio para ver cuánto gastas por categoría.",
-                    fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
-            }
-        }
-        return
+private fun CategoriesTab(
+    viewModel: InventoryViewModel,
+    categories: List<InventoryCategory>,
+    stats: List<CategoryStat>
+) {
+    val categoryForm by viewModel.categoryForm.collectAsState()
+
+    // Reset del form al tener éxito
+    LaunchedEffect(categoryForm.success) {
+        if (categoryForm.success) viewModel.resetCategoryForm()
     }
 
-    val totalSpent = stats.sumOf { it.totalSpent }
+    var categoryToDelete by remember { mutableStateOf<InventoryCategory?>(null) }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // ── Sección: Gestionar categorías ────────────────────────────────────
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = PrimaryBlue), shape = RoundedCornerShape(12.dp)) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Total gastado registrado", color = Color.White, fontSize = 13.sp)
-                    Text("$${String.format("%,.0f", totalSpent)}", color = Color.White,
-                        fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                    Text("${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
-                        color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            Text("Gestionar categorías", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Spacer(Modifier.height(4.dp))
+        }
+
+        // Formulario para crear categoría
+        item {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = LightBlue),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Nueva categoría", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = PrimaryBlue)
+
+                    OutlinedTextField(
+                        value = categoryForm.name,
+                        onValueChange = viewModel::onCategoryNameChange,
+                        label = { Text("Nombre *") },
+                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = categoryForm.icon,
+                        onValueChange = viewModel::onCategoryIconChange,
+                        label = { Text("Ícono (emoji, opcional)") },
+                        placeholder = { Text("Ej: 🥩 🧴 🍎") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    categoryForm.error?.let { ErrorBanner(it) }
+
+                    Button(
+                        onClick = { viewModel.submitCategory() },
+                        enabled = !categoryForm.isSubmitting,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (categoryForm.isSubmitting) {
+                            CircularProgressIndicator(Modifier.size(18.dp), color = Color.White)
+                        } else {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Crear categoría", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
-        items(stats, key = { it.category }) { stat ->
-            CategoryStatCard(stat = stat, totalSpent = totalSpent)
+
+        // Lista de categorías existentes
+        if (categories.isEmpty()) {
+            item {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Category, contentDescription = null,
+                            tint = Color.Gray, modifier = Modifier.size(40.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Sin categorías aún", color = Color.Gray, fontSize = 14.sp)
+                        Text("Crea una categoría arriba para organizar tus productos",
+                            color = Color.Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        } else {
+            item {
+                Spacer(Modifier.height(4.dp))
+                Text("Categorías actuales (${categories.size})", fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, color = Color.Gray)
+            }
+            items(categories, key = { it.id }) { category ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!category.icon.isNullOrBlank()) {
+                            Text(category.icon, fontSize = 22.sp)
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            category.name,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { categoryToDelete = category },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Eliminar",
+                                tint = RedOut, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
         }
+
+        // ── Sección: Estadísticas por categoría ──────────────────────────────
+        if (stats.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Text("Estadísticas de gasto", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            }
+
+            val totalSpent = stats.sumOf { it.totalSpent }
+
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = PrimaryBlue), shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Total gastado registrado", color = Color.White, fontSize = 13.sp)
+                        Text("$${String.format("%,.0f", totalSpent)}", color = Color.White,
+                            fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                        Text("${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
+                            color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                    }
+                }
+            }
+            items(stats, key = { it.category }) { stat ->
+                CategoryStatCard(stat = stat, totalSpent = totalSpent)
+            }
+        } else {
+            item {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.BarChart, contentDescription = null,
+                            tint = PrimaryBlue, modifier = Modifier.size(40.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Sin estadísticas aún", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Registra compras con precio para ver cuánto gastas por categoría.",
+                            fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        }
+    }
+
+    // ─── Diálogo de confirmación para eliminar categoría ──────────────────────
+    categoryToDelete?.let { category ->
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Eliminar categoría", fontWeight = FontWeight.Bold) },
+            text = { Text("¿Estás seguro de que quieres eliminar \"${category.name}\"? Los productos con esta categoría no se eliminarán.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteCategory(category.id)
+                        categoryToDelete = null
+                    }
+                ) { Text("Eliminar", color = RedOut, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { categoryToDelete = null }) { Text("Cancelar") } }
+        )
     }
 }
 
