@@ -11,6 +11,9 @@ data class HouseholdMember(
     val email: String? = null,
     val displayName: String? = null
 ) {
+    /** Alias para acceso más natural */
+    val id: String get() = userId
+
     /** Texto a mostrar: displayName si existe, email si no, o fragmento del userId */
     fun label(): String = when {
         !displayName.isNullOrBlank() -> displayName

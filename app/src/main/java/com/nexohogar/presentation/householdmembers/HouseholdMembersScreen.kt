@@ -5,9 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,13 +41,9 @@ fun HouseholdMembersScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                uiState.isLoading -> LoadingOverlay()
+                uiState.isLoading || uiState.isRemoving -> LoadingOverlay()
 
                 uiState.error != null -> {
                     Column(
@@ -57,14 +51,9 @@ fun HouseholdMembersScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = uiState.error!!,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMembers() }) {
-                            Text("Reintentar")
-                        }
+                        Button(onClick = { viewModel.loadMembers() }) { Text("Reintentar") }
                     }
                 }
 
@@ -74,43 +63,26 @@ fun HouseholdMembersScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
+                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "No hay miembros en este hogar.",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Text("No hay miembros en este hogar.", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
 
                 else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Contador de miembros
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            )
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Group,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                                Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Text(
-                                    text = "${uiState.members.size} miembro${if (uiState.members.size != 1) "s" else ""}",
+                                    "${uiState.members.size} miembro${if (uiState.members.size != 1) "s" else ""}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -123,7 +95,12 @@ fun HouseholdMembersScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(uiState.members) { member ->
-                                MemberCard(member)
+                                MemberCard(
+                                    member = member,
+                                    isCurrentUserAdmin = uiState.isCurrentUserAdmin,
+                                    isCurrentUser = member.userId == uiState.currentUserId,
+                                    onRemove = { viewModel.showRemoveConfirm(member) }
+                                )
                             }
                         }
                     }
@@ -131,58 +108,65 @@ fun HouseholdMembersScreen(
             }
         }
     }
+
+    // ── Delete confirmation dialog ───────────────────────────────────────────
+    uiState.memberToRemove?.let { member ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRemoveConfirm,
+            title = { Text("Eliminar miembro") },
+            text = {
+                Text("¿Estás seguro de que quieres eliminar a ${member.label()} del hogar? Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::removeMember,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRemoveConfirm) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @Composable
-private fun MemberCard(member: HouseholdMember) {
+private fun MemberCard(
+    member: HouseholdMember,
+    isCurrentUserAdmin: Boolean,
+    isCurrentUser: Boolean,
+    onRemove: () -> Unit
+) {
     val isAdmin = member.role.lowercase() == "admin"
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Avatar
             Surface(
                 shape = MaterialTheme.shapes.large,
-                color = if (isAdmin) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.secondaryContainer,
+                color = if (isAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = if (isAdmin) Icons.Default.Star else Icons.Default.Person,
                         contentDescription = null,
-                        tint = if (isAdmin) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSecondaryContainer,
+                        tint = if (isAdmin) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                // Mostrar email o nombre real del usuario
-                Text(
-                    text = member.label(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
+                Text(member.label(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 if (member.joinedAt != null) {
-                    Text(
-                        text = "Se unió: ${member.joinedAt.take(10)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("Se unió: ${member.joinedAt.take(10)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            // Badge de rol
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = if (isAdmin) Color(0xFFFFF3E0) else Color(0xFFE8F5E9)
@@ -194,6 +178,17 @@ private fun MemberCard(member: HouseholdMember) {
                     fontWeight = FontWeight.Bold,
                     color = if (isAdmin) Color(0xFFE65100) else Color(0xFF2E7D32)
                 )
+            }
+
+            // Botón eliminar: solo si el usuario actual es admin Y no es el mismo miembro Y el miembro no es admin
+            if (isCurrentUserAdmin && !isCurrentUser && !isAdmin) {
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        Icons.Default.RemoveCircleOutline,
+                        contentDescription = "Eliminar miembro",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }

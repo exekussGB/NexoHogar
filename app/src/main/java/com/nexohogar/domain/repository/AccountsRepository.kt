@@ -5,7 +5,7 @@ import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 
 interface AccountsRepository {
-    suspend fun getAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>>
+    suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>>
     suspend fun createAccount(
         householdId: String,
         name: String,
@@ -14,4 +14,7 @@ interface AccountsRepository {
         isShared: Boolean = true,
         ownerUserId: String? = null
     ): AppResult<Account>
+    suspend fun deleteAccount(accountId: String): AppResult<Unit>
+    suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean>
+    suspend fun getPersonalAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>>
 }

@@ -46,7 +46,11 @@ class RecurringBillsViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when (val result = repository.getRecurringBills(householdId)) {
                 is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills = result.data, isLoading = false
+                    bills = result.data.sortedWith(
+                        compareByDescending<RecurringBill> { it.isActive }
+                            .thenBy { it.dueDayOfMonth }
+                    ),
+                    isLoading = false
                 )
                 is AppResult.Error -> _uiState.value = _uiState.value.copy(
                     error = result.message, isLoading = false
@@ -72,7 +76,10 @@ class RecurringBillsViewModel(
             _uiState.value = _uiState.value.copy(isCreating = true, createError = null)
             when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes)) {
                 is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills            = _uiState.value.bills + result.data,
+                    bills            = (_uiState.value.bills + result.data).sortedWith(
+                        compareByDescending<RecurringBill> { it.isActive }
+                            .thenBy { it.dueDayOfMonth }
+                    ),
                     isCreating       = false,
                     showCreateDialog = false
                 )

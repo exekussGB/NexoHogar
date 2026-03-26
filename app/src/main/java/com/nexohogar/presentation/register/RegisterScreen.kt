@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.register
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,14 +26,44 @@ fun RegisterScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    
+
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(uiState.isSuccess) {
-        if (uiState.isSuccess) {
-            onRegisterSuccess()
+    fun validateName(): Boolean {
+        nameError = when {
+            name.isBlank() -> "El nombre es obligatorio"
+            name.trim().length < 2 -> "Mínimo 2 caracteres"
+            !name.trim().all { it.isLetter() || it.isWhitespace() } -> "Solo letras y espacios"
+            else -> null
         }
+        return nameError == null
+    }
+
+    fun validateEmail(): Boolean {
+        emailError = when {
+            email.isBlank() -> "El correo es obligatorio"
+            !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Correo inválido"
+            else -> null
+        }
+        return emailError == null
+    }
+
+    fun validatePassword(): Boolean {
+        passwordError = when {
+            password.isBlank() -> "La contraseña es obligatoria"
+            password.length < 6 -> "Mínimo 6 caracteres"
+            else -> null
+        }
+        return passwordError == null
+    }
+
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) onRegisterSuccess()
     }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -48,10 +79,7 @@ fun RegisterScreen(
                 title = { Text("Crear Cuenta") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateToLogin) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 }
             )
@@ -59,61 +87,77 @@ fun RegisterScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
+                modifier = Modifier.fillMaxSize().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        if (nameError != null) validateName()
+                    },
                     label = { Text("Nombre Completo") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        if (emailError != null) validateEmail()
+                    },
                     label = { Text("Email") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true
+                    singleLine = true,
+                    isError = emailError != null,
+                    supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        if (passwordError != null) validatePassword()
+                    },
                     label = { Text("Contraseña") },
                     modifier = Modifier.fillMaxWidth(),
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true
+                    singleLine = true,
+                    isError = passwordError != null,
+                    supportingText = passwordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { viewModel.register(name, email, password) },
+                    onClick = {
+                        val nameValid = validateName()
+                        val emailValid = validateEmail()
+                        val passValid = validatePassword()
+                        if (nameValid && emailValid && passValid) {
+                            viewModel.register(name.trim(), email.trim(), password)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
-                ) {
-                    Text("Registrarse")
-                }
+                ) { Text("Registrarse") }
 
                 TextButton(onClick = onNavigateToLogin) {
                     Text("¿Ya tienes cuenta? Inicia sesión")
                 }
             }
 
-            if (uiState.isLoading) {
-                LoadingOverlay()
-            }
+            if (uiState.isLoading) LoadingOverlay()
         }
     }
 }

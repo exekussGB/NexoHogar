@@ -37,31 +37,24 @@ interface AuthApi {
         @Body request: CreateHouseholdRequest
     ): Response<CreateHouseholdResponse>
 
-    /**
-     * Obtiene o crea el código de invitación del hogar.
-     */
     @POST("rest/v1/rpc/get_or_create_invite_code")
     suspend fun getOrCreateInviteCode(
         @Body request: InviteCodeRequest
     ): Response<String>
 
-    /**
-     * Une al usuario autenticado al hogar identificado por el código.
-     */
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest
     ): Response<Unit>
 
-    /**
-     * Obtiene la lista de miembros del hogar incluyendo email y nombre.
-     * Llama a la función SQL: get_members_with_email(p_household_id UUID)
-     *
-     * IMPORTANTE: Requiere que la función SQL exista en Supabase.
-     * Ver archivo supabase_migration_v3.sql para el SQL necesario.
-     */
     @POST("rest/v1/rpc/get_members_with_email")
     suspend fun getHouseholdMembersWithEmail(
         @Body request: Map<String, String>
     ): Response<List<HouseholdMemberWithEmailDto>>
+
+    /** Elimina un miembro del hogar (solo admin) */
+    @POST("rest/v1/rpc/remove_household_member")
+    suspend fun removeHouseholdMember(
+        @Body request: Map<String, String>
+    ): Response<Boolean>
 }

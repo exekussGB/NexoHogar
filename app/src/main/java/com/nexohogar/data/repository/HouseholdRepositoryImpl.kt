@@ -95,11 +95,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    /**
-     * Obtiene la lista de miembros del hogar con su email/nombre.
-     * Usa la función RPC get_members_with_email para acceder a auth.users
-     * desde el servidor (SECURITY DEFINER), evitando restricciones de RLS.
-     */
     override suspend fun getHouseholdMembers(householdId: String): AppResult<List<HouseholdMember>> {
         return try {
             val response = authApi.getHouseholdMembersWithEmail(
@@ -113,6 +108,26 @@ class HouseholdRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    override suspend fun removeHouseholdMember(householdId: String, userId: String): AppResult<Boolean> {
+        return try {
+            val response = authApi.removeHouseholdMember(
+                mapOf("p_household_id" to householdId, "p_user_id" to userId)
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                val error = response.errorBody()?.string() ?: "Error desconocido"
+                AppResult.Error(
+                    if (error.contains("administrador", ignoreCase = true))
+                        "Solo el administrador puede eliminar miembros"
+                    else "Error al eliminar miembro: ${response.code()}"
+                )
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al eliminar miembro")
         }
     }
 }

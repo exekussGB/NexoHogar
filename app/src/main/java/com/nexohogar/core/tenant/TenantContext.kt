@@ -2,6 +2,9 @@ package com.nexohogar.core.tenant
 
 import com.nexohogar.data.local.SessionManager
 
+/**
+ * Contexto centralizado para la gestión del "Tenant" (Household actual).
+ */
 class TenantContext(private val sessionManager: SessionManager) {
 
     fun getCurrentHouseholdId(): String? {
@@ -17,12 +20,13 @@ class TenantContext(private val sessionManager: SessionManager) {
         sessionManager.saveSelectedHouseholdId(id)
     }
 
+    /** Returns the current user's ID from the stored session */
     fun getCurrentUserId(): String? {
         return sessionManager.fetchSession()?.userId
     }
 
-    fun requireUserId(): String {
-        return getCurrentUserId()
-            ?: throw IllegalStateException("No hay sesión de usuario activa.")
+    /** Returns the current user's display name from the stored session */
+    fun getCurrentUserDisplayName(): String? {
+        return sessionManager.fetchSession()?.email
     }
 }
