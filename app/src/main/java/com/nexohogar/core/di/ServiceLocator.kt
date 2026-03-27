@@ -192,7 +192,7 @@ object ServiceLocator {
 
     val fcmApi: FcmApi by lazy {
         retrofit.create(FcmApi::class.java)
-
+    }
     fun provideReceiptScannerViewModel(): ReceiptScannerViewModel {
         return ReceiptScannerViewModel(
             inventoryRepository = inventoryRepository,
