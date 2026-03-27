@@ -8,6 +8,7 @@ import com.nexohogar.data.network.AuthApi
 import com.nexohogar.data.remote.dto.RegisterRequest
 import com.nexohogar.domain.model.UserSession
 import com.nexohogar.domain.repository.AuthRepository
+import com.nexohogar.data.model.UpdatePasswordRequest
 
 /**
  * Implementación del repositorio de autenticación.
@@ -82,6 +83,23 @@ class AuthRepositoryImpl(
                 AppResult.Success(Unit)
             } else {
                 AppResult.Error("No se pudo enviar el correo de recuperación")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
+    override suspend fun updatePassword(accessToken: String, newPassword: String): AppResult<Unit> {
+        return try {
+            val response = authApi.updatePassword(
+                token = "Bearer $accessToken",
+                request = UpdatePasswordRequest(password = newPassword)
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                AppResult.Error(errorBody ?: "No se pudo cambiar la contraseña")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error de conexión")

@@ -47,6 +47,10 @@ import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
 import androidx.compose.runtime.remember
 import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
 import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
+import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
+
+
+
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -390,6 +394,22 @@ fun NavGraph(navController: NavHostController) {
             ReceiptScannerScreen(
                 viewModel      = viewModel,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "reset_password/{token}",
+            arguments = listOf(
+                navArgument("token") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val token = backStackEntry.arguments?.getString("token") ?: ""
+            ResetPasswordScreen(
+                accessToken = token,
+                onResetSuccess = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
     }

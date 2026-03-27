@@ -11,6 +11,9 @@ import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdResponse
 import com.nexohogar.data.remote.dto.RemoveMemberResponse
 import com.nexohogar.data.remote.dto.RegisterRequest
+import com.nexohogar.data.model.UpdatePasswordRequest
+import retrofit2.http.PUT
+import retrofit2.http.Header
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -74,5 +77,11 @@ interface AuthApi {
     @POST("auth/v1/recover")
     suspend fun forgotPassword(
         @Body request: Map<String, String>
+    ): Response<Unit>
+
+    @PUT("auth/v1/user")
+    suspend fun updatePassword(
+        @Header("Authorization") token: String,
+        @Body request: UpdatePasswordRequest
     ): Response<Unit>
 }
