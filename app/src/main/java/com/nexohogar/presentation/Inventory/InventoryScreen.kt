@@ -56,7 +56,8 @@ private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
 @Composable
 fun InventoryScreen(
     viewModel: InventoryViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToScanner: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -81,6 +82,11 @@ fun InventoryScreen(
                     navigationIconContentColor = Color.White
                 ),
                 actions = {
+                    if (onNavigateToScanner != null) {
+                        IconButton(onClick = onNavigateToScanner) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Escanear boleta", tint = Color.White)
+                        }
+                    }
                     IconButton(onClick = { viewModel.loadData() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Actualizar", tint = Color.White)
                     }
