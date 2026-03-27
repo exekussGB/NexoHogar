@@ -396,18 +396,11 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(
-            route = "reset_password/{token}",
-            arguments = listOf(
-                navArgument("token") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val token = backStackEntry.arguments?.getString("token") ?: ""
+        composable("reset_password") {
             ResetPasswordScreen(
-                accessToken = token,
                 onResetSuccess = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                    navController.navigate("login") {
+                        popUpTo("reset_password") { inclusive = true }
                     }
                 }
             )
