@@ -116,7 +116,7 @@ class HouseholdRepositoryImpl(
     override suspend fun removeHouseholdMember(householdId: String, userId: String): AppResult<Boolean> {
         return try {
             val response = authApi.removeHouseholdMember(
-                mapOf("p_household_id" to householdId, "p_user_id" to userId)
+                mapOf("p_household_id" to householdId, "p_member_user_id" to userId)
             )
             if (response.isSuccessful) {
                 AppResult.Success(true)
