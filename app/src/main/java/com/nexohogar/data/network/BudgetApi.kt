@@ -40,4 +40,9 @@ interface BudgetApi {
     suspend fun deleteBudget(
         @Query("id") id: String
     ): Response<Unit>
+
+    @POST("rest/v1/rpc/rpc_create_budget")
+    suspend fun createBudgetRpc(
+        @Body body: HashMap<String, Any>
+    ): Response<Unit>
 }
