@@ -10,7 +10,9 @@ import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
 import com.nexohogar.domain.repository.InventoryRepository
 import java.time.LocalDate
-
+import com.nexohogar.data.remote.dto.ImportReceiptRequest
+import com.nexohogar.data.remote.dto.ImportReceiptItemDto
+import com.nexohogar.domain.model.ScannedReceiptItem
 class InventoryRepositoryImpl(
     private val api: InventoryApi
 ) : InventoryRepository {
@@ -197,6 +199,45 @@ class InventoryRepositoryImpl(
         val response = api.deleteCategory("eq.$categoryId")
         if (!response.isSuccessful) {
             throw Exception("Error al eliminar categoría: ${response.code()} ${response.errorBody()?.string()}")
+        }
+    }
+    override suspend fun importReceipt(
+        householdId: String,
+        userId: String,
+        accountId: String,
+        categoryId: String?,
+        store: String?,
+        receiptDate: String,
+        items: List<ScannedReceiptItem>
+    ): Map<String, Any> {
+        val itemDtos = items.map { item ->
+            ImportReceiptItemDto(
+                name = item.name,
+                quantity = item.quantity,
+                pricePerUnit = item.pricePerUnit,
+                priceTotal = item.priceTotal,
+                brand = item.brand,
+                unit = item.unit,
+                category = item.category
+            )
+        }
+
+        val request = ImportReceiptRequest(
+            householdId = householdId,
+            userId = userId,
+            accountId = accountId,
+            categoryId = categoryId,
+            store = store,
+            receiptDate = receiptDate,
+            items = itemDtos
+        )
+
+        val response = inventoryApi.importReceipt(request)
+        if (response.isSuccessful) {
+            return response.body() ?: emptyMap()
+        } else {
+            val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+            throw Exception("Error al importar boleta: $errorBody")
         }
     }
 }

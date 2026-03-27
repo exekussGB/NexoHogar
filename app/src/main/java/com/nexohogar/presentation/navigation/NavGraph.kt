@@ -42,7 +42,8 @@ import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
-
+import com.nexohogar.presentation.scanner.ReceiptScannerScreen
+import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -361,6 +362,21 @@ fun NavGraph(navController: NavHostController) {
                 viewModel          = vm,
                 onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
                 onNavigateBack     = { navController.popBackStack() }
+            )
+        }
+        composable("receipt_scanner") {
+            val viewModel = remember {
+                ReceiptScannerViewModel(
+                    inventoryRepository = ServiceLocator.inventoryRepository,
+                    tenantContext = ServiceLocator.tenantContext
+                )
+            }
+
+            ReceiptScannerScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                accounts = accountsList,   // Pasar desde el state del padre
+                categories = categoriesList // Pasar desde el state del padre
             )
         }
     }
