@@ -191,6 +191,7 @@ object ServiceLocator {
     fun provideReceiptScannerViewModel(): ReceiptScannerViewModel {
         return ReceiptScannerViewModel(
             inventoryRepository = inventoryRepository,
+            accountsRepository = accountsRepository,
             tenantContext = tenantContext
         )
     }
