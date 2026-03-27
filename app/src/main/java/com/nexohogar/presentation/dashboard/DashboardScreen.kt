@@ -114,9 +114,13 @@ fun DashboardScreen(
                     }
                 }
             }
-            item {Text("Resumen Financiero",
+            // ── Título ─────────────────────────────────────────────────────
+            item {
+                Text(
+                    "Resumen Financiero",
                     style      = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier   = Modifier.fillMaxWidth()
                 )
             }
             // ── Balance card ───────────────────────────────────────────────
