@@ -70,4 +70,9 @@ interface AuthApi {
     suspend fun rejectMember(
         @Body request: Map<String, String>
     ): Response<Boolean>
+
+    @POST("auth/v1/recover")
+    suspend fun forgotPassword(
+        @Body request: Map<String, String>
+    ): Response<Unit>
 }
