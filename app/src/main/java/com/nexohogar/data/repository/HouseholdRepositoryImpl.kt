@@ -81,7 +81,7 @@ class HouseholdRepositoryImpl(
                 JoinHouseholdRequest(inviteCode.trim().uppercase())
             )
             if (response.isSuccessful) {
-                val message = response.body()?.trim('"')
+                val message = response.body()?.message
                     ?: "Solicitud enviada. El administrador debe aprobarla."
                 AppResult.Success(message)
             } else {
