@@ -48,7 +48,7 @@ fun PersonalDashboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Mi Dashboard Personal",
+                        "Resumen Financiero Personal",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )

@@ -92,15 +92,21 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ── Botón "Mis Cuentas" (solo si se proporciona callback) ──────
-            if (onNavigateToPersonal != null) {
-                item {
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
+            // ── Título + botón Mis Cuentas ─────────────────────────────────
+            item {
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Resumen Financiero",
+                        style      = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (onNavigateToPersonal != null) {
                         OutlinedButton(
-                            onClick      = onNavigateToPersonal,
+                            onClick        = onNavigateToPersonal,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Icon(
@@ -113,15 +119,6 @@ fun DashboardScreen(
                         }
                     }
                 }
-            }
-            // ── Título ─────────────────────────────────────────────────────
-            item {
-                Text(
-                    "Resumen Financiero",
-                    style      = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier   = Modifier.fillMaxWidth()
-                )
             }
             // ── Balance card ───────────────────────────────────────────────
             item {
