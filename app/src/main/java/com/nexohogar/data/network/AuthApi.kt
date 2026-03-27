@@ -8,6 +8,7 @@ import com.nexohogar.data.remote.dto.CreateHouseholdResponse
 import com.nexohogar.data.remote.dto.HouseholdMemberWithEmailDto
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
+import com.nexohogar.data.remote.dto.JoinHouseholdResponse
 import com.nexohogar.data.remote.dto.RegisterRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -41,7 +42,7 @@ interface AuthApi {
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest
-    ): Response<String>
+    ): Response<JoinHouseholdResponse>
 
     @POST("rest/v1/rpc/get_members_with_email")
     suspend fun getHouseholdMembersWithEmail(
