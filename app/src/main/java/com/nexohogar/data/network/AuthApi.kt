@@ -9,6 +9,7 @@ import com.nexohogar.data.remote.dto.HouseholdMemberWithEmailDto
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdResponse
+import com.nexohogar.data.remote.dto.RemoveMemberResponse
 import com.nexohogar.data.remote.dto.RegisterRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -52,7 +53,7 @@ interface AuthApi {
     @POST("rest/v1/rpc/remove_household_member")
     suspend fun removeHouseholdMember(
         @Body request: Map<String, String>
-    ): Response<Boolean>
+    ): Response<RemoveMemberResponse>
 
     // ── Solicitudes pendientes ────────────────────────────────────────────
     @POST("rest/v1/rpc/rpc_get_pending_members")
