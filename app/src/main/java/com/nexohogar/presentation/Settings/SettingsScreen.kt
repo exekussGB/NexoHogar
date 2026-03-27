@@ -11,9 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nexohogar.data.local.SessionManager
+import com.nexohogar.service.FcmTokenManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +28,7 @@ fun SettingsScreen(
 ) {
     val session = remember { sessionManager.fetchSession() }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -110,7 +113,7 @@ fun SettingsScreen(
                 icon      = Icons.Default.Group,
                 iconColor = Color(0xFF00695C),
                 title     = "Ver miembros",
-                subtitle  = "Usuarios que forman parte de este hogar",
+                subtitle  = "Usuarios y solicitudes pendientes",
                 onClick   = onViewMembers
             )
 
@@ -128,7 +131,7 @@ fun SettingsScreen(
                 icon      = Icons.Default.Notifications,
                 iconColor = Color(0xFFF57F17),
                 title     = "Notificaciones",
-                subtitle  = "Activas — cuentas recurrentes",
+                subtitle  = "Push: cuentas, presupuestos, inventario, hogar",
                 enabled   = false,
                 onClick   = {}
             )
@@ -150,7 +153,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Gestión financiera familiar · Versión 1.2.3",
+                        text = "Gestión financiera familiar · Versión 1.3.0",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -204,6 +207,8 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showLogoutDialog = false
+                        // Desregistrar token FCM antes de limpiar sesión
+                        FcmTokenManager.unregisterToken(context)
                         sessionManager.clearSession()
                         onLogout()
                     },

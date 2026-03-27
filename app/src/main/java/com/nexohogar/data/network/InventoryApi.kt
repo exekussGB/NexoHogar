@@ -25,6 +25,13 @@ interface InventoryApi {
         @Body request: CreateProductRequest
     ): Response<List<ProductDto>>
 
+    @PATCH("rest/v1/inventory_items")
+    @Headers("Prefer: return=representation")
+    suspend fun updateProduct(
+        @Query("id") id: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any?>
+    ): Response<List<ProductDto>>
+
     // ---------- inventory_movements ----------
     @GET("rest/v1/inventory_movements")
     suspend fun getMovements(

@@ -10,32 +10,70 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.nexohogar.R
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.MainActivity
 
 /**
  * Servicio que maneja mensajes entrantes de Firebase Cloud Messaging.
- *
- * - Muestra notificaciones cuando la app está en background/foreground
- * - Actualiza el token FCM en Supabase cuando cambia
+ * Soporta múltiples canales: hogar, cuentas, presupuesto, inventario.
  */
 class NexoHogarMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "FCM"
-        const val CHANNEL_ID = "nexohogar_general"
-        const val CHANNEL_NAME = "NexoHogar"
+
+        // Canales de notificación
+        const val CHANNEL_GENERAL   = "nexohogar_general"
+        const val CHANNEL_HOUSEHOLD = "nexohogar_household"
+        const val CHANNEL_BILLS     = "nexohogar_bills"
+        const val CHANNEL_BUDGET    = "nexohogar_budget"
+        const val CHANNEL_INVENTORY = "nexohogar_inventory"
+
+        /**
+         * Crear todos los canales de notificación.
+         * Llamar desde Application.onCreate().
+         */
+        fun createNotificationChannels(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val manager = context.getSystemService(NotificationManager::class.java)
+
+                val channels = listOf(
+                    NotificationChannel(
+                        CHANNEL_GENERAL, "General",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply { description = "Notificaciones generales" },
+
+                    NotificationChannel(
+                        CHANNEL_HOUSEHOLD, "Hogar y Miembros",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply { description = "Solicitudes de unión y gestión de miembros" },
+
+                    NotificationChannel(
+                        CHANNEL_BILLS, "Cuentas Recurrentes",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply { description = "Alertas de vencimiento de cuentas" },
+
+                    NotificationChannel(
+                        CHANNEL_BUDGET, "Presupuestos",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply { description = "Alertas de presupuesto al límite" },
+
+                    NotificationChannel(
+                        CHANNEL_INVENTORY, "Inventario",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply { description = "Alertas de stock bajo" }
+                )
+
+                channels.forEach { manager.createNotificationChannel(it) }
+            }
+        }
     }
 
-    /**
-     * Se llama cuando Firebase genera un nuevo token (primer inicio,
-     * reinstalación, o rotación de token).
-     */
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "Nuevo token FCM generado")
 
-        // Registrar en Supabase si el usuario tiene sesión activa
         val session = ServiceLocator.sessionManager.fetchSession()
         if (session != null) {
             FcmTokenManager.registerToken(
@@ -45,10 +83,6 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
         }
     }
 
-    /**
-     * Se llama cuando llega un mensaje (data o notification).
-     * Siempre mostramos nuestra propia notificación para tener control total.
-     */
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         Log.d(TAG, "Mensaje recibido de: ${message.from}")
@@ -61,21 +95,28 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
             ?: message.data["body"]
             ?: ""
 
+        val type = message.data["type"] ?: "general"
+
         if (body.isNotBlank()) {
-            showNotification(title, body, message.data)
+            val channelId = when (type) {
+                "member_request", "member_decision", "household_join" -> CHANNEL_HOUSEHOLD
+                "recurring_bill" -> CHANNEL_BILLS
+                "budget_alert" -> CHANNEL_BUDGET
+                "low_stock" -> CHANNEL_INVENTORY
+                else -> CHANNEL_GENERAL
+            }
+            showNotification(title, body, channelId, message.data)
         }
     }
 
     private fun showNotification(
         title: String,
         body: String,
+        channelId: String,
         data: Map<String, String>
     ) {
-        createNotificationChannel()
-
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            // Pasar datos para navegación al abrir la app
             data.forEach { (key, value) -> putExtra(key, value) }
         }
 
@@ -86,8 +127,16 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Reemplazar con ícono propio
+        val iconRes = when (channelId) {
+            CHANNEL_HOUSEHOLD -> android.R.drawable.ic_dialog_info
+            CHANNEL_BILLS     -> android.R.drawable.ic_dialog_alert
+            CHANNEL_BUDGET    -> android.R.drawable.ic_dialog_info
+            CHANNEL_INVENTORY -> android.R.drawable.ic_dialog_alert
+            else              -> android.R.drawable.ic_dialog_info
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(iconRes)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
@@ -98,19 +147,5 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(System.currentTimeMillis().toInt(), notification)
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notificaciones generales de NexoHogar"
-            }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
-        }
     }
 }

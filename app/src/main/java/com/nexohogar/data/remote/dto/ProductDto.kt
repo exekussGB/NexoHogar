@@ -11,7 +11,8 @@ data class ProductDto(
     @SerializedName("brand")        val brand: String? = null,
     @SerializedName("category")     val category: String? = null,
     @SerializedName("notes")        val notes: String? = null,
-    @SerializedName("created_at")   val createdAt: String? = null
+    @SerializedName("created_at")   val createdAt: String? = null,
+    @SerializedName("min_stock")    val minStock: Int? = null
 ) {
     fun toDomain(currentStock: Double = 0.0) = Product(
         id = id,
@@ -22,6 +23,7 @@ data class ProductDto(
         category = category,
         notes = notes,
         createdAt = createdAt,
-        currentStock = currentStock
+        currentStock = currentStock,
+        minStock = minStock
     )
 }
