@@ -49,14 +49,17 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity", "Deep link recibido: $data")
 
         if (data.scheme == "nexohogar" && data.host == "reset-password") {
-            val fragment = data.fragment ?: return
-            val params = fragment.split("&").associate {
-                val parts = it.split("=", limit = 2)
-                if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
-            }
+            // Try query parameter first (from intent:// URL), then fall back to fragment
+            val accessToken = data.getQueryParameter("access_token")
+                ?: data.fragment?.split("&")
+                    ?.find { it.startsWith("access_token=") }
+                    ?.substringAfter("access_token=")
 
-            val type = params["type"]
-            val accessToken = params["access_token"]
+            val type = data.getQueryParameter("type")
+                ?: data.fragment?.split("&")
+                    ?.find { it.startsWith("type=") }
+                    ?.substringAfter("type=")
+
             Log.d("MainActivity", "type=$type, token length=${accessToken?.length}")
 
             if (type == "recovery" && !accessToken.isNullOrBlank()) {
