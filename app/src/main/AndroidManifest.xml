@@ -36,6 +36,17 @@
             No es necesario declarar el Worker aquí — WorkManager lo descubre
             a través del classpath.
         -->
+        <!-- Firebase Cloud Messaging -->
+        <service
+            android:name=".service.NexoHogarMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        ```
+
 
     </application>
 

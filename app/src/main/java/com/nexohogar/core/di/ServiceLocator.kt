@@ -45,6 +45,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
+import com.nexohogar.data.network.FcmApi
 
 /**
  * Contenedor de dependencias manual (Service Locator).
@@ -188,6 +189,10 @@ object ServiceLocator {
     val personalDashboardRepository: PersonalDashboardRepository by lazy {
         PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
+
+    val fcmApi: FcmApi by lazy {
+        retrofit.create(FcmApi::class.java)
+
     fun provideReceiptScannerViewModel(): ReceiptScannerViewModel {
         return ReceiptScannerViewModel(
             inventoryRepository = inventoryRepository,
