@@ -44,6 +44,8 @@ import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
 import com.nexohogar.presentation.scanner.ReceiptScannerScreen
 import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
+import androidx.compose.runtime.remember
+
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -369,6 +371,7 @@ fun NavGraph(navController: NavHostController) {
             val viewModel = remember {
                 ReceiptScannerViewModel(
                     inventoryRepository = ServiceLocator.inventoryRepository,
+                    accountsRepository  = ServiceLocator.accountsRepository,
                     tenantContext       = ServiceLocator.tenantContext
                 )
             }
