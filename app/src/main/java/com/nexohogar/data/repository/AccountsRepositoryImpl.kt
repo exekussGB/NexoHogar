@@ -29,6 +29,7 @@ class AccountsRepositoryImpl(
                 .filter { dto ->
                     !dto.accountName.lowercase().contains("system") &&
                             !dto.accountName.startsWith("_")
+
                 }
                 .map { it.toDomain() }
             AppResult.Success(domain)
@@ -120,7 +121,13 @@ class AccountsRepositoryImpl(
      */
     override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
         return try {
-            accountsApi.deleteAccount(id = "eq.$accountId")
+            accountsApi.deleteAccount(
+                id = "eq.$accountId",
+                body = mapOf(
+                    "is_deleted" to true,
+                    "deleted_at" to java.time.Instant.now().toString()
+                )
+            )
             AppResult.Success(Unit)
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al eliminar cuenta")

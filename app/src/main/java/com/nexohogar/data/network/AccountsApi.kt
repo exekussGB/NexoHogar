@@ -10,7 +10,7 @@ import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
-
+import retrofit2.http.PATCH
 interface AccountsApi {
 
     /**
@@ -32,7 +32,8 @@ interface AccountsApi {
     suspend fun getAccounts(
         @Query("household_id") householdId: String,
         @Query("select")       select: String = "*",
-        @Query("order")        order: String  = "name.asc"
+        @Query("order")        order: String  = "name.asc",
+        @Query("is_deleted") isDeleted: String = "eq.false"
     ): List<AccountDto>
 
     /**
@@ -48,8 +49,13 @@ interface AccountsApi {
     /**
      * Elimina (soft delete) una cuenta por ID.
      */
-    @DELETE("rest/v1/accounts")
+    @Headers("Prefer: return=minimal")
+    @PATCH("rest/v1/accounts")
     suspend fun deleteAccount(
-        @Query("id") id: String
+        @Query("id") id: String,
+        @Body body: Map<String, Any> = mapOf(
+            "is_deleted" to true,
+            "deleted_at" to java.time.Instant.now().toString()
+        )
     )
 }
