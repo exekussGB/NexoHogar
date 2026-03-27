@@ -58,9 +58,11 @@ class ReceiptScannerViewModel(
     private fun loadAccountsAndCategories() {
         viewModelScope.launch {
             try {
-                val householdId = tenantContext.householdId ?: return@launch
-                val accs = accountsRepository.getAccounts(householdId)
-                _accounts.value = accs.map { it.id to it.name }
+                val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
+                val result = accountsRepository.getAccountBalances(householdId)
+                if (result is com.nexohogar.core.result.AppResult.Success) {
+                    _accounts.value = result.data.map { it.accountId to it.accountName }
+                }
 
                 val cats = inventoryRepository.getCategories(householdId)
                 _categories.value = cats.map { it.id to it.name }
@@ -148,12 +150,12 @@ class ReceiptScannerViewModel(
             return
         }
 
-        val householdId = tenantContext.householdId ?: run {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: run {
             _uiState.update { it.copy(error = "No se encontró el hogar activo") }
             return
         }
 
-        val userId = tenantContext.userId ?: run {
+        val userId = tenantContext.getCurrentUserId() ?: run {
             _uiState.update { it.copy(error = "No se encontró el usuario activo") }
             return
         }
@@ -208,8 +210,46 @@ class ReceiptScannerViewModel(
         }
     }
 
+    fun processImage(bitmap: android.graphics.Bitmap) {
+        _uiState.update { it.copy(step = ScannerStep.PROCESSING, isProcessing = true) }
+
+        viewModelScope.launch {
+            try {
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
+                val result = recognizer.process(image).await()
+                val ocrText = result.text
+                recognizer.close()
+
+                val parser = ChileanReceiptParser()
+                val parseResult = parser.parse(ocrText)
+
+                _uiState.update {
+                    it.copy(
+                        step = ScannerStep.REVIEW,
+                        ocrText = ocrText,
+                        store = parseResult.store ?: "",
+                        items = parseResult.items,
+                        detectedTotal = parseResult.total,
+                        isProcessing = false,
+                        receiptDate = parseResult.date ?: LocalDate.now().toString()
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("ReceiptScanner", "Error procesando imagen", e)
+                _uiState.update {
+                    it.copy(
+                        step = ScannerStep.ERROR,
+                        error = "Error al procesar imagen: ${e.message}",
+                        isProcessing = false
+                    )
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
-        textRecognizer.close()
+        // TextRecognizer se crea y cierra dentro de processImage
     }
 }

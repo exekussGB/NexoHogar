@@ -42,6 +42,7 @@ import java.io.File
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
+import androidx.compose.runtime.getValue
 
 private const val TAG = "ReceiptScanner"
 
@@ -68,6 +69,7 @@ fun ReceiptScannerScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            val uiState by viewModel.uiState.collectAsState()
             when (uiState.step) {
                 ScannerStep.CAMERA -> CameraStep(
                     onImageCaptured = { bitmap -> viewModel.processImage(bitmap) },
