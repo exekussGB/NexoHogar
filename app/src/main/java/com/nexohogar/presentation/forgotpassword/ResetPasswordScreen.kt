@@ -24,7 +24,6 @@ import com.nexohogar.core.di.ServiceLocator
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResetPasswordScreen(
-    accessToken: String,
     onResetSuccess: () -> Unit,
     viewModel: ResetPasswordViewModel = viewModel(
         factory = ResetPasswordViewModel.Factory(ServiceLocator.authRepository)
@@ -145,7 +144,7 @@ fun ResetPasswordScreen(
                             Toast.makeText(context, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
                         password != confirmPassword ->
                             Toast.makeText(context, "Las contraseñas no coinciden", Toast.LENGTH_SHORT).show()
-                        else -> viewModel.resetPassword(accessToken, password)
+                        else -> viewModel.resetPassword(password)
                     }
                 },
                 modifier = Modifier
