@@ -8,6 +8,7 @@ import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
+import com.nexohogar.data.model.SoftDeleteAccountRequest
 
 class AccountsRepositoryImpl(
     private val accountsApi   : AccountsApi,
@@ -121,14 +122,15 @@ class AccountsRepositoryImpl(
      */
     override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
         return try {
-            accountsApi.deleteAccount(
+            val response = accountsApi.deleteAccount(
                 id = "eq.$accountId",
-                body = mapOf(
-                    "is_deleted" to true,
-                    "deleted_at" to java.time.Instant.now().toString()
-                )
+                body = SoftDeleteAccountRequest()
             )
-            AppResult.Success(Unit)
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Error("Error al eliminar cuenta: ${response.code()}")
+            }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al eliminar cuenta")
         }

@@ -11,7 +11,10 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.PATCH
+import com.nexohogar.data.model.SoftDeleteAccountRequest
+import retrofit2.Response
 interface AccountsApi {
+
 
     /**
      * Consulta la VISTA account_balances para obtener saldos reales.
@@ -53,9 +56,7 @@ interface AccountsApi {
     @PATCH("rest/v1/accounts")
     suspend fun deleteAccount(
         @Query("id") id: String,
-        @Body body: Map<String, Any> = mapOf(
-            "is_deleted" to true,
-            "deleted_at" to java.time.Instant.now().toString()
-        )
-    )
+        @Body body: SoftDeleteAccountRequest
+    ): Response<Unit>
+
 }
