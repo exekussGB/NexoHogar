@@ -2,19 +2,21 @@ package com.nexohogar.domain.model
 
 /**
  * Modelo de dominio para un miembro del hogar.
- * displayName: nombre o correo del usuario (obtenido via RPC get_members_with_email)
+ * status: "active", "pending", "rejected"
  */
 data class HouseholdMember(
     val userId: String,
-    val role: String,           // "admin" | "member"
+    val role: String,           // "super_user" | "user" | "viewer"
     val joinedAt: String?,      // ISO-8601
     val email: String? = null,
-    val displayName: String? = null
+    val displayName: String? = null,
+    val status: String = "active" // "active" | "pending" | "rejected"
 ) {
-    /** Alias para acceso más natural */
     val id: String get() = userId
 
-    /** Texto a mostrar: displayName si existe, email si no, o fragmento del userId */
+    val isPending: Boolean get() = status == "pending"
+    val isActive: Boolean get() = status == "active"
+
     fun label(): String = when {
         !displayName.isNullOrBlank() -> displayName
         !email.isNullOrBlank()       -> email

@@ -14,12 +14,14 @@ import kotlinx.coroutines.launch
 
 data class HouseholdMembersUiState(
     val members: List<HouseholdMember> = emptyList(),
+    val pendingMembers: List<HouseholdMember> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val isCurrentUserAdmin: Boolean = false,
+    val isCurrentUserSuperUser: Boolean = false,
     val currentUserId: String? = null,
     val memberToRemove: HouseholdMember? = null,
-    val isRemoving: Boolean = false
+    val isRemoving: Boolean = false,
+    val actionMessage: String? = null
 )
 
 class HouseholdMembersViewModel(
@@ -48,16 +50,27 @@ class HouseholdMembersViewModel(
 
             when (val result = householdRepository.getHouseholdMembers(householdId)) {
                 is AppResult.Success -> {
-                    val isAdmin = result.data.any {
-                        it.userId == currentUserId && it.role.lowercase() == "admin"
+                    val isSuperUser = result.data.any {
+                        it.userId == currentUserId &&
+                        (it.role.lowercase() == "super_user" || it.role.lowercase() == "admin")
                     }
+
+                    // Solo cargar pendientes si es super_user
+                    val pending = if (isSuperUser) {
+                        when (val pendingResult = householdRepository.getPendingMembers(householdId)) {
+                            is AppResult.Success -> pendingResult.data
+                            else -> emptyList()
+                        }
+                    } else emptyList()
+
                     _uiState.update {
                         it.copy(
-                            isLoading         = false,
-                            members           = result.data,
-                            isCurrentUserAdmin = isAdmin,
-                            currentUserId     = currentUserId,
-                            error             = null
+                            isLoading            = false,
+                            members              = result.data.filter { m -> m.isActive },
+                            pendingMembers       = pending,
+                            isCurrentUserSuperUser = isSuperUser,
+                            currentUserId        = currentUserId,
+                            error                = null
                         )
                     }
                 }
@@ -65,6 +78,44 @@ class HouseholdMembersViewModel(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 is AppResult.Loading -> { }
+            }
+        }
+    }
+
+    fun acceptMember(member: HouseholdMember) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRemoving = true) }
+            when (val result = householdRepository.acceptMember(member.userId)) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(
+                        isRemoving = false,
+                        actionMessage = "${member.label()} fue aceptado en el hogar"
+                    )}
+                    loadMembers()
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(isRemoving = false, error = result.message) }
+                }
+                else -> _uiState.update { it.copy(isRemoving = false) }
+            }
+        }
+    }
+
+    fun rejectMember(member: HouseholdMember) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRemoving = true) }
+            when (val result = householdRepository.rejectMember(member.userId)) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(
+                        isRemoving = false,
+                        actionMessage = "${member.label()} fue rechazado"
+                    )}
+                    loadMembers()
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(isRemoving = false, error = result.message) }
+                }
+                else -> _uiState.update { it.copy(isRemoving = false) }
             }
         }
     }
@@ -98,4 +149,5 @@ class HouseholdMembersViewModel(
     }
 
     fun clearError() { _uiState.update { it.copy(error = null) } }
+    fun clearActionMessage() { _uiState.update { it.copy(actionMessage = null) } }
 }

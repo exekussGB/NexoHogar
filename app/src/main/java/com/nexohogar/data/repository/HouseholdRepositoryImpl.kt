@@ -75,13 +75,15 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
+    override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<String> {
         return try {
             val response = authApi.joinHouseholdByCode(
                 JoinHouseholdRequest(inviteCode.trim().uppercase())
             )
             if (response.isSuccessful) {
-                AppResult.Success(true)
+                val message = response.body()?.trim('"')
+                    ?: "Solicitud enviada. El administrador debe aprobarla."
+                AppResult.Success(message)
             } else {
                 val errorMsg = when (response.code()) {
                     400 -> "Código de invitación inválido o expirado"
@@ -128,6 +130,50 @@ class HouseholdRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al eliminar miembro")
+        }
+    }
+
+    // ── Solicitudes pendientes ────────────────────────────────────────────────
+
+    override suspend fun getPendingMembers(householdId: String): AppResult<List<HouseholdMember>> {
+        return try {
+            val response = authApi.getPendingMembers(
+                mapOf("p_household_id" to householdId)
+            )
+            if (response.isSuccessful) {
+                val members = response.body()?.map { it.toDomain() } ?: emptyList()
+                AppResult.Success(members)
+            } else {
+                AppResult.Error("Error al obtener solicitudes: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    override suspend fun acceptMember(memberId: String): AppResult<Boolean> {
+        return try {
+            val response = authApi.acceptMember(mapOf("p_member_id" to memberId))
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                AppResult.Error("Error al aceptar miembro: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al aceptar miembro")
+        }
+    }
+
+    override suspend fun rejectMember(memberId: String): AppResult<Boolean> {
+        return try {
+            val response = authApi.rejectMember(mapOf("p_member_id" to memberId))
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                AppResult.Error("Error al rechazar miembro: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al rechazar miembro")
         }
     }
 }

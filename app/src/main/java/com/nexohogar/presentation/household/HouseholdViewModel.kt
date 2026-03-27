@@ -27,7 +27,8 @@ data class HouseholdUiState(
     val joinCode: String             = "",
     val isJoining: Boolean           = false,
     val joinError: String?           = null,
-    val joinSuccess: Boolean         = false
+    val joinSuccess: Boolean         = false,
+    val joinMessage: String?         = null  // Mensaje del servidor (ej: "Solicitud enviada...")
 )
 
 class HouseholdViewModel(
@@ -41,8 +42,6 @@ class HouseholdViewModel(
     init {
         loadHouseholds()
     }
-
-    // ── Cargar hogares ───────────────────────────────────────────────────────
 
     fun loadHouseholds() {
         viewModelScope.launch {
@@ -58,8 +57,6 @@ class HouseholdViewModel(
             }
         }
     }
-
-    // ── Crear hogar ──────────────────────────────────────────────────────────
 
     fun createHousehold(name: String) {
         if (name.isBlank()) {
@@ -105,20 +102,16 @@ class HouseholdViewModel(
             _uiState.update { it.copy(isJoining = true, joinError = null) }
             when (val result = householdRepository.joinHouseholdByCode(code)) {
                 is AppResult.Success -> {
-                    // Recargar la lista de hogares para incluir el recién unido
-                    when (val reloaded = householdRepository.getHouseholds()) {
-                        is AppResult.Success -> _uiState.update {
-                            it.copy(
-                                isJoining    = false,
-                                showJoinDialog = false,
-                                joinSuccess  = true,
-                                households   = reloaded.data
-                            )
-                        }
-                        else -> _uiState.update {
-                            it.copy(isJoining = false, showJoinDialog = false, joinSuccess = true)
-                        }
+                    _uiState.update {
+                        it.copy(
+                            isJoining      = false,
+                            showJoinDialog = false,
+                            joinSuccess    = true,
+                            joinMessage    = result.data
+                        )
                     }
+                    // Recargar hogares por si fue aceptado automáticamente
+                    loadHouseholds()
                 }
                 is AppResult.Error -> _uiState.update {
                     it.copy(isJoining = false, joinError = result.message)
@@ -128,9 +121,7 @@ class HouseholdViewModel(
         }
     }
 
-    fun clearJoinSuccess() { _uiState.update { it.copy(joinSuccess = false) } }
-
-    // ── Seleccionar hogar ────────────────────────────────────────────────────
+    fun clearJoinSuccess() { _uiState.update { it.copy(joinSuccess = false, joinMessage = null) } }
 
     fun selectHousehold(household: Household) {
         tenantContext.setHouseholdId(household.id)

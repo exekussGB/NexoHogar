@@ -18,14 +18,10 @@ import retrofit2.http.Query
 interface AuthApi {
 
     @POST("auth/v1/token?grant_type=password")
-    suspend fun login(
-        @Body request: LoginRequest
-    ): Response<LoginResponse>
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
     @POST("auth/v1/signup")
-    suspend fun register(
-        @Body request: RegisterRequest
-    ): Response<LoginResponse>
+    suspend fun register(@Body request: RegisterRequest): Response<LoginResponse>
 
     @GET("rest/v1/households")
     suspend fun getHouseholds(
@@ -45,16 +41,31 @@ interface AuthApi {
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest
-    ): Response<Unit>
+    ): Response<String>
 
     @POST("rest/v1/rpc/get_members_with_email")
     suspend fun getHouseholdMembersWithEmail(
         @Body request: Map<String, String>
     ): Response<List<HouseholdMemberWithEmailDto>>
 
-    /** Elimina un miembro del hogar (solo admin) */
     @POST("rest/v1/rpc/remove_household_member")
     suspend fun removeHouseholdMember(
+        @Body request: Map<String, String>
+    ): Response<Boolean>
+
+    // ── Solicitudes pendientes ────────────────────────────────────────────
+    @POST("rest/v1/rpc/rpc_get_pending_members")
+    suspend fun getPendingMembers(
+        @Body request: Map<String, String>
+    ): Response<List<HouseholdMemberWithEmailDto>>
+
+    @POST("rest/v1/rpc/rpc_accept_member")
+    suspend fun acceptMember(
+        @Body request: Map<String, String>
+    ): Response<Boolean>
+
+    @POST("rest/v1/rpc/rpc_reject_member")
+    suspend fun rejectMember(
         @Body request: Map<String, String>
     ): Response<Boolean>
 }
