@@ -114,7 +114,11 @@ fun DashboardScreen(
                     }
                 }
             }
-
+            item {Text("Resumen Financiero",
+                    style      = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
             // ── Balance card ───────────────────────────────────────────────
             item {
                 uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }

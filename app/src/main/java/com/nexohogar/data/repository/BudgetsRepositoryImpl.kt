@@ -59,36 +59,27 @@ class BudgetsRepositoryImpl(
 
     override suspend fun createBudget(
         householdId: String,
-        categoryId: String,
-        amountClp: Long,
-        period: String
-    ): AppResult<Budget> {
+        categoryName: String,
+        amountClp: Long
+    ): AppResult<Unit> {
         return try {
-            val userId = sessionManager.fetchSession()?.userId
-            val request = CreateBudgetRequest(
-                householdId = householdId,
-                categoryId  = categoryId,
-                amountClp   = amountClp,
-                period      = period,
-                createdBy   = userId
+            val cal = Calendar.getInstance()
+            val body = hashMapOf<String, Any>(
+                "p_household_id"  to householdId,
+                "p_category_name" to categoryName,
+                "p_amount_clp"    to amountClp,
+                "p_period_type"   to "monthly",
+                "p_year_num"      to cal.get(Calendar.YEAR),
+                "p_month_num"     to (cal.get(Calendar.MONTH) + 1)
             )
-            val response = budgetsApi.createBudget(request)
-            val created = response.firstOrNull()
-                ?: return AppResult.Error("No se recibió respuesta")
-
-            AppResult.Success(
-                Budget(
-                    id           = created.id,
-                    householdId  = created.householdId,
-                    categoryId   = created.categoryId,
-                    categoryName = "",
-                    amountClp    = created.amountClp,
-                    period       = created.period ?: "monthly",
-                    isActive     = created.isActive ?: true
-                )
-            )
+            val response = budgetApi.createBudgetRpc(body)
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Error("Error al crear presupuesto: ${response.code()}")
+            }
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al crear presupuesto")
+            AppResult.Error(e.message ?: "Error de red al crear presupuesto")
         }
     }
 
