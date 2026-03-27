@@ -40,14 +40,14 @@ class BudgetRepositoryImpl(
         return try {
             val cal = Calendar.getInstance()
             val body = hashMapOf<String, Any>(
-                "household_id" to householdId,
-                "category_id"  to categoryName,
-                "amount_clp"   to amountClp,
-                "period_type"  to "monthly",
-                "year_num"     to cal.get(Calendar.YEAR),
-                "month_num"    to (cal.get(Calendar.MONTH) + 1)
+                "p_household_id"  to householdId,
+                "p_category_name" to categoryName,
+                "p_amount_clp"    to amountClp,
+                "p_period_type"   to "monthly",
+                "p_year_num"      to cal.get(Calendar.YEAR),
+                "p_month_num"     to (cal.get(Calendar.MONTH) + 1)
             )
-            val response = budgetApi.createBudget(body)
+            val response = budgetApi.createBudgetRpc(body)
             if (response.isSuccessful) {
                 AppResult.Success(Unit)
             } else {

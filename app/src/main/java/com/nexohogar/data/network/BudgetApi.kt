@@ -41,6 +41,7 @@ interface BudgetApi {
         @Query("id") id: String
     ): Response<Unit>
 
+    /** Crea un presupuesto vía RPC (resuelve categoryName → categoryId). */
     @POST("rest/v1/rpc/rpc_create_budget")
     suspend fun createBudgetRpc(
         @Body body: HashMap<String, Any>
