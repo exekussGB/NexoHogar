@@ -45,8 +45,6 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                 val retryRequest = originalRequest.withAuthHeaders(newToken)
                 return chain.proceed(retryRequest)
             }
-    // Eliminar token FCM del servidor
-            FcmTokenManager.unregisterToken(context)
 
             // Refresh falló → limpiar sesión. El próximo acceso a una pantalla
             // protegida detectará que no hay token y redirigirá al login.
