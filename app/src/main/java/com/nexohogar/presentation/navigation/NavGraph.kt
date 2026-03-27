@@ -45,7 +45,8 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 import com.nexohogar.presentation.scanner.ReceiptScannerScreen
 import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
 import androidx.compose.runtime.remember
-
+import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
+import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -65,6 +66,8 @@ sealed class Screen(val route: String) {
     object Budget             : Screen("budget")
     object CategoryExpenses   : Screen("category_expenses")
     object PersonalDashboard  : Screen("personal_dashboard")
+
+    object ForgotPassword : Screen("forgot_password")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -106,11 +109,20 @@ fun NavGraph(navController: NavHostController) {
             LoginScreen(
                 viewModel            = vm,
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
                 onLoginSuccess       = {
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
+            )
+        }
+        // ── Reset password ───────────────────────────────────────────────────────
+        composable(Screen.ForgotPassword.route) {
+            val vm = ForgotPasswordViewModel(authRepository)
+            ForgotPasswordScreen(
+                viewModel = vm,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

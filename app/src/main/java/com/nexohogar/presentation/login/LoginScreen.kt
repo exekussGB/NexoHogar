@@ -19,7 +19,8 @@ import com.nexohogar.presentation.components.LoadingOverlay
 fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit
+    onNavigateToRegister: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -111,6 +112,11 @@ fun LoginScreen(
 
             TextButton(onClick = onNavigateToRegister, modifier = Modifier.fillMaxWidth()) {
                 Text("¿No tienes cuenta? Regístrate")
+
+            TextButton(onClick = onNavigateToForgotPassword, modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("¿Olvidaste tu contraseña?")
+                }
             }
         }
 

@@ -75,6 +75,19 @@ class AuthRepositoryImpl(
         sessionManager.clearSession()
     }
 
+    override suspend fun forgotPassword(email: String): AppResult<Unit> {
+        return try {
+            val response = authApi.forgotPassword(mapOf("email" to email))
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Error("No se pudo enviar el correo de recuperación")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error de conexión")
+        }
+    }
+
     override fun getCurrentSession(): UserSession? {
         return sessionManager.fetchSession()
     }
