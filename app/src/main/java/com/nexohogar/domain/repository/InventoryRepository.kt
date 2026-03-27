@@ -4,6 +4,7 @@ import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
+import com.nexohogar.domain.model.ScannedReceiptItem
 
 interface InventoryRepository {
     suspend fun getProducts(householdId: String): List<Product>
@@ -37,4 +38,14 @@ interface InventoryRepository {
     suspend fun getCategories(householdId: String): List<InventoryCategory>
     suspend fun createCategory(householdId: String, name: String, icon: String? = null): InventoryCategory
     suspend fun deleteCategory(categoryId: String)
+
+    suspend fun importReceipt(
+        householdId: String,
+        userId: String,
+        accountId: String,
+        categoryId: String?,
+        store: String?,
+        receiptDate: String,
+        items: List<ScannedReceiptItem>
+    ): Map<String, Any>
 }

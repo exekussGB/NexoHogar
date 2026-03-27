@@ -44,6 +44,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
 
 /**
  * Contenedor de dependencias manual (Service Locator).
@@ -186,5 +187,11 @@ object ServiceLocator {
 
     val personalDashboardRepository: PersonalDashboardRepository by lazy {
         PersonalDashboardRepositoryImpl(personalDashboardApi)
+    }
+    fun provideReceiptScannerViewModel(): ReceiptScannerViewModel {
+        return ReceiptScannerViewModel(
+            inventoryRepository = inventoryRepository,
+            tenantContext = tenantContext
+        )
     }
 }

@@ -6,6 +6,7 @@ import com.nexohogar.data.remote.dto.CreateProductRequest
 import com.nexohogar.data.remote.dto.InventoryCategoryDto
 import com.nexohogar.data.remote.dto.InventoryMovementDto
 import com.nexohogar.data.remote.dto.ProductDto
+import com.nexohogar.data.remote.dto.ImportReceiptRequest
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -55,4 +56,9 @@ interface InventoryApi {
     suspend fun deleteCategory(
         @Query("id") id: String
     ): Response<Unit>
+
+    @POST("rest/v1/rpc/rpc_import_receipt")
+    suspend fun importReceipt(
+        @Body request: ImportReceiptRequest
+    ): Response<Map<String, Any>>
 }
