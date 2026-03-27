@@ -9,7 +9,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.nexohogar.data.service.ChileanReceiptParser
 import com.nexohogar.domain.model.ScannedReceiptItem
 import com.nexohogar.domain.repository.InventoryRepository
-import com.nexohogar.data.local.TenantContext
+import com.nexohogar.core.tenant.TenantContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
+import android.util.Log
 
 enum class ScannerStep { CAMERA, PROCESSING, REVIEW, IMPORTING, DONE, ERROR }
 
@@ -36,45 +37,35 @@ data class ReceiptScannerUiState(
 
 class ReceiptScannerViewModel(
     private val inventoryRepository: InventoryRepository,
-    private val tenantContext: TenantContext
+    private val accountsRepository: com.nexohogar.domain.repository.AccountsRepository,
+    private val tenantContext: com.nexohogar.core.tenant.TenantContext
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReceiptScannerUiState())
     val uiState: StateFlow<ReceiptScannerUiState> = _uiState.asStateFlow()
 
-    private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    private val receiptParser = ChileanReceiptParser()
+    // Cuentas y categorías para los dropdowns
+    private val _accounts = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val accounts: StateFlow<List<Pair<String, String>>> = _accounts.asStateFlow()
 
-    fun processImage(bitmap: Bitmap) {
-        _uiState.update { it.copy(step = ScannerStep.PROCESSING, isProcessing = true, error = null) }
+    private val _categories = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val categories: StateFlow<List<Pair<String, String>>> = _categories.asStateFlow()
 
+    init {
+        loadAccountsAndCategories()
+    }
+
+    private fun loadAccountsAndCategories() {
         viewModelScope.launch {
             try {
-                val inputImage = InputImage.fromBitmap(bitmap, 0)
-                val visionText = textRecognizer.process(inputImage).await()
-                val ocrText = visionText.text
+                val householdId = tenantContext.householdId ?: return@launch
+                val accs = accountsRepository.getAccounts(householdId)
+                _accounts.value = accs.map { it.id to it.name }
 
-                val parsed = receiptParser.parse(ocrText)
-
-                _uiState.update {
-                    it.copy(
-                        step = ScannerStep.REVIEW,
-                        ocrText = ocrText,
-                        store = parsed.store ?: "",
-                        receiptDate = parsed.date ?: LocalDate.now().toString(),
-                        items = parsed.items,
-                        detectedTotal = parsed.total,
-                        isProcessing = false
-                    )
-                }
+                val cats = inventoryRepository.getCategories(householdId)
+                _categories.value = cats.map { it.id to it.name }
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        step = ScannerStep.ERROR,
-                        error = "Error al procesar la imagen: ${e.message}",
-                        isProcessing = false
-                    )
-                }
+                Log.e("ReceiptScanner", "Error cargando cuentas/categorías", e)
             }
         }
     }

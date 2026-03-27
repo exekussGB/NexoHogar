@@ -49,11 +49,11 @@ private const val TAG = "ReceiptScanner"
 @Composable
 fun ReceiptScannerScreen(
     viewModel: ReceiptScannerViewModel,
-    onNavigateBack: () -> Unit,
-    accounts: List<Pair<String, String>>, // id to name
-    categories: List<Pair<String, String>> // id to name
+    onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // Cuentas y categorías se cargan desde el ViewModel
+    val accounts = viewModel.accounts.collectAsState().value
+    val categories = viewModel.categories.collectAsState().value
 
     Scaffold(
         topBar = {

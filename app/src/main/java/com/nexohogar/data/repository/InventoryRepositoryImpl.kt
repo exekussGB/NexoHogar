@@ -232,7 +232,7 @@ class InventoryRepositoryImpl(
             items = itemDtos
         )
 
-        val response = inventoryApi.importReceipt(request)
+        val response = api.importReceipt(request)
         if (response.isSuccessful) {
             return response.body() ?: emptyMap()
         } else {
