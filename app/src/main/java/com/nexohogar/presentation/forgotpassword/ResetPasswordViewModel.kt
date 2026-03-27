@@ -27,12 +27,12 @@ class ResetPasswordViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val result = authRepository.updatePassword(accessToken, newPassword)
-            if (result is AppResult.Success) {
+            if (result is AppResult.Success<*>) {
                 _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-            } else if (result is AppResult.Error) {
+            } else {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = result.message
+                    errorMessage = (result as? AppResult.Error)?.message ?: "Error desconocido"
                 )
             }
         }
