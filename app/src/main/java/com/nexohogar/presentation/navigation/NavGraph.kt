@@ -308,7 +308,8 @@ fun NavGraph(navController: NavHostController) {
             )
             InventoryScreen(
                 viewModel = vm,
-                onBack    = { navController.popBackStack() }
+                onBack    = { navController.popBackStack() },
+                onNavigateToScanner  = { navController.navigate("receipt_scanner") }
             )
         }
 
@@ -368,15 +369,12 @@ fun NavGraph(navController: NavHostController) {
             val viewModel = remember {
                 ReceiptScannerViewModel(
                     inventoryRepository = ServiceLocator.inventoryRepository,
-                    tenantContext = ServiceLocator.tenantContext
+                    tenantContext       = ServiceLocator.tenantContext
                 )
             }
-
             ReceiptScannerScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() },
-                accounts = accountsList,   // Pasar desde el state del padre
-                categories = categoriesList // Pasar desde el state del padre
+                viewModel      = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
