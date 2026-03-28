@@ -14,13 +14,9 @@ import kotlinx.coroutines.launch
 
 data class HouseholdMembersUiState(
     val members: List<HouseholdMember> = emptyList(),
-    val pendingMembers: List<HouseholdMember> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val isCurrentUserSuperUser: Boolean = false,
-    val currentUserId: String? = null,
-    val memberToRemove: HouseholdMember? = null,
-    val isRemoving: Boolean = false,
+    val isProcessing: Boolean = false,
     val actionMessage: String? = null
 )
 
@@ -38,116 +34,85 @@ class HouseholdMembersViewModel(
 
     fun loadMembers() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             val householdId = tenantContext.getCurrentHouseholdId()
-            val currentUserId = tenantContext.getCurrentUserId()
-
             if (householdId == null) {
-                _uiState.update { it.copy(isLoading = false, error = "No se ha seleccionado un hogar.") }
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No se ha seleccionado un hogar."
+                )
                 return@launch
             }
 
             when (val result = householdRepository.getHouseholdMembers(householdId)) {
                 is AppResult.Success -> {
-                    val isSuperUser = result.data.any {
-                        it.userId == currentUserId &&
-                        (it.role.lowercase() == "super_user" || it.role.lowercase() == "admin")
-                    }
-
-                    // Solo cargar pendientes si es super_user
-                    val pending = if (isSuperUser) {
-                        when (val pendingResult = householdRepository.getPendingMembers(householdId)) {
-                            is AppResult.Success -> pendingResult.data
-                            else -> emptyList()
-                        }
-                    } else emptyList()
-
-                    _uiState.update {
-                        it.copy(
-                            isLoading            = false,
-                            members              = result.data.filter { m -> m.isActive },
-                            pendingMembers       = pending,
-                            isCurrentUserSuperUser = isSuperUser,
-                            currentUserId        = currentUserId,
-                            error                = null
-                        )
-                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        members   = result.data,
+                        error     = null
+                    )
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error     = result.message
+                    )
                 }
                 is AppResult.Loading -> { }
             }
         }
     }
 
-    fun acceptMember(member: HouseholdMember) {
+    // ── NUEVO: Aceptar miembro pendiente ────────────────────────────────
+
+    fun acceptMember(memberId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isRemoving = true) }
-            when (val result = householdRepository.acceptMember(member.userId)) {
+            _uiState.update { it.copy(isProcessing = true, actionMessage = null) }
+            when (val result = householdRepository.acceptMember(memberId)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
-                        isRemoving = false,
-                        actionMessage = "${member.label()} fue aceptado en el hogar"
+                        isProcessing = false,
+                        actionMessage = "Miembro aceptado ✓"
                     )}
                     loadMembers()
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isRemoving = false, error = result.message) }
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        error = result.message
+                    )}
                 }
-                else -> _uiState.update { it.copy(isRemoving = false) }
+                is AppResult.Loading -> {}
             }
         }
     }
 
-    fun rejectMember(member: HouseholdMember) {
+    // ── NUEVO: Rechazar miembro pendiente ────────────────────────────────
+
+    fun rejectMember(memberId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isRemoving = true) }
-            when (val result = householdRepository.rejectMember(member.userId)) {
+            _uiState.update { it.copy(isProcessing = true, actionMessage = null) }
+            when (val result = householdRepository.rejectMember(memberId)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
-                        isRemoving = false,
-                        actionMessage = "${member.label()} fue rechazado"
+                        isProcessing = false,
+                        actionMessage = "Miembro rechazado"
                     )}
                     loadMembers()
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isRemoving = false, error = result.message) }
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        error = result.message
+                    )}
                 }
-                else -> _uiState.update { it.copy(isRemoving = false) }
+                is AppResult.Loading -> {}
             }
         }
     }
 
-    fun showRemoveConfirm(member: HouseholdMember) {
-        _uiState.update { it.copy(memberToRemove = member) }
+    fun clearActionMessage() {
+        _uiState.update { it.copy(actionMessage = null) }
     }
-
-    fun dismissRemoveConfirm() {
-        _uiState.update { it.copy(memberToRemove = null) }
-    }
-
-    fun removeMember() {
-        val member = _uiState.value.memberToRemove ?: return
-        val householdId = tenantContext.getCurrentHouseholdId() ?: return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRemoving = true, memberToRemove = null) }
-
-            when (val result = householdRepository.removeHouseholdMember(householdId, member.userId)) {
-                is AppResult.Success -> {
-                    _uiState.update { it.copy(isRemoving = false) }
-                    loadMembers()
-                }
-                is AppResult.Error -> {
-                    _uiState.update { it.copy(isRemoving = false, error = result.message) }
-                }
-                else -> _uiState.update { it.copy(isRemoving = false) }
-            }
-        }
-    }
-
-    fun clearError() { _uiState.update { it.copy(error = null) } }
-    fun clearActionMessage() { _uiState.update { it.copy(actionMessage = null) } }
 }

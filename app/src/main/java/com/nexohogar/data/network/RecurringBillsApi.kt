@@ -1,7 +1,12 @@
 package com.nexohogar.data.network
 
+import com.google.gson.JsonObject
 import com.nexohogar.data.remote.dto.CreateRecurringBillRequest
+import com.nexohogar.data.remote.dto.PayRecurringBillRequest
 import com.nexohogar.data.remote.dto.RecurringBillDto
+import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
+import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
+import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
 import retrofit2.Response
@@ -40,4 +45,26 @@ interface RecurringBillsApi {
     suspend fun deleteRecurringBill(
         @Query("id") idFilter: String
     ): Response<Unit>
+
+    // ── NUEVOS: endpoints RPC con integración contable ──────────────────
+
+    @POST("rest/v1/rpc/rpc_pay_recurring_bill")
+    suspend fun payRecurringBill(
+        @Body request: PayRecurringBillRequest
+    ): Response<JsonObject>
+
+    @POST("rest/v1/rpc/rpc_recurring_summary")
+    suspend fun getRecurringSummary(
+        @Body request: Map<String, String>
+    ): Response<RecurringSummaryDto>
+
+    @POST("rest/v1/rpc/rpc_recurring_bills_with_status")
+    suspend fun getRecurringBillsWithStatus(
+        @Body request: Map<String, String>
+    ): Response<List<RecurringBillWithStatusDto>>
+
+    @POST("rest/v1/rpc/rpc_recurring_bill_history")
+    suspend fun getRecurringBillHistory(
+        @Body request: Map<String, String>
+    ): Response<List<RecurringBillPaymentDto>>
 }
