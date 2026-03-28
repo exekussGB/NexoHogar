@@ -35,11 +35,31 @@ class InviteMemberViewModel(
         loadInviteCode()
     }
 
+    /** Obtiene el código actual (o lo crea si no existe / expiró) */
     fun loadInviteCode() {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingCode = true, codeError = null)
             when (val result = householdRepository.getOrCreateInviteCode(householdId)) {
+                is AppResult.Success -> _uiState.value = _uiState.value.copy(
+                    inviteCode    = result.data,
+                    isLoadingCode = false
+                )
+                is AppResult.Error   -> _uiState.value = _uiState.value.copy(
+                    codeError     = result.message,
+                    isLoadingCode = false
+                )
+                is AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /** Siempre genera un código NUEVO, invalidando el anterior */
+    fun regenerateInviteCode() {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingCode = true, codeError = null)
+            when (val result = householdRepository.regenerateInviteCode(householdId)) {
                 is AppResult.Success -> _uiState.value = _uiState.value.copy(
                     inviteCode    = result.data,
                     isLoadingCode = false
