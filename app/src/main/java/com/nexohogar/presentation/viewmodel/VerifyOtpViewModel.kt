@@ -26,8 +26,8 @@ class VerifyOtpViewModel(
     val state: StateFlow<VerifyOtpState> = _state.asStateFlow()
 
     fun verifyOtp(email: String, code: String) {
-        if (code.length != 6) {
-            _state.update { it.copy(error = "El código debe tener 6 dígitos") }
+        if (code.length != 8) {
+            _state.update { it.copy(error = "El código debe tener 8 dígitos") }
             return
         }
 
