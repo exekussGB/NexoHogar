@@ -4,9 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.model.ExpenseByCategoryDto
 import com.nexohogar.domain.model.HouseholdMember
-import com.nexohogar.domain.repository.BudgetsRepository
 import com.nexohogar.domain.repository.HouseholdRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
