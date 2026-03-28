@@ -156,7 +156,7 @@ fun InviteMemberScreen(
                                     Text("Copiar")
                                 }
                                 // Botón regenerar
-                                OutlinedButton(onClick = { viewModel.regenerateInviteCode() }) {
+                                OutlinedButton(onClick = { viewModel.loadInviteCode() }) {
                                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Regenerar")

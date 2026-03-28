@@ -96,6 +96,22 @@ object ServiceLocator {
         retrofit.create(InventoryApi::class.java)
     }
 
+    val fcmApi: FcmApi by lazy {
+        retrofit.create(FcmApi::class.java)
+    }
+
+    val budgetApi: BudgetApi by lazy {
+        retrofit.create(BudgetApi::class.java)
+    }
+
+    val categoryExpensesApi: CategoryExpensesApi by lazy {
+        retrofit.create(CategoryExpensesApi::class.java)
+    }
+
+    val personalDashboardApi: PersonalDashboardApi by lazy {
+        retrofit.create(PersonalDashboardApi::class.java)
+    }
+
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
@@ -136,5 +152,17 @@ object ServiceLocator {
 
     val inventoryRepository: InventoryRepository by lazy {
         InventoryRepositoryImpl(inventoryApi)
+    }
+
+    val budgetRepository: BudgetRepository by lazy {
+        BudgetRepositoryImpl(budgetApi)
+    }
+
+    val categoryExpensesRepository: CategoryExpensesRepository by lazy {
+        CategoryExpensesRepositoryImpl(categoryExpensesApi)
+    }
+
+    val personalDashboardRepository: PersonalDashboardRepository by lazy {
+        PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
 }
