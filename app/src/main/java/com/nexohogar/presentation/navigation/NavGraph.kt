@@ -48,6 +48,8 @@ import androidx.compose.runtime.remember
 import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
 import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
 import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
+import android.net.Uri
+import com.nexohogar.presentation.screens.VerifyOtpScreen
 
 
 
@@ -403,6 +405,21 @@ fun NavGraph(navController: NavHostController) {
                         popUpTo("reset_password") { inclusive = true }
                     }
                 }
+            )
+        }
+        composable(
+            "verify_otp/{email}",
+            arguments = listOf(navArgument("email") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val email = Uri.decode(backStackEntry.arguments?.getString("email") ?: "")
+            VerifyOtpScreen(
+                email = email,
+                onVerified = {
+                    navController.navigate("reset_password") {
+                        popUpTo("verify_otp/{email}") { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
     }

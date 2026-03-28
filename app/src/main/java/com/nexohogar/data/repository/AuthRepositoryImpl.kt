@@ -9,6 +9,8 @@ import com.nexohogar.data.remote.dto.RegisterRequest
 import com.nexohogar.domain.model.UserSession
 import com.nexohogar.domain.repository.AuthRepository
 import com.nexohogar.data.model.UpdatePasswordRequest
+import com.nexohogar.data.model.VerifyOtpRequest
+
 
 /**
  * Implementación del repositorio de autenticación.
@@ -108,5 +110,25 @@ class AuthRepositoryImpl(
 
     override fun getCurrentSession(): UserSession? {
         return sessionManager.fetchSession()
+    }
+
+    suspend fun verifyOtp(email: String, code: String): AppResult<String> {
+        return try {
+            val response = authApi.verifyOtp(
+                VerifyOtpRequest(email = email, token = code, type = "recovery")
+            )
+            if (response.isSuccessful) {
+                val accessToken = response.body()?.accessToken
+                if (accessToken != null) {
+                    AppResult.Success(accessToken)
+                } else {
+                    AppResult.Error("No se recibió el token de acceso")
+                }
+            } else {
+                AppResult.Error("Código inválido o expirado")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error de conexión")
+        }
     }
 }
