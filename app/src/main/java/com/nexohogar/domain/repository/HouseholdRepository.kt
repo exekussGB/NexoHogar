@@ -8,6 +8,7 @@ interface HouseholdRepository {
     suspend fun getHouseholds(): AppResult<List<Household>>
     suspend fun createHousehold(name: String): AppResult<Household>
     suspend fun getOrCreateInviteCode(householdId: String): AppResult<String>
+    suspend fun regenerateInviteCode(householdId: String): AppResult<String>
     suspend fun joinHouseholdByCode(inviteCode: String): AppResult<String>
     suspend fun getHouseholdMembers(householdId: String): AppResult<List<HouseholdMember>>
     suspend fun removeHouseholdMember(householdId: String, userId: String): AppResult<Boolean>
