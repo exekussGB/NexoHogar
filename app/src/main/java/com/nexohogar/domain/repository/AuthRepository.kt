@@ -13,4 +13,6 @@ interface AuthRepository {
     suspend fun updatePassword(accessToken: String, newPassword: String): AppResult<Unit>
     suspend fun forgotPassword(email: String): AppResult<Unit>
     fun getCurrentSession(): UserSession?
+
+    suspend fun verifyOtp(email: String, code: String): AppResult<String>
 }

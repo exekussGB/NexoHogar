@@ -12,6 +12,8 @@ import com.nexohogar.data.remote.dto.JoinHouseholdResponse
 import com.nexohogar.data.remote.dto.RemoveMemberResponse
 import com.nexohogar.data.remote.dto.RegisterRequest
 import com.nexohogar.data.model.UpdatePasswordRequest
+import com.nexohogar.data.model.VerifyOtpRequest
+import com.nexohogar.data.model.VerifyOtpResponse
 import retrofit2.http.PUT
 import retrofit2.http.Header
 import retrofit2.Response
@@ -84,4 +86,7 @@ interface AuthApi {
         @Header("Authorization") token: String,
         @Body request: UpdatePasswordRequest
     ): Response<Unit>
+
+    @POST("auth/v1/verify")
+    suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<VerifyOtpResponse>
 }
