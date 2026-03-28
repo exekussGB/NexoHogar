@@ -27,7 +27,7 @@ class AuthRepositoryImpl(
             if (response.isSuccessful) {
                 val body = response.body()
                 val domainSession = body?.toDomain()
-                
+
                 if (domainSession != null) {
                     // Guardamos la sesión exitosa
                     sessionManager.saveSession(domainSession)
@@ -54,7 +54,7 @@ class AuthRepositoryImpl(
             if (response.isSuccessful) {
                 val body = response.body()
                 val domainSession = body?.toDomain()
-                
+
                 if (domainSession != null) {
                     sessionManager.saveSession(domainSession)
                     Result.success(Unit)
@@ -112,7 +112,7 @@ class AuthRepositoryImpl(
         return sessionManager.fetchSession()
     }
 
-    suspend fun verifyOtp(email: String, code: String): AppResult<String> {
+    override suspend fun verifyOtp(email: String, code: String): AppResult<String> {
         return try {
             val response = authApi.verifyOtp(
                 VerifyOtpRequest(email = email, token = code, type = "recovery")

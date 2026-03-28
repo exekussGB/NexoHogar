@@ -3,8 +3,8 @@ package com.nexohogar.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.nexohogar.core.AppResult
-import com.nexohogar.data.repository.AuthRepository
+import com.nexohogar.core.result.AppResult
+import com.nexohogar.domain.repository.AuthRepository
 import com.nexohogar.presentation.ResetPasswordTokenHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +41,7 @@ class VerifyOtpViewModel(
                 is AppResult.Error -> {
                     _state.update { it.copy(isLoading = false, error = result.message) }
                 }
+                is AppResult.Loading -> {}
             }
         }
     }

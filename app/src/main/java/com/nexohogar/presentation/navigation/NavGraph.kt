@@ -123,12 +123,15 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        // ── Reset password ───────────────────────────────────────────────────────
+        // ── Forgot Password ───────────────────────────────────────────────────
         composable(Screen.ForgotPassword.route) {
             val vm = ForgotPasswordViewModel(authRepository)
             ForgotPasswordScreen(
                 viewModel = vm,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToVerifyOtp = { email ->
+                    navController.navigate("verify_otp/${Uri.encode(email)}")
+                }
             )
         }
 

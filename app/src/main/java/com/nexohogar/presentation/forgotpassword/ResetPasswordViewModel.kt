@@ -3,8 +3,8 @@ package com.nexohogar.presentation.forgotpassword
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.repository.AuthRepository
-import com.nexohogar.core.AppResult
 import com.nexohogar.presentation.ResetPasswordTokenHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,22 +29,25 @@ class ResetPasswordViewModel(
     fun resetPassword(newPassword: String) {
         if (accessToken.isBlank()) {
             _uiState.value = _uiState.value.copy(
-                errorMessage = "Token de recuperación no válido. Solicita un nuevo enlace."
+                errorMessage = "Token de recuperación no válido. Solicita un nuevo código."
             )
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            val result = authRepository.updatePassword(accessToken, newPassword)
-            if (result is AppResult.Success<*>) {
-                ResetPasswordTokenHolder.token = null  // Limpiar token usado
-                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-            } else {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = (result as? AppResult.Error)?.message ?: "Error desconocido"
-                )
+            when (val result = authRepository.updatePassword(accessToken, newPassword)) {
+                is AppResult.Success -> {
+                    ResetPasswordTokenHolder.token = null  // Limpiar token usado
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+                }
+                is AppResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = result.message
+                    )
+                }
+                is AppResult.Loading -> {}
             }
         }
     }
