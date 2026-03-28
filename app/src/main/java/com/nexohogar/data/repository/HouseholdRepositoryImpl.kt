@@ -75,10 +75,27 @@ class HouseholdRepositoryImpl(
         }
     }
 
+    // ── NUEVO: Siempre genera un código nuevo ───────────────────────────
+    override suspend fun regenerateInviteCode(householdId: String): AppResult<String> {
+        return try {
+            val response = authApi.regenerateInviteCode(InviteCodeRequest(householdId))
+            if (response.isSuccessful) {
+                val code = response.body()
+                if (!code.isNullOrBlank()) {
+                    AppResult.Success(code.trim('"'))
+                } else {
+                    AppResult.Error("No se recibió código de invitación")
+                }
+            } else {
+                AppResult.Error("Error al regenerar código: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
     /**
      * FIX: La función SQL retorna json_build_object con {success, message}.
-     * Antes se declaraba Response<Unit> y Gson lanzaba
-     * "Expected a string but was BEGIN_OBJECT".
      */
     override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
         return try {
@@ -123,8 +140,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Aceptar miembro pendiente ────────────────────────────────
-
     override suspend fun acceptMember(memberId: String): AppResult<Boolean> {
         return try {
             val response = authApi.acceptMember(mapOf("p_member_id" to memberId))
@@ -137,8 +152,6 @@ class HouseholdRepositoryImpl(
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
-
-    // ── NUEVO: Rechazar miembro pendiente ────────────────────────────────
 
     override suspend fun rejectMember(memberId: String): AppResult<Boolean> {
         return try {
