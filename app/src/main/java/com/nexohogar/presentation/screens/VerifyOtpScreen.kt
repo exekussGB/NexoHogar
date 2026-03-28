@@ -73,7 +73,7 @@ fun VerifyOtpScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Enviamos un código de 6 dígitos a",
+                text = "Enviamos un código de 8 dígitos a",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -91,13 +91,13 @@ fun VerifyOtpScreen(
             OutlinedTextField(
                 value = code,
                 onValueChange = { newValue ->
-                    if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
+                    if (newValue.length <= 8 && newValue.all { it.isDigit() }) {
                         code = newValue
                         viewModel.clearError()
                     }
                 },
                 label = { Text("Código de verificación") },
-                placeholder = { Text("000000") },
+                placeholder = { Text("00000000") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -123,7 +123,7 @@ fun VerifyOtpScreen(
             Button(
                 onClick = { viewModel.verifyOtp(email, code) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = code.length == 6 && !state.isLoading
+                enabled = code.length == 8 && !state.isLoading
             ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(
