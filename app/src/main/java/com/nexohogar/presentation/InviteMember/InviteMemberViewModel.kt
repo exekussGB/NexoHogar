@@ -102,6 +102,43 @@ class InviteMemberViewModel(
         }
     }
 
+    fun acceptMember(memberId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            when (val result = householdRepository.acceptMember(memberId)) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(isProcessing = false) }
+                    loadMembers() // recargar lista
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        error = result.message
+                    )}
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun rejectMember(memberId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            when (val result = householdRepository.rejectMember(memberId)) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(isProcessing = false) }
+                    loadMembers() // recargar lista
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        error = result.message
+                    )}
+                }
+                else -> {}
+            }
+        }
+    }
     fun dismissJoinSuccess() {
         _uiState.value = _uiState.value.copy(joinSuccess = false)
     }

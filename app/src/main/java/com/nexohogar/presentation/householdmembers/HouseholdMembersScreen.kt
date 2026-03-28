@@ -23,9 +23,9 @@ fun HouseholdMembersScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Mostrar mensaje de acción
+    // Snackbar para mensajes de acción
+    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -51,9 +51,13 @@ fun HouseholdMembersScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             when {
-                uiState.isLoading || uiState.isRemoving -> LoadingOverlay()
+                uiState.isLoading -> LoadingOverlay()
 
                 uiState.error != null -> {
                     Column(
@@ -61,123 +65,126 @@ fun HouseholdMembersScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = uiState.error!!,
+                            color = MaterialTheme.colorScheme.error
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMembers() }) { Text("Reintentar") }
+                        Button(onClick = { viewModel.loadMembers() }) {
+                            Text("Reintentar")
+                        }
+                    }
+                }
+
+                uiState.members.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No hay miembros en este hogar.",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
 
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // ── Solicitudes pendientes ──────────────────────────
-                        if (uiState.pendingMembers.isNotEmpty()) {
-                            item {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = Color(0xFFFFF3E0)
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.PersonAdd,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE65100)
-                                        )
-                                        Text(
-                                            "${uiState.pendingMembers.size} solicitud(es) pendiente(s)",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color(0xFFE65100)
-                                        )
-                                    }
-                                }
-                            }
+                    // Separar miembros activos y pendientes
+                    val active  = uiState.members.filter { it.role.lowercase() != "pending" }
+                    val pending = uiState.members.filter { it.role.lowercase() == "pending" }
 
-                            items(uiState.pendingMembers) { member ->
-                                PendingMemberCard(
-                                    member = member,
-                                    onAccept = { viewModel.acceptMember(member) },
-                                    onReject = { viewModel.rejectMember(member) }
-                                )
-                            }
-
-                            item { Spacer(modifier = Modifier.height(8.dp)) }
-                        }
-
-                        // ── Miembros activos ────────────────────────────────
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Group,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        "${uiState.members.size} miembro${if (uiState.members.size != 1) "s" else ""} activo${if (uiState.members.size != 1) "s" else ""}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
-
-                        items(uiState.members) { member ->
-                            MemberCard(
-                                member = member,
-                                isCurrentUserAdmin = uiState.isCurrentUserSuperUser,
-                                isCurrentUser = member.userId == uiState.currentUserId,
-                                onRemove = { viewModel.showRemoveConfirm(member) }
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Contador
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
                             )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Group,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "${active.size} miembro${if (active.size != 1) "s" else ""}${
+                                        if (pending.isNotEmpty()) " · ${pending.size} pendiente${if (pending.size != 1) "s" else ""}" else ""
+                                    }",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Solicitudes pendientes primero
+                            if (pending.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        "⏳ Solicitudes pendientes",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFE65100),
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                    )
+                                }
+                                items(pending) { member ->
+                                    PendingMemberCard(
+                                        member = member,
+                                        isProcessing = uiState.isProcessing,
+                                        onAccept = { viewModel.acceptMember(member.userId) },
+                                        onReject = { viewModel.rejectMember(member.userId) }
+                                    )
+                                }
+                            }
+
+                            if (active.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        "Miembros activos",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                    )
+                                }
+                                items(active) { member ->
+                                    MemberCard(member)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
-
-    // ── Delete confirmation dialog ───────────────────────────────────────────
-    uiState.memberToRemove?.let { member ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissRemoveConfirm,
-            title = { Text("Eliminar miembro") },
-            text = {
-                Text("¿Estás seguro de que quieres eliminar a ${member.label()} del hogar? Esta acción no se puede deshacer.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = viewModel::removeMember,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Eliminar") }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissRemoveConfirm) { Text("Cancelar") }
-            }
-        )
-    }
 }
+
+// ── Card para miembro pendiente con botones Accept/Reject ────────────────
 
 @Composable
 private fun PendingMemberCard(
     member: HouseholdMember,
+    isProcessing: Boolean,
     onAccept: () -> Unit,
     onReject: () -> Unit
 ) {
@@ -185,25 +192,28 @@ private fun PendingMemberCard(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFFDE7)
+            containerColor = Color(0xFFFFF3E0)
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Avatar
                 Surface(
                     shape = MaterialTheme.shapes.large,
-                    color = Color(0xFFFFE082),
+                    color = Color(0xFFFF9800),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Default.PersonAdd,
+                            imageVector = Icons.Default.PersonAdd,
                             contentDescription = null,
-                            tint = Color(0xFFF57F17),
+                            tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -211,39 +221,28 @@ private fun PendingMemberCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        member.label(),
+                        text = member.label(),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        "Solicitud pendiente",
+                        text = "Solicitud pendiente",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFE65100)
-                    )
-                }
-
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = Color(0xFFFFF3E0)
-                ) {
-                    Text(
-                        "Pendiente",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
                         color = Color(0xFFE65100)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // Botones de acción
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
                     onClick = onReject,
+                    enabled = !isProcessing,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -256,55 +255,72 @@ private fun PendingMemberCard(
 
                 Button(
                     onClick = onAccept,
+                    enabled = !isProcessing,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF2E7D32)
                     )
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Aceptar")
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Aceptar")
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-private fun MemberCard(
-    member: HouseholdMember,
-    isCurrentUserAdmin: Boolean,
-    isCurrentUser: Boolean,
-    onRemove: () -> Unit
-) {
-    val isSuperUser = member.role.lowercase() == "super_user" || member.role.lowercase() == "admin"
+// ── Card para miembro activo ─────────────────────────────────────────────
 
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+@Composable
+private fun MemberCard(member: HouseholdMember) {
+    val isAdmin = member.role.lowercase() == "admin"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Surface(
                 shape = MaterialTheme.shapes.large,
-                color = if (isSuperUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                color = if (isAdmin) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (isSuperUser) Icons.Default.Star else Icons.Default.Person,
+                        imageVector = if (isAdmin) Icons.Default.Star else Icons.Default.Person,
                         contentDescription = null,
-                        tint = if (isSuperUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        tint = if (isAdmin) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(member.label(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Text(
+                    text = member.label(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
                 if (member.joinedAt != null) {
                     Text(
-                        "Se unió: ${member.joinedAt.take(10)}",
+                        text = "Se unió: ${member.joinedAt.take(10)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -313,29 +329,15 @@ private fun MemberCard(
 
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = if (isSuperUser) Color(0xFFFFF3E0) else Color(0xFFE8F5E9)
+                color = if (isAdmin) Color(0xFFFFF3E0) else Color(0xFFE8F5E9)
             ) {
                 Text(
-                    text = when (member.role.lowercase()) {
-                        "super_user", "admin" -> "Admin"
-                        "viewer" -> "Visor"
-                        else -> "Miembro"
-                    },
+                    text = if (isAdmin) "Admin" else "Miembro",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isSuperUser) Color(0xFFE65100) else Color(0xFF2E7D32)
+                    color = if (isAdmin) Color(0xFFE65100) else Color(0xFF2E7D32)
                 )
-            }
-
-            if (isCurrentUserAdmin && !isCurrentUser && !isSuperUser) {
-                IconButton(onClick = onRemove) {
-                    Icon(
-                        Icons.Default.RemoveCircleOutline,
-                        contentDescription = "Eliminar miembro",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                    )
-                }
             }
         }
     }

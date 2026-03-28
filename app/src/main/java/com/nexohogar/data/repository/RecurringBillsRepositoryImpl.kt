@@ -3,6 +3,10 @@ package com.nexohogar.data.repository
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.network.RecurringBillsApi
 import com.nexohogar.data.remote.dto.CreateRecurringBillRequest
+import com.nexohogar.data.remote.dto.PayRecurringBillRequest
+import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
+import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
+import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
 import com.nexohogar.domain.model.RecurringBill
@@ -96,6 +100,87 @@ class RecurringBillsRepositoryImpl(
                 AppResult.Success(Unit)
             } else {
                 AppResult.Error("Error al eliminar: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── NUEVO: Pagar con integración contable ───────────────────────────
+
+    override suspend fun payBill(
+        billId: String,
+        householdId: String,
+        amountClp: Long,
+        accountId: String?,
+        notes: String?
+    ): AppResult<Boolean> {
+        return try {
+            val response = api.payRecurringBill(
+                PayRecurringBillRequest(
+                    billId      = billId,
+                    householdId = householdId,
+                    amountClp   = amountClp,
+                    accountId   = accountId,
+                    notes       = notes
+                )
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                AppResult.Error("Error al registrar pago: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── NUEVO: Resumen mensual ──────────────────────────────────────────
+
+    override suspend fun getRecurringSummary(householdId: String): AppResult<RecurringSummaryDto> {
+        return try {
+            val response = api.getRecurringSummary(mapOf("p_household_id" to householdId))
+            if (response.isSuccessful) {
+                val body = response.body()
+                    ?: return AppResult.Error("Sin datos de resumen")
+                AppResult.Success(body)
+            } else {
+                AppResult.Error("Error al obtener resumen: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── NUEVO: Bills con estado ─────────────────────────────────────────
+
+    override suspend fun getBillsWithStatus(householdId: String): AppResult<List<RecurringBillWithStatusDto>> {
+        return try {
+            val response = api.getRecurringBillsWithStatus(mapOf("p_household_id" to householdId))
+            if (response.isSuccessful) {
+                AppResult.Success(response.body() ?: emptyList())
+            } else {
+                AppResult.Error("Error al obtener estado: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── NUEVO: Historial de pagos ───────────────────────────────────────
+
+    override suspend fun getBillHistory(
+        billId: String,
+        householdId: String
+    ): AppResult<List<RecurringBillPaymentDto>> {
+        return try {
+            val response = api.getRecurringBillHistory(
+                mapOf("p_bill_id" to billId, "p_household_id" to householdId)
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(response.body() ?: emptyList())
+            } else {
+                AppResult.Error("Error al obtener historial: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")

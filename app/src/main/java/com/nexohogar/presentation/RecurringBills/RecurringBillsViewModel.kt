@@ -4,123 +4,226 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
+import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
+import com.nexohogar.data.remote.dto.RecurringSummaryDto
+import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.RecurringBill
+import com.nexohogar.domain.repository.AccountsRepository
 import com.nexohogar.domain.repository.RecurringBillsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 data class RecurringBillsUiState(
-    val bills: List<RecurringBill>  = emptyList(),
-    val isLoading: Boolean          = false,
-    val error: String?              = null,
+    val bills: List<RecurringBill>                   = emptyList(),
+    val billsWithStatus: List<RecurringBillWithStatusDto> = emptyList(),
+    val summary: RecurringSummaryDto?                 = null,
+    val accounts: List<Account>                      = emptyList(),
+    val isLoading: Boolean                           = false,
+    val error: String?                               = null,
 
     // Diálogo de creación
-    val showCreateDialog: Boolean   = false,
-    val isCreating: Boolean         = false,
-    val createError: String?        = null,
+    val showCreateDialog: Boolean                    = false,
+    val isCreating: Boolean                          = false,
+    val createError: String?                         = null,
 
-    // Diálogo de confirmación de pago
-    val billToPay: RecurringBill?   = null,
-    val isMarkingPaid: Boolean      = false
+    // Diálogo de pago mejorado
+    val billToPay: RecurringBillWithStatusDto?       = null,
+    val isPayingBill: Boolean                        = false,
+
+    // Historial de pagos
+    val showHistoryFor: RecurringBillWithStatusDto?   = null,
+    val paymentHistory: List<RecurringBillPaymentDto> = emptyList(),
+    val isLoadingHistory: Boolean                     = false
 )
 
 class RecurringBillsViewModel(
     private val repository: RecurringBillsRepository,
+    private val accountsRepository: AccountsRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecurringBillsUiState())
     val uiState: StateFlow<RecurringBillsUiState> = _uiState.asStateFlow()
 
-    init { loadBills() }
+    init {
+        loadAll()
+    }
 
-    // ── Carga ────────────────────────────────────────────────────────────────
+    // ── Carga completa ──────────────────────────────────────────────────────
 
-    fun loadBills() {
+    fun loadAll() {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = repository.getRecurringBills(householdId)) {
-                is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills = result.data.sortedWith(
-                        compareByDescending<RecurringBill> { it.isActive }
-                            .thenBy { it.dueDayOfMonth }
-                    ),
-                    isLoading = false
-                )
-                is AppResult.Error -> _uiState.value = _uiState.value.copy(
-                    error = result.message, isLoading = false
-                )
-                is AppResult.Loading -> Unit
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            // Cargar bills con status, resumen y cuentas en paralelo
+            val billsJob = launch {
+                when (val result = repository.getBillsWithStatus(householdId)) {
+                    is AppResult.Success -> _uiState.update { it.copy(billsWithStatus = result.data) }
+                    is AppResult.Error   -> _uiState.update { it.copy(error = result.message) }
+                    is AppResult.Loading -> Unit
+                }
             }
+            val summaryJob = launch {
+                when (val result = repository.getRecurringSummary(householdId)) {
+                    is AppResult.Success -> _uiState.update { it.copy(summary = result.data) }
+                    is AppResult.Error   -> {} // silencioso
+                    is AppResult.Loading -> Unit
+                }
+            }
+            val accountsJob = launch {
+                when (val result = accountsRepository.getAccounts(householdId)) {
+                    is AppResult.Success -> _uiState.update { it.copy(accounts = result.data) }
+                    is AppResult.Error   -> {} // silencioso
+                    is AppResult.Loading -> Unit
+                }
+            }
+            // También cargar bills originales para crear/editar
+            val legacyJob = launch {
+                when (val result = repository.getRecurringBills(householdId)) {
+                    is AppResult.Success -> _uiState.update { it.copy(bills = result.data) }
+                    is AppResult.Error   -> {}
+                    is AppResult.Loading -> Unit
+                }
+            }
+
+            billsJob.join()
+            summaryJob.join()
+            accountsJob.join()
+            legacyJob.join()
+
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    fun loadBills() = loadAll()
 
     // ── Crear ────────────────────────────────────────────────────────────────
 
     fun onShowCreateDialog() {
-        _uiState.value = _uiState.value.copy(showCreateDialog = true, createError = null)
+        _uiState.update { it.copy(showCreateDialog = true, createError = null) }
     }
 
     fun onDismissCreateDialog() {
-        _uiState.value = _uiState.value.copy(showCreateDialog = false, createError = null)
+        _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
     fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isCreating = true, createError = null)
+            _uiState.update { it.copy(isCreating = true, createError = null) }
             when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes)) {
-                is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills            = (_uiState.value.bills + result.data).sortedWith(
-                        compareByDescending<RecurringBill> { it.isActive }
-                            .thenBy { it.dueDayOfMonth }
-                    ),
-                    isCreating       = false,
-                    showCreateDialog = false
-                )
-                is AppResult.Error -> _uiState.value = _uiState.value.copy(
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(
+                        isCreating       = false,
+                        showCreateDialog = false
+                    )}
+                    loadAll() // Recargar todo
+                }
+                is AppResult.Error -> _uiState.update { it.copy(
                     createError = result.message,
                     isCreating  = false
-                )
+                )}
                 is AppResult.Loading -> Unit
             }
         }
     }
 
-    // ── Marcar como pagado ───────────────────────────────────────────────────
+    // ── Pagar con popup (monto editable) ────────────────────────────────────
 
-    fun confirmMarkAsPaid(bill: RecurringBill) {
-        _uiState.value = _uiState.value.copy(billToPay = bill)
+    fun showPayDialog(bill: RecurringBillWithStatusDto) {
+        _uiState.update { it.copy(billToPay = bill) }
     }
 
     fun dismissPayDialog() {
-        _uiState.value = _uiState.value.copy(billToPay = null)
+        _uiState.update { it.copy(billToPay = null) }
     }
 
-    fun markAsPaid() {
+    /**
+     * Paga una bill con el monto confirmado/editado por el usuario.
+     * Crea la transacción contable automáticamente en la DB.
+     */
+    fun payBill(amountClp: Long, accountId: String?, notes: String?) {
         val bill = _uiState.value.billToPay ?: return
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isMarkingPaid = true)
-            when (val result = repository.markAsPaid(bill.id, today)) {
-                is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills = _uiState.value.bills.map { if (it.id == bill.id) result.data else it },
-                    billToPay     = null,
-                    isMarkingPaid = false
-                )
-                is AppResult.Error -> _uiState.value = _uiState.value.copy(
-                    error         = result.message,
-                    billToPay     = null,
-                    isMarkingPaid = false
-                )
+            _uiState.update { it.copy(isPayingBill = true) }
+            when (val result = repository.payBill(
+                billId      = bill.id,
+                householdId = householdId,
+                amountClp   = amountClp,
+                accountId   = accountId,
+                notes       = notes
+            )) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(
+                        billToPay    = null,
+                        isPayingBill = false
+                    )}
+                    loadAll()
+                }
+                is AppResult.Error -> _uiState.update { it.copy(
+                    error        = result.message,
+                    billToPay    = null,
+                    isPayingBill = false
+                )}
                 is AppResult.Loading -> Unit
             }
         }
+    }
+
+    // ── Marcar como pagado (legacy, simple) ─────────────────────────────────
+
+    fun confirmMarkAsPaid(bill: RecurringBill) {
+        // Redirigir al nuevo flujo buscando en billsWithStatus
+        val withStatus = _uiState.value.billsWithStatus.find { it.id == bill.id }
+        if (withStatus != null) {
+            showPayDialog(withStatus)
+        } else {
+            // Fallback al legacy
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            viewModelScope.launch {
+                when (val result = repository.markAsPaid(bill.id, today)) {
+                    is AppResult.Success -> loadAll()
+                    is AppResult.Error   -> _uiState.update { it.copy(error = result.message) }
+                    is AppResult.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    fun dismissPayDialogLegacy() {
+        _uiState.update { it.copy(billToPay = null) }
+    }
+
+    // ── Historial de pagos ──────────────────────────────────────────────────
+
+    fun showHistory(bill: RecurringBillWithStatusDto) {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+        _uiState.update { it.copy(showHistoryFor = bill, isLoadingHistory = true) }
+        viewModelScope.launch {
+            when (val result = repository.getBillHistory(bill.id, householdId)) {
+                is AppResult.Success -> _uiState.update { it.copy(
+                    paymentHistory   = result.data,
+                    isLoadingHistory = false
+                )}
+                is AppResult.Error -> _uiState.update { it.copy(
+                    isLoadingHistory = false,
+                    error = result.message
+                )}
+                is AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    fun dismissHistory() {
+        _uiState.update { it.copy(showHistoryFor = null, paymentHistory = emptyList()) }
     }
 
     // ── Activar / desactivar ─────────────────────────────────────────────────
@@ -128,10 +231,8 @@ class RecurringBillsViewModel(
     fun toggleActive(bill: RecurringBill) {
         viewModelScope.launch {
             when (val result = repository.toggleActive(bill.id, !bill.isActive)) {
-                is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills = _uiState.value.bills.map { if (it.id == bill.id) result.data else it }
-                )
-                is AppResult.Error -> _uiState.value = _uiState.value.copy(error = result.message)
+                is AppResult.Success -> loadAll()
+                is AppResult.Error -> _uiState.update { it.copy(error = result.message) }
                 is AppResult.Loading -> Unit
             }
         }
@@ -142,10 +243,8 @@ class RecurringBillsViewModel(
     fun deleteBill(bill: RecurringBill) {
         viewModelScope.launch {
             when (repository.deleteRecurringBill(bill.id)) {
-                is AppResult.Success -> _uiState.value = _uiState.value.copy(
-                    bills = _uiState.value.bills.filter { it.id != bill.id }
-                )
-                is AppResult.Error -> { /* silencioso — el item sigue visible */ }
+                is AppResult.Success -> loadAll()
+                is AppResult.Error -> { /* silencioso */ }
                 is AppResult.Loading -> Unit
             }
         }

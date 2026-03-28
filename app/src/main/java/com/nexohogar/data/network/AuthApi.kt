@@ -1,5 +1,6 @@
 package com.nexohogar.data.network
 
+import com.google.gson.JsonObject
 import com.nexohogar.data.model.HouseholdResponse
 import com.nexohogar.data.model.LoginRequest
 import com.nexohogar.data.model.LoginResponse
@@ -8,14 +9,7 @@ import com.nexohogar.data.remote.dto.CreateHouseholdResponse
 import com.nexohogar.data.remote.dto.HouseholdMemberWithEmailDto
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
-import com.nexohogar.data.remote.dto.JoinHouseholdResponse
-import com.nexohogar.data.remote.dto.RemoveMemberResponse
 import com.nexohogar.data.remote.dto.RegisterRequest
-import com.nexohogar.data.model.UpdatePasswordRequest
-import com.nexohogar.data.model.VerifyOtpRequest
-import com.nexohogar.data.model.VerifyOtpResponse
-import retrofit2.http.PUT
-import retrofit2.http.Header
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -25,10 +19,14 @@ import retrofit2.http.Query
 interface AuthApi {
 
     @POST("auth/v1/token?grant_type=password")
-    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
+    suspend fun login(
+        @Body request: LoginRequest
+    ): Response<LoginResponse>
 
     @POST("auth/v1/signup")
-    suspend fun register(@Body request: RegisterRequest): Response<LoginResponse>
+    suspend fun register(
+        @Body request: RegisterRequest
+    ): Response<LoginResponse>
 
     @GET("rest/v1/households")
     suspend fun getHouseholds(
@@ -45,53 +43,29 @@ interface AuthApi {
         @Body request: InviteCodeRequest
     ): Response<String>
 
-    @POST("rest/v1/rpc/regenerate_invite_code")
-    suspend fun regenerateInviteCode(
-        @Body request: InviteCodeRequest
-    ): Response<String>
-
+    /**
+     * FIX: Retorna JsonObject (antes Unit) porque la función SQL
+     * retorna json_build_object con success/message.
+     */
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest
-    ): Response<JoinHouseholdResponse>
+    ): Response<JsonObject>
 
     @POST("rest/v1/rpc/get_members_with_email")
     suspend fun getHouseholdMembersWithEmail(
         @Body request: Map<String, String>
     ): Response<List<HouseholdMemberWithEmailDto>>
 
-    @POST("rest/v1/rpc/remove_household_member")
-    suspend fun removeHouseholdMember(
-        @Body request: Map<String, String>
-    ): Response<RemoveMemberResponse>
-
-    // ── Solicitudes pendientes ────────────────────────────────────────────
-    @POST("rest/v1/rpc/rpc_get_pending_members")
-    suspend fun getPendingMembers(
-        @Body request: Map<String, String>
-    ): Response<List<HouseholdMemberWithEmailDto>>
+    // ── NUEVO: Aceptar / Rechazar miembros ──────────────────────────────
 
     @POST("rest/v1/rpc/rpc_accept_member")
     suspend fun acceptMember(
         @Body request: Map<String, String>
-    ): Response<Boolean>
+    ): Response<JsonObject>
 
     @POST("rest/v1/rpc/rpc_reject_member")
     suspend fun rejectMember(
         @Body request: Map<String, String>
-    ): Response<Boolean>
-
-    @POST("auth/v1/recover")
-    suspend fun forgotPassword(
-        @Body request: Map<String, String>
-    ): Response<Unit>
-
-    @PUT("auth/v1/user")
-    suspend fun updatePassword(
-        @Header("Authorization") token: String,
-        @Body request: UpdatePasswordRequest
-    ): Response<Unit>
-
-    @POST("auth/v1/verify")
-    suspend fun verifyOtp(@Body request: VerifyOtpRequest): Response<VerifyOtpResponse>
+    ): Response<JsonObject>
 }

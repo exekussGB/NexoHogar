@@ -75,38 +75,25 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    override suspend fun regenerateInviteCode(householdId: String): AppResult<String> {
-        return try {
-            val response = authApi.regenerateInviteCode(InviteCodeRequest(householdId))
-            if (response.isSuccessful) {
-                val code = response.body()
-                if (!code.isNullOrBlank()) {
-                    AppResult.Success(code.trim('"'))
-                } else {
-                    AppResult.Error("No se recibió código de invitación")
-                }
-            } else {
-                val error = response.errorBody()?.string() ?: ""
-                if (error.contains("permisos", ignoreCase = true)) {
-                    AppResult.Error("No tienes permisos para regenerar el código")
-                } else {
-                    AppResult.Error("Error al regenerar código: ${response.code()}")
-                }
-            }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error desconocido")
-        }
-    }
-
-    override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<String> {
+    /**
+     * FIX: La función SQL retorna json_build_object con {success, message}.
+     * Antes se declaraba Response<Unit> y Gson lanzaba
+     * "Expected a string but was BEGIN_OBJECT".
+     */
+    override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
         return try {
             val response = authApi.joinHouseholdByCode(
                 JoinHouseholdRequest(inviteCode.trim().uppercase())
             )
             if (response.isSuccessful) {
-                val message = response.body()?.message
-                    ?: "Solicitud enviada. El administrador debe aprobarla."
-                AppResult.Success(message)
+                val body = response.body()
+                val success = body?.get("success")?.asBoolean ?: true
+                if (success) {
+                    AppResult.Success(true)
+                } else {
+                    val msg = body?.get("message")?.asString ?: "Error al unirse"
+                    AppResult.Error(msg)
+                }
             } else {
                 val errorMsg = when (response.code()) {
                     400 -> "Código de invitación inválido o expirado"
@@ -136,43 +123,7 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    override suspend fun removeHouseholdMember(householdId: String, userId: String): AppResult<Boolean> {
-        return try {
-            val response = authApi.removeHouseholdMember(
-                mapOf("p_household_id" to householdId, "p_member_user_id" to userId)
-            )
-            if (response.isSuccessful) {
-                AppResult.Success(true)
-            } else {
-                val error = response.errorBody()?.string() ?: "Error desconocido"
-                AppResult.Error(
-                    if (error.contains("administrador", ignoreCase = true))
-                        "Solo el administrador puede eliminar miembros"
-                    else "Error al eliminar miembro: ${response.code()}"
-                )
-            }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al eliminar miembro")
-        }
-    }
-
-    // ── Solicitudes pendientes ────────────────────────────────────────────────
-
-    override suspend fun getPendingMembers(householdId: String): AppResult<List<HouseholdMember>> {
-        return try {
-            val response = authApi.getPendingMembers(
-                mapOf("p_household_id" to householdId)
-            )
-            if (response.isSuccessful) {
-                val members = response.body()?.map { it.toDomain() } ?: emptyList()
-                AppResult.Success(members)
-            } else {
-                AppResult.Error("Error al obtener solicitudes: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error desconocido")
-        }
-    }
+    // ── NUEVO: Aceptar miembro pendiente ────────────────────────────────
 
     override suspend fun acceptMember(memberId: String): AppResult<Boolean> {
         return try {
@@ -183,9 +134,11 @@ class HouseholdRepositoryImpl(
                 AppResult.Error("Error al aceptar miembro: ${response.code()}")
             }
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al aceptar miembro")
+            AppResult.Error(e.message ?: "Error desconocido")
         }
     }
+
+    // ── NUEVO: Rechazar miembro pendiente ────────────────────────────────
 
     override suspend fun rejectMember(memberId: String): AppResult<Boolean> {
         return try {
@@ -196,7 +149,7 @@ class HouseholdRepositoryImpl(
                 AppResult.Error("Error al rechazar miembro: ${response.code()}")
             }
         } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error al rechazar miembro")
+            AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 }
