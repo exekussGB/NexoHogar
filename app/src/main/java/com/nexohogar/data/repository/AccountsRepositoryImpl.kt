@@ -40,6 +40,39 @@ class AccountsRepositoryImpl(
     }
 
     /**
+     * Obtiene las cuentas como List<Account> para selectores (ej: popup de pago).
+     * Reutiliza la vista account_balances y mapea a Account.
+     */
+    override suspend fun getAccounts(
+        householdId: String
+    ): AppResult<List<Account>> {
+        return try {
+            val balances = accountsApi.getBalances(
+                householdId = "eq.$householdId"
+            )
+            val accounts = balances
+                .filter { dto ->
+                    !dto.accountName.lowercase().contains("system") &&
+                            !dto.accountName.startsWith("_")
+                }
+                .map { dto ->
+                    Account(
+                        id          = dto.accountId,
+                        name        = dto.accountName,
+                        type        = dto.accountType,
+                        balance     = dto.balanceClp.toLong(),
+                        householdId = householdId,
+                        isShared    = dto.isShared,
+                        ownerUserId = dto.ownerUserId
+                    )
+                }
+            AppResult.Success(accounts)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al obtener cuentas")
+        }
+    }
+
+    /**
      * Retorna true si el usuario tiene al menos una cuenta personal (is_shared = false).
      */
     override suspend fun hasPersonalAccounts(
