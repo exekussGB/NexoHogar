@@ -45,6 +45,11 @@ interface AuthApi {
         @Body request: InviteCodeRequest
     ): Response<String>
 
+    @POST("rest/v1/rpc/regenerate_invite_code")
+    suspend fun regenerateInviteCode(
+        @Body request: InviteCodeRequest
+    ): Response<String>
+
     @POST("rest/v1/rpc/join_household_by_code")
     suspend fun joinHouseholdByCode(
         @Body request: JoinHouseholdRequest

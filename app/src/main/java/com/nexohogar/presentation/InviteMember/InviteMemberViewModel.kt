@@ -53,6 +53,24 @@ class InviteMemberViewModel(
         }
     }
 
+    fun regenerateInviteCode() {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingCode = true, codeError = null)
+            when (val result = householdRepository.regenerateInviteCode(householdId)) {
+                is AppResult.Success -> _uiState.value = _uiState.value.copy(
+                    inviteCode    = result.data,
+                    isLoadingCode = false
+                )
+                is AppResult.Error   -> _uiState.value = _uiState.value.copy(
+                    codeError     = result.message,
+                    isLoadingCode = false
+                )
+                is AppResult.Loading -> Unit
+            }
+        }
+    }
+
     fun onJoinInputChange(value: String) {
         _uiState.value = _uiState.value.copy(
             joinInput   = value.uppercase().take(8),

@@ -75,6 +75,29 @@ class HouseholdRepositoryImpl(
         }
     }
 
+    override suspend fun regenerateInviteCode(householdId: String): AppResult<String> {
+        return try {
+            val response = authApi.regenerateInviteCode(InviteCodeRequest(householdId))
+            if (response.isSuccessful) {
+                val code = response.body()
+                if (!code.isNullOrBlank()) {
+                    AppResult.Success(code.trim('"'))
+                } else {
+                    AppResult.Error("No se recibió código de invitación")
+                }
+            } else {
+                val error = response.errorBody()?.string() ?: ""
+                if (error.contains("permisos", ignoreCase = true)) {
+                    AppResult.Error("No tienes permisos para regenerar el código")
+                } else {
+                    AppResult.Error("Error al regenerar código: ${response.code()}")
+                }
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
     override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<String> {
         return try {
             val response = authApi.joinHouseholdByCode(
