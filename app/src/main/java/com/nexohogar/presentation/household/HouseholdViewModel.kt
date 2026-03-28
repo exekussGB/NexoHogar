@@ -107,7 +107,7 @@ class HouseholdViewModel(
                             isJoining      = false,
                             showJoinDialog = false,
                             joinSuccess    = true,
-                            joinMessage    = result.data
+                            joinMessage    = if (result.data) "¡Te uniste exitosamente!" else "Solicitud enviada, espera aprobación"
                         )
                     }
                     // Recargar hogares por si fue aceptado automáticamente

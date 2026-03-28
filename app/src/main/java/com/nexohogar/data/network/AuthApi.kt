@@ -4,6 +4,9 @@ import com.google.gson.JsonObject
 import com.nexohogar.data.model.HouseholdResponse
 import com.nexohogar.data.model.LoginRequest
 import com.nexohogar.data.model.LoginResponse
+import com.nexohogar.data.model.UpdatePasswordRequest
+import com.nexohogar.data.model.VerifyOtpRequest
+import com.nexohogar.data.model.VerifyOtpResponse
 import com.nexohogar.data.remote.dto.CreateHouseholdRequest
 import com.nexohogar.data.remote.dto.CreateHouseholdResponse
 import com.nexohogar.data.remote.dto.HouseholdMemberWithEmailDto
@@ -13,6 +16,7 @@ import com.nexohogar.data.remote.dto.RegisterRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -27,6 +31,26 @@ interface AuthApi {
     suspend fun register(
         @Body request: RegisterRequest
     ): Response<LoginResponse>
+
+    // ── Recuperación de contraseña ───────────────────────────────────────
+
+    @POST("auth/v1/recover")
+    suspend fun forgotPassword(
+        @Body body: Map<String, String>
+    ): Response<JsonObject>
+
+    @POST("auth/v1/verify")
+    suspend fun verifyOtp(
+        @Body request: VerifyOtpRequest
+    ): Response<VerifyOtpResponse>
+
+    @POST("auth/v1/user")
+    suspend fun updatePassword(
+        @Header("Authorization") token: String,
+        @Body request: UpdatePasswordRequest
+    ): Response<JsonObject>
+
+    // ── Household ────────────────────────────────────────────────────────
 
     @GET("rest/v1/households")
     suspend fun getHouseholds(
@@ -57,7 +81,7 @@ interface AuthApi {
         @Body request: Map<String, String>
     ): Response<List<HouseholdMemberWithEmailDto>>
 
-    // ── NUEVO: Aceptar / Rechazar miembros ──────────────────────────────
+    // ── Aceptar / Rechazar miembros ─────────────────────────────────────
 
     @POST("rest/v1/rpc/rpc_accept_member")
     suspend fun acceptMember(
