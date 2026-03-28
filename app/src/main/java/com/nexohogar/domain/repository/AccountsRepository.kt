@@ -6,6 +6,7 @@ import com.nexohogar.domain.model.AccountBalance
 
 interface AccountsRepository {
     suspend fun getAccountBalances(householdId: String): AppResult<List<AccountBalance>>
+    suspend fun getAccounts(householdId: String): AppResult<List<Account>>
     suspend fun createAccount(
         householdId: String,
         name: String,

@@ -84,6 +84,20 @@ data class RecurringBill(
             else                  -> "Día $dueDayOfMonth"
         }
     }
+
+    /**
+     * Estado con nombres descriptivos, usado por RecurringBillsScreen.
+     */
+    fun status(): RecurringBillStatus {
+        if (!isActive) return RecurringBillStatus.INACTIVE
+        val days = daysUntilDue()
+        return when {
+            days == Int.MAX_VALUE -> RecurringBillStatus.PAID
+            days < 0              -> RecurringBillStatus.OVERDUE
+            days <= 3             -> RecurringBillStatus.DUE_SOON
+            else                  -> RecurringBillStatus.OK
+        }
+    }
 }
 
 enum class BillStatus {
@@ -91,4 +105,13 @@ enum class BillStatus {
     YELLOW,   // faltan ≤ 3 días
     RED,      // vencido
     INACTIVE  // cuenta desactivada
+}
+
+/** Estado descriptivo para la UI de RecurringBillsScreen */
+enum class RecurringBillStatus {
+    PAID,      // pagado este mes
+    OK,        // al día, faltan > 3 días
+    DUE_SOON,  // faltan ≤ 3 días
+    OVERDUE,   // vencido sin pagar
+    INACTIVE   // cuenta pausada
 }
