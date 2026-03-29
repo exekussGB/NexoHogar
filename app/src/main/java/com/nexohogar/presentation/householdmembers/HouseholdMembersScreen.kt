@@ -98,8 +98,8 @@ fun HouseholdMembersScreen(
 
                 else -> {
                     // Separar miembros activos y pendientes
-                    val active  = uiState.members.filter { it.role.lowercase() != "pending" }
-                    val pending = uiState.members.filter { it.role.lowercase() == "pending" }
+                    val active  = uiState.members.filter { !it.isPending }
+                    val pending = uiState.members.filter { it.isPending }
 
                     Column(modifier = Modifier.fillMaxSize()) {
                         // Contador
