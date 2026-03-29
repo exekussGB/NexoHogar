@@ -28,7 +28,7 @@ data class HouseholdUiState(
     val isJoining: Boolean           = false,
     val joinError: String?           = null,
     val joinSuccess: Boolean         = false,
-    val joinMessage: String?         = null  // Mensaje del servidor (ej: "Solicitud enviada...")
+    val joinMessage: String?         = null
 )
 
 class HouseholdViewModel(
