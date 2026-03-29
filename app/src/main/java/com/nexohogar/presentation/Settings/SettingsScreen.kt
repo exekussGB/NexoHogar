@@ -14,21 +14,77 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
+import com.nexohogar.domain.repository.HouseholdRepository
+import com.nexohogar.presentation.household.DeleteHouseholdConfirmDialog
+import com.nexohogar.presentation.household.DeleteHouseholdFirstDialog
+import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 import com.nexohogar.service.FcmTokenManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     sessionManager: SessionManager,
+    deleteHouseholdViewModel: DeleteHouseholdViewModel,
+    householdRepository: HouseholdRepository,
+    tenantContext: TenantContext,
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
     onChangeHousehold: () -> Unit,
-    onViewMembers: () -> Unit
+    onViewMembers: () -> Unit,
+    onHouseholdDeleted: () -> Unit
 ) {
     val session = remember { sessionManager.fetchSession() }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // ── Datos del hogar cargados internamente ───────────────────────────────
+    val householdId = remember { tenantContext.getCurrentHouseholdId() ?: "" }
+    var householdName by remember { mutableStateOf("") }
+    var userRole by remember { mutableStateOf("") }
+    var dataLoaded by remember { mutableStateOf(false) }
+
+    // Cargar nombre del hogar y rol del usuario al entrar
+    LaunchedEffect(householdId) {
+        if (householdId.isBlank()) return@LaunchedEffect
+
+        // Obtener nombre del hogar
+        when (val result = householdRepository.getHouseholds()) {
+            is AppResult.Success -> {
+                householdName = result.data
+                    .firstOrNull { it.id == householdId }
+                    ?.name ?: ""
+            }
+            is AppResult.Error -> { /* nombre queda vacío */ }
+        }
+
+        // Obtener rol del usuario actual
+        val currentUserId = tenantContext.getCurrentUserId()
+        if (currentUserId != null) {
+            when (val result = householdRepository.getHouseholdMembers(householdId)) {
+                is AppResult.Success -> {
+                    userRole = result.data
+                        .firstOrNull { it.userId == currentUserId }
+                        ?.role ?: ""
+                }
+                is AppResult.Error -> { /* rol queda vacío */ }
+            }
+        }
+
+        dataLoaded = true
+    }
+
+    // ── Estado del flujo de eliminación ──────────────────────────────────────
+    val deleteState by deleteHouseholdViewModel.uiState.collectAsState()
+
+    // Cuando se elimina exitosamente → navegar a pantalla de hogares
+    LaunchedEffect(deleteState.isDeleted) {
+        if (deleteState.isDeleted) {
+            onHouseholdDeleted()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -116,6 +172,22 @@ fun SettingsScreen(
                 subtitle  = "Usuarios y solicitudes pendientes",
                 onClick   = onViewMembers
             )
+
+            // ── Eliminar hogar (solo super_user, y solo si ya se cargaron datos) ─
+            if (dataLoaded && userRole == "super_user") {
+                SettingsItem(
+                    icon      = Icons.Default.DeleteForever,
+                    iconColor = MaterialTheme.colorScheme.error,
+                    title     = "Eliminar hogar",
+                    subtitle  = "Eliminar \"$householdName\" y todos sus datos",
+                    onClick   = {
+                        deleteHouseholdViewModel.startDeleteFlow(
+                            householdId = householdId,
+                            householdName = householdName
+                        )
+                    }
+                )
+            }
 
             // ── Sección: Aplicación ──────────────────────────────────────────
             SectionLabel("Aplicación")
@@ -222,6 +294,25 @@ fun SettingsScreen(
                     Text("Cancelar")
                 }
             }
+        )
+    }
+
+    // ── Diálogos de eliminación de hogar ─────────────────────────────────────
+    if (deleteState.showFirstDialog) {
+        DeleteHouseholdFirstDialog(
+            householdName = deleteState.householdName,
+            onConfirm     = { deleteHouseholdViewModel.confirmFirstStep() },
+            onDismiss     = { deleteHouseholdViewModel.cancelDelete() }
+        )
+    }
+
+    if (deleteState.showConfirmDialog) {
+        DeleteHouseholdConfirmDialog(
+            householdName = deleteState.householdName,
+            isDeleting    = deleteState.isDeleting,
+            errorMessage  = deleteState.errorMessage,
+            onConfirm     = { typedName -> deleteHouseholdViewModel.confirmDelete(typedName) },
+            onDismiss     = { deleteHouseholdViewModel.cancelDelete() }
         )
     }
 }

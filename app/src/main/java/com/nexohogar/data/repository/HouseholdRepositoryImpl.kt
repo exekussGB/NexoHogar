@@ -19,8 +19,8 @@ class HouseholdRepositoryImpl(
             if (response.isSuccessful) {
                 val households = response.body()?.map { dto ->
                     Household(
-                        id          = dto.id,
-                        name        = dto.name,
+                        id = dto.id,
+                        name = dto.name,
                         description = dto.description
                     )
                 } ?: emptyList()
@@ -41,8 +41,8 @@ class HouseholdRepositoryImpl(
                 if (body != null) {
                     AppResult.Success(
                         Household(
-                            id          = body.id,
-                            name        = body.name,
+                            id = body.id,
+                            name = body.name,
                             description = body.description
                         )
                     )
@@ -160,6 +160,34 @@ class HouseholdRepositoryImpl(
                 AppResult.Success(true)
             } else {
                 AppResult.Error("Error al rechazar miembro: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── NUEVO: Eliminar hogar (llama a la RPC delete_household) ──────────
+    override suspend fun deleteHousehold(
+        householdId: String,
+        confirmName: String
+    ): AppResult<Boolean> {
+        return try {
+            val response = authApi.deleteHousehold(
+                mapOf(
+                    "p_household_id" to householdId,
+                    "p_confirm_name" to confirmName
+                )
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(true)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val message = when (response.code()) {
+                    403 -> "No tienes permisos para eliminar este hogar"
+                    400 -> "El nombre ingresado no coincide con el hogar"
+                    else -> errorBody ?: "Error al eliminar hogar: ${response.code()}"
+                }
+                AppResult.Error(message)
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")

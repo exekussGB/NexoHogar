@@ -13,4 +13,5 @@ interface HouseholdRepository {
     suspend fun getHouseholdMembers(householdId: String): AppResult<List<HouseholdMember>>
     suspend fun acceptMember(memberId: String): AppResult<Boolean>
     suspend fun rejectMember(memberId: String): AppResult<Boolean>
+    suspend fun deleteHousehold(householdId: String, confirmName: String): AppResult<Boolean>
 }
