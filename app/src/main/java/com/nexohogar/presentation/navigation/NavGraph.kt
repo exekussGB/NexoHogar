@@ -50,7 +50,7 @@ import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
 import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
 import android.net.Uri
 import com.nexohogar.presentation.screens.VerifyOtpScreen
-
+import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 
 
 // ---------------------------------------------------------------------------
@@ -136,14 +136,33 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // ── Register ───────────────────────────────────────────────────────
-        composable(Screen.Register.route) {
-            val vm = RegisterViewModel(authRepository, sessionManager)
-            RegisterScreen(
-                viewModel         = vm,
-                onNavigateToLogin = { navController.popBackStack() },
-                onRegisterSuccess = {
+        composable(Screen.Settings.route) {
+            val deleteHouseholdViewModel = remember {
+                DeleteHouseholdViewModel(householdRepository)
+            }
+            SettingsScreen(
+                sessionManager          = sessionManager,
+                deleteHouseholdViewModel = deleteHouseholdViewModel,
+                householdRepository     = householdRepository,
+                tenantContext            = tenantContext,
+                onNavigateBack          = { navController.popBackStack() },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onChangeHousehold = {
                     navController.navigate(Screen.Household.route) {
-                        popUpTo(Screen.Register.route) { inclusive = true }
+                        popUpTo(Screen.Household.route) { inclusive = true }
+                    }
+                },
+                onViewMembers = {
+                    navController.navigate(Screen.HouseholdMembers.route)
+                },
+                onHouseholdDeleted = {
+                    // Tras eliminar el hogar, ir a la pantalla de selección de hogar
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             )

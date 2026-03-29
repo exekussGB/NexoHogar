@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.domain.repository.AuthRepository
 import com.nexohogar.data.local.SessionManager
+import com.nexohogar.core.util.PasswordValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -29,9 +30,9 @@ class RegisterViewModel(
             )
             return
         }
-        if (password.length < 6) {
+        if (!PasswordValidator.validate(password).meetsMinimum) {
             _uiState.value = _uiState.value.copy(
-                errorMessage = "La contraseña debe tener al menos 6 caracteres"
+                errorMessage = "La contraseña no cumple los requisitos mínimos de seguridad"
             )
             return
         }

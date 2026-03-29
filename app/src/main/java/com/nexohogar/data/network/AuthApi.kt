@@ -97,4 +97,9 @@ interface AuthApi {
     suspend fun rejectMember(
         @Body request: Map<String, String>
     ): Response<JsonObject>
+
+    @POST("rest/v1/rpc/delete_household")
+    suspend fun deleteHousehold(
+        @Body params: Map<String, String>
+    ): Response<Void>
 }

@@ -20,6 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.core.util.PasswordValidator
+import com.nexohogar.presentation.components.PasswordStrengthIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,6 +115,12 @@ fun ResetPasswordScreen(
                 enabled = !uiState.isLoading
             )
 
+            // Indicador visual de fortaleza de contraseña
+            if (password.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                PasswordStrengthIndicator(password = password)
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
@@ -139,9 +147,10 @@ fun ResetPasswordScreen(
 
             Button(
                 onClick = {
+                    val validationResult = PasswordValidator.validate(password)
                     when {
-                        password.length < 6 ->
-                            Toast.makeText(context, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
+                        !validationResult.meetsMinimum ->
+                            Toast.makeText(context, "La contraseña no cumple los requisitos mínimos", Toast.LENGTH_SHORT).show()
                         password != confirmPassword ->
                             Toast.makeText(context, "Las contraseñas no coinciden", Toast.LENGTH_SHORT).show()
                         else -> viewModel.resetPassword(password)

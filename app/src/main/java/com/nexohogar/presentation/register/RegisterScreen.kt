@@ -15,6 +15,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nexohogar.presentation.components.LoadingOverlay
+import com.nexohogar.presentation.components.PasswordStrengthIndicator
+import com.nexohogar.core.util.PasswordValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +58,7 @@ fun RegisterScreen(
     fun validatePassword(): Boolean {
         passwordError = when {
             password.isBlank() -> "La contraseña es obligatoria"
-            password.length < 6 -> "Mínimo 6 caracteres"
+            !PasswordValidator.validate(password).meetsMinimum -> "La contraseña no cumple los requisitos mínimos"
             else -> null
         }
         return passwordError == null
@@ -136,6 +138,12 @@ fun RegisterScreen(
                     isError = passwordError != null,
                     supportingText = passwordError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
                 )
+
+                // Indicador visual de fortaleza de contraseña
+                if (password.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PasswordStrengthIndicator(password = password)
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
