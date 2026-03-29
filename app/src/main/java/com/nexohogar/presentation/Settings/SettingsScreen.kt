@@ -58,6 +58,7 @@ fun SettingsScreen(
                     ?.name ?: ""
             }
             is AppResult.Error -> { /* nombre queda vacío */ }
+            is AppResult.Loading -> { /* esperando */ }
         }
 
         // Obtener rol del usuario actual
@@ -70,6 +71,7 @@ fun SettingsScreen(
                         ?.role ?: ""
                 }
                 is AppResult.Error -> { /* rol queda vacío */ }
+                is AppResult.Loading -> { /* esperando */ }
             }
         }
 

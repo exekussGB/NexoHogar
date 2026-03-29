@@ -310,25 +310,6 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ── Settings ───────────────────────────────────────────────────────
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                sessionManager    = sessionManager,
-                onNavigateBack    = { navController.popBackStack() },
-                onLogout          = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                onChangeHousehold = {
-                    navController.navigate(Screen.Household.route) {
-                        popUpTo(Screen.Hub.route) { inclusive = true }
-                    }
-                },
-                onViewMembers = { navController.navigate(Screen.HouseholdMembers.route) }
-            )
-        }
-
         // ── HouseholdMembers ───────────────────────────────────────────────
         composable(Screen.HouseholdMembers.route) {
             val vm = HouseholdMembersViewModel(householdRepository, tenantContext)
