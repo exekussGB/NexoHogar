@@ -2,6 +2,7 @@ package com.nexohogar.data.network
 
 import com.nexohogar.data.remote.dto.AccountNameDto
 import com.nexohogar.data.remote.dto.TransactionDetailDto
+import com.nexohogar.data.remote.dto.TransactionResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -29,7 +30,7 @@ interface TransactionDetailApi {
         @Query("limit") limit: Int = 10,
         @Query("order") order: String = "transaction_date.desc",
         @Query("select") select: String = "id,type,description,transaction_date,amount_clp,status,account_id,to_account_id"
-    ): Response<List<TransactionDto>>
+    ): Response<List<TransactionResponse>>
     @GET("rest/v1/accounts")
     suspend fun getAccountName(
         @Query("id")     idFilter: String,
