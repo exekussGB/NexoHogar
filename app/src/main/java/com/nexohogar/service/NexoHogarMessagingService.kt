@@ -98,6 +98,13 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
         val type = message.data["type"] ?: "general"
 
         if (body.isNotBlank()) {
+            // Verificar preferencias de notificación del usuario
+            val notifPrefs = ServiceLocator.notificationPreferences
+            if (!notifPrefs.isTypeEnabled(type)) {
+                Log.d(TAG, "Notificación tipo '$type' deshabilitada por el usuario")
+                return
+            }
+
             val channelId = when (type) {
                 "member_request", "member_decision", "household_join" -> CHANNEL_HOUSEHOLD
                 "recurring_bill" -> CHANNEL_BILLS

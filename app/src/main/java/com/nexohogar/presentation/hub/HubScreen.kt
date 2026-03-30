@@ -137,17 +137,17 @@ fun HubScreen(
         Spacer(modifier = Modifier.height(52.dp))
 
         Text(
-            text       = if (householdName.isNotBlank()) householdName else "Mi hogar",
-            style      = MaterialTheme.typography.labelMedium,
+            text       = if (householdName.isNotBlank()) "Estás en '$householdName'" else "Mi hogar",
+            style      = MaterialTheme.typography.headlineMedium,
             color      = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text       = "¿Qué quieres hacer?",
-            style      = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color      = MaterialTheme.colorScheme.onBackground
+            style      = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Medium,
+            color      = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
         )
 
         Spacer(modifier = Modifier.height(28.dp))

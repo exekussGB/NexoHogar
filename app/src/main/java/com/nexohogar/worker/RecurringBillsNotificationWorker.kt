@@ -34,6 +34,11 @@ class RecurringBillsNotificationWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            // Si el usuario deshabilitó notificaciones de gastos recurrentes, no hacer nada
+            if (!ServiceLocator.notificationPreferences.billsEnabled) {
+                return Result.success()
+            }
+
             createNotificationChannel()
 
             val householdId = ServiceLocator.sessionManager.fetchSelectedHouseholdId()

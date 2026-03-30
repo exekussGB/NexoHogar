@@ -53,6 +53,11 @@ import com.nexohogar.presentation.screens.VerifyOtpScreen
 import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialListScreen
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.nexohogar.core.result.AppResult
 
 // ---------------------------------------------------------------------------
 // Rutas de la app
@@ -219,8 +224,21 @@ fun NavGraph(navController: NavHostController) {
 
         // ── Hub ────────────────────────────────────────────────────────────
         composable(Screen.Hub.route) {
+            var hubHouseholdName by remember { mutableStateOf("") }
+            val hubHouseholdId = remember { tenantContext.getCurrentHouseholdId() ?: "" }
+            LaunchedEffect(hubHouseholdId) {
+                if (hubHouseholdId.isNotBlank()) {
+                    when (val result = householdRepository.getHouseholds()) {
+                        is AppResult.Success -> {
+                            hubHouseholdName = result.data
+                                .firstOrNull { it.id == hubHouseholdId }?.name ?: ""
+                        }
+                        else -> {}
+                    }
+                }
+            }
             HubScreen(
-                householdName              = "",
+                householdName              = hubHouseholdName,
                 onNavigateToDashboard      = { navController.navigate(Screen.Dashboard.route) },
                 onNavigateToTransactions   = { navController.navigate(Screen.Transactions.route) },
                 onNavigateToAddMovement    = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },

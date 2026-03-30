@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.navigation.compose.rememberNavController
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.navigation.NavGraph
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.nexohogar.presentation.theme.NexoHogarTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,7 +23,14 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
 
         setContent {
-            NexoHogarTheme {
+            val themeMode = ServiceLocator.themePreferences.themeMode
+            val systemDark = isSystemInDarkTheme()
+            val useDarkTheme = when (themeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> systemDark
+            }
+            NexoHogarTheme(darkTheme = useDarkTheme) {
                 val navController = rememberNavController()
                 val nav = pendingNavigation.value
 

@@ -14,6 +14,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.data.local.ThemePreferences
+import com.nexohogar.data.local.NotificationPreferences
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -42,6 +44,15 @@ object ServiceLocator {
     // ── Tutorial ──────────────────────────────────────────────────────────
     val tutorialManager: TutorialManager by lazy {
         TutorialManager(context)
+    }
+
+    // ── Theme & Notifications ─────────────────────────────────────────
+    val themePreferences: ThemePreferences by lazy {
+        ThemePreferences(context)
+    }
+
+    val notificationPreferences: NotificationPreferences by lazy {
+        NotificationPreferences(context)
     }
 
     // ── Network ───────────────────────────────────────────────────────────────
