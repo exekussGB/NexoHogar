@@ -470,6 +470,30 @@ val householdTutorialSteps = listOf(
     )
 )
 
+val inviteMemberTutorialSteps = listOf(
+    TutorialStep(
+        title = "Invitar miembros 👥",
+        description = "Desde aquí puedes compartir tu hogar con familiares o compañeros. Genera un código de invitación y compártelo.",
+        icon = Icons.Default.PersonAdd,
+        iconColor = Color(0xFF0097A7),
+        iconBgColor = Color(0xFFE0F7FA)
+    ),
+    TutorialStep(
+        title = "Código de invitación",
+        description = "Tu código es único para tu hogar. Cópialo y envíalo por WhatsApp, mensaje o como prefieras. La otra persona lo ingresa en su app para unirse.",
+        icon = Icons.Default.Share,
+        iconColor = Color(0xFF1565C0),
+        iconBgColor = Color(0xFFE3F2FD)
+    ),
+    TutorialStep(
+        title = "Unirse a otro hogar",
+        description = "Si alguien te compartió un código, ingrésalo en la sección inferior para unirte a su hogar. ¡Así de fácil!",
+        icon = Icons.Default.GroupAdd,
+        iconColor = Color(0xFF2E7D32),
+        iconBgColor = Color(0xFFE8F5E9)
+    )
+)
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Sobrecarga de compatibilidad: acepta TutorialModule + callbacks
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -482,6 +506,7 @@ private fun stepsForModule(module: TutorialModule): List<TutorialStep> = when (m
     TutorialModule.INVENTORY       -> inventoryTutorialSteps
     TutorialModule.RECURRING_BILLS -> recurringBillsTutorialSteps
     TutorialModule.HOUSEHOLD       -> householdTutorialSteps
+    TutorialModule.INVITE_MEMBER   -> inviteMemberTutorialSteps
 }
 
 @Composable
