@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.model.AccountBalance
+import com.nexohogar.domain.model.Transaction
 import com.nexohogar.domain.repository.AccountsRepository
+import com.nexohogar.domain.repository.TransactionsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,11 +25,15 @@ data class AccountsUiState(
     val newAccountIsShared: Boolean = true,
     val isCreating: Boolean = false,
     val showDeleteConfirm: String? = null, // accountId to delete
-    val currentUserId: String? = null
+    val currentUserId: String? = null,
+    val selectedAccount: AccountBalance? = null,
+    val selectedAccountTransactions: List<Transaction> = emptyList(),
+    val isLoadingTransactions: Boolean = false
 )
 
 class AccountsViewModel(
     private val accountsRepository: AccountsRepository,
+    private val transactionsRepository: TransactionsRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
@@ -60,6 +66,57 @@ class AccountsViewModel(
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 else -> _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    // ── ✅ NUEVO: Seleccionar cuenta y cargar sus movimientos ──────────────
+    fun selectAccount(account: AccountBalance) {
+        _uiState.update {
+            it.copy(
+                selectedAccount = account,
+                selectedAccountTransactions = emptyList(),
+                isLoadingTransactions = true
+            )
+        }
+        loadAccountTransactions(account.accountId)
+    }
+
+    fun dismissAccountDetail() {
+        _uiState.update {
+            it.copy(
+                selectedAccount = null,
+                selectedAccountTransactions = emptyList(),
+                isLoadingTransactions = false
+            )
+        }
+    }
+
+    private fun loadAccountTransactions(accountId: String) {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+
+        viewModelScope.launch {
+            when (val result = transactionsRepository.getTransactionsByAccount(
+                householdId = householdId,
+                accountId = accountId,
+                limit = 10 // Últimos 10 movimientos
+            )) {
+                is AppResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            selectedAccountTransactions = result.data,
+                            isLoadingTransactions = false
+                        )
+                    }
+                }
+                is AppResult.Error -> {
+                    _uiState.update {
+                        it.copy(isLoadingTransactions = false)
+                    }
+                }
+                else -> {
+                    _uiState.update { it.copy(isLoadingTransactions = false) }
+                }
             }
         }
     }

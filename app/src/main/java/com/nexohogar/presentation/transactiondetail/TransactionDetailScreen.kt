@@ -20,6 +20,7 @@ import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.TransactionDetail
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +71,7 @@ fun TransactionDetailScreen(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contenido principal
+// ✅ MODIFICADO: Mostrar solo fecha+hora, descripción, cuenta y usuario
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -147,6 +149,7 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
         }
 
         // ── Filas de detalle ───────────────────────────────────────────────
+        // ✅ CAMBIO: Solo mostrar fecha+hora, descripción, cuenta, usuario
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -155,21 +158,27 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
         ) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
 
+                // ✅ Fecha y hora (usando created_at para la hora)
+                val fechaHora = formatDateTimeForDisplay(
+                    transactionDate = detail.transactionDate,
+                    createdAt = detail.createdAt
+                )
+                DetailRow(Icons.Default.CalendarToday, "Fecha y hora", fechaHora)
+
+                // ✅ Descripción
                 detail.description?.let { desc ->
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     DetailRow(Icons.Default.Notes, "Descripción", desc)
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
 
-                detail.transactionDate?.let { date ->
-                    DetailRow(Icons.Default.CalendarToday, "Fecha", DateFormatter.formatForDisplay(date))
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
+                // ✅ Cuenta
                 val fromLabel = if (detail.type.lowercase() == "transfer") "Cuenta origen" else "Cuenta"
                 detail.fromAccountName?.let { name ->
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     DetailRow(Icons.Default.AccountBalance, fromLabel, name)
                 }
 
+                // Cuenta destino (solo transferencias)
                 if (detail.type.lowercase() == "transfer") {
                     detail.toAccountName?.let { name ->
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -177,26 +186,45 @@ private fun TransactionDetailContent(detail: TransactionDetail) {
                     }
                 }
 
+                // ✅ Usuario que registró
                 detail.createdByName?.let { name ->
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     DetailRow(Icons.Default.Person, "Registrado por", name)
                 }
 
-                detail.status?.let { status ->
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    val statusLabel = when (status.lowercase()) {
-                        "confirmed"  -> "Confirmado"
-                        "pending"    -> "Pendiente"
-                        "cancelled"  -> "Cancelado"
-                        else         -> status
-                    }
-                    DetailRow(Icons.Default.CheckCircle, "Estado", statusLabel)
-                }
+                // ❌ REMOVIDO: Estado (status) — no relevante para el usuario
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+}
+
+/**
+ * ✅ NUEVO: Formatea la fecha y hora combinando transaction_date y created_at
+ * transaction_date = "2026-03-15" (solo fecha)
+ * created_at = "2026-03-15T14:30:00+00:00" (timestamp completo)
+ */
+private fun formatDateTimeForDisplay(transactionDate: String?, createdAt: String?): String {
+    // Intentar extraer hora de created_at
+    val timePart = createdAt?.let {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+            val date = inputFormat.parse(it.substringBefore("+").substringBefore("Z"))
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            outputFormat.format(date!!)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // Formatear fecha
+    val datePart = transactionDate?.let {
+        DateFormatter.formatForDisplay(it)
+    } ?: "Sin fecha"
+
+    return if (timePart != null) "$datePart a las $timePart hrs" else datePart
 }
 
 @Composable
