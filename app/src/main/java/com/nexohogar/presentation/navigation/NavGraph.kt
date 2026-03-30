@@ -134,8 +134,20 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-
         // ── Register ───────────────────────────────────────────────────────
+        composable(Screen.Register.route) {
+            val vm = RegisterViewModel(authRepository, sessionManager)
+            RegisterScreen(
+                viewModel = vm,
+                onNavigateToLogin = { navController.popBackStack() },
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        // ── Settings ───────────────────────────────────────────────────────
         composable(Screen.Settings.route) {
             val deleteHouseholdViewModel = remember {
                 DeleteHouseholdViewModel(householdRepository)
