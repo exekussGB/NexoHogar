@@ -122,5 +122,23 @@ object TutorialSteps {
                 targetTag = "household_invite"
             )
         )
+
+        TutorialModule.INVITE_MEMBER -> listOf(
+            TutorialStep(
+                title = "Código de Invitación",
+                description = "Este es el código único de tu hogar. Compártelo con quien quieras invitar.",
+                targetTag = "invite_code"
+            ),
+            TutorialStep(
+                title = "Compartir",
+                description = "Toca este botón para enviar el código por WhatsApp, mensaje u otra app.",
+                targetTag = "invite_share"
+            ),
+            TutorialStep(
+                title = "¿Cómo se une?",
+                description = "La otra persona ingresa el código en su app para unirse a tu hogar.",
+                targetTag = "invite_join"
+            )
+        )
     }
 }

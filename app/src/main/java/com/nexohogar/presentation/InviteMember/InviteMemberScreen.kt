@@ -22,14 +22,23 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InviteMemberScreen(
     viewModel: InviteMemberViewModel,
+    tutorialManager: TutorialManager? = null,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Tutorial
+    var showTutorial by remember {
+        mutableStateOf(tutorialManager?.let { !it.isTutorialCompleted(TutorialModule.INVITE_MEMBER) } ?: false)
+    }
     val context = LocalContext.current
 
     // Snackbar para confirmación de copia
@@ -259,6 +268,21 @@ fun InviteMemberScreen(
                 }
             }
         }
+    }
+
+    // ── Tutorial overlay ────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.INVITE_MEMBER,
+            onComplete = {
+                tutorialManager?.markTutorialCompleted(TutorialModule.INVITE_MEMBER)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager?.markTutorialCompleted(TutorialModule.INVITE_MEMBER)
+                showTutorial = false
+            }
+        )
     }
 }
 

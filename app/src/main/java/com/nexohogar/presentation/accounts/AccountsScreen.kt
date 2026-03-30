@@ -22,14 +22,23 @@ import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
-    viewModel     : AccountsViewModel,
-    onNavigateBack: (() -> Unit)? = null
+    viewModel      : AccountsViewModel,
+    tutorialManager: TutorialManager? = null,
+    onNavigateBack : (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Tutorial
+    var showTutorial by remember {
+        mutableStateOf(tutorialManager?.let { !it.isTutorialCompleted(TutorialModule.ACCOUNTS) } ?: false)
+    }
 
     Scaffold(
         topBar = {
@@ -114,6 +123,21 @@ fun AccountsScreen(
             transactions = uiState.selectedAccountTransactions,
             isLoading = uiState.isLoadingTransactions,
             onDismiss = { viewModel.dismissAccountDetail() }
+        )
+    }
+
+    // ── Tutorial overlay ────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.ACCOUNTS,
+            onComplete = {
+                tutorialManager?.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager?.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            }
         )
     }
 }

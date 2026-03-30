@@ -42,5 +42,10 @@ enum class TutorialModule(
         key = "tutorial_household",
         displayName = "Hogar",
         description = "Configuración y miembros del hogar"
+    ),
+    INVITE_MEMBER(
+        key = "tutorial_invite_member",
+        displayName = "Invitar Miembro",
+        description = "Cómo invitar personas a tu hogar"
     )
 }

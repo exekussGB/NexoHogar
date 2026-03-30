@@ -199,6 +199,7 @@ fun NavGraph(navController: NavHostController) {
                         TutorialModule.INVENTORY       -> navController.navigate(Screen.Inventory.route)
                         TutorialModule.RECURRING_BILLS -> navController.navigate(Screen.RecurringBills.route)
                         TutorialModule.HOUSEHOLD       -> navController.navigate(Screen.Settings.route)
+                        TutorialModule.INVITE_MEMBER   -> navController.navigate(Screen.InviteMember.route)
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }
@@ -261,8 +262,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Accounts.route) {
             val vm = AccountsViewModel(accountsRepository, transactionsRepository, tenantContext)
             AccountsScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                tutorialManager = tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 
@@ -328,8 +330,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.InviteMember.route) {
             val vm = InviteMemberViewModel(householdRepository, tenantContext)
             InviteMemberScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                tutorialManager = tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 

@@ -186,15 +186,7 @@ fun SettingsScreen(
                     onClick   = onViewMembers
                 )
             }
-            Box(modifier = Modifier.testTag("household_invite")) {
-                SettingsItem(
-                    icon      = Icons.Default.PersonAdd,
-                    iconColor = Color(0xFF0097A7),
-                    title     = "Invitar miembro",
-                    subtitle  = "Comparte el código de invitación",
-                    onClick   = onViewMembers  // Redirige a miembros donde está el código
-                )
-            }
+
 
             // ── Eliminar hogar (solo super_user, y solo si ya se cargaron datos) ─
             if (dataLoaded && userRole == "super_user") {
