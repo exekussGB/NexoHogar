@@ -61,6 +61,7 @@ android {
     }
 
     buildFeatures {
+        viewBinding = true
         compose = true
         buildConfig = true   // Necesario para BuildConfig.SUPABASE_KEY
     }
