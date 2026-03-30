@@ -51,7 +51,8 @@ import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
 import android.net.Uri
 import com.nexohogar.presentation.screens.VerifyOtpScreen
 import com.nexohogar.presentation.household.DeleteHouseholdViewModel
-
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialListScreen
 
 // ---------------------------------------------------------------------------
 // Rutas de la app
@@ -74,6 +75,7 @@ sealed class Screen(val route: String) {
     object PersonalDashboard  : Screen("personal_dashboard")
 
     object ForgotPassword : Screen("forgot_password")
+    object TutorialList   : Screen("tutorial_list")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -102,6 +104,7 @@ fun NavGraph(navController: NavHostController) {
     val categoryExpensesRepository  = ServiceLocator.categoryExpensesRepository
     val personalDashboardRepository = ServiceLocator.personalDashboardRepository
     val tenantContext               = ServiceLocator.tenantContext
+    val tutorialManager             = ServiceLocator.tutorialManager
 
     val startDestination =
         if (sessionManager.fetchAuthToken() != null) Screen.Household.route
@@ -157,6 +160,7 @@ fun NavGraph(navController: NavHostController) {
                 deleteHouseholdViewModel = deleteHouseholdViewModel,
                 householdRepository     = householdRepository,
                 tenantContext            = tenantContext,
+                tutorialManager         = tutorialManager,
                 onNavigateBack          = { navController.popBackStack() },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
@@ -171,12 +175,33 @@ fun NavGraph(navController: NavHostController) {
                 onViewMembers = {
                     navController.navigate(Screen.HouseholdMembers.route)
                 },
+                onNavigateToTutorial = {
+                    navController.navigate(Screen.TutorialList.route)
+                },
                 onHouseholdDeleted = {
-                    // Tras eliminar el hogar, ir a la pantalla de selección de hogar
                     navController.navigate(Screen.Household.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+        // ── Tutorial List ──────────────────────────────────────────────────
+        composable(Screen.TutorialList.route) {
+            TutorialListScreen(
+                tutorialManager = tutorialManager,
+                onStartTutorial = { module ->
+                    navController.popBackStack() // volver de la lista
+                    when (module) {
+                        TutorialModule.DASHBOARD       -> navController.navigate(Screen.Dashboard.route)
+                        TutorialModule.ACCOUNTS        -> navController.navigate(Screen.Accounts.route)
+                        TutorialModule.TRANSACTIONS    -> navController.navigate(Screen.Transactions.route)
+                        TutorialModule.BUDGETS         -> navController.navigate(Screen.Budget.route)
+                        TutorialModule.INVENTORY       -> navController.navigate(Screen.Inventory.route)
+                        TutorialModule.RECURRING_BILLS -> navController.navigate(Screen.RecurringBills.route)
+                        TutorialModule.HOUSEHOLD       -> navController.navigate(Screen.Settings.route)
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -224,6 +249,7 @@ fun NavGraph(navController: NavHostController) {
             )
             DashboardScreen(
                 viewModel               = vm,
+                tutorialManager         = tutorialManager,
                 onTransactionClick      = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
                 onSeeAllClick           = { navController.navigate(Screen.Transactions.route) },
                 onNavigateToCategoryExp = { navController.navigate(Screen.CategoryExpenses.route) },
@@ -235,8 +261,9 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Accounts.route) {
             val vm = AccountsViewModel(accountsRepository, tenantContext)
             AccountsScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                tutorialManager = tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 
@@ -245,6 +272,7 @@ fun NavGraph(navController: NavHostController) {
             val vm = TransactionsViewModel(transactionsRepository, tenantContext)
             TransactionsScreen(
                 viewModel             = vm,
+                tutorialManager       = tutorialManager,
                 onTransactionClick    = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
                 onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) }
             )
@@ -317,8 +345,9 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
             RecurringBillsScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                tutorialManager = tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 
@@ -342,9 +371,10 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
             InventoryScreen(
-                viewModel = vm,
-                onBack    = { navController.popBackStack() },
-                onNavigateToScanner  = { navController.navigate("receipt_scanner") }
+                viewModel        = vm,
+                tutorialManager  = tutorialManager,
+                onBack           = { navController.popBackStack() },
+                onNavigateToScanner = { navController.navigate("receipt_scanner") }
             )
         }
 
@@ -359,8 +389,9 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
             BudgetScreen(
-                viewModel      = vm,
-                onNavigateBack = { navController.popBackStack() }
+                viewModel       = vm,
+                tutorialManager = tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
             )
         }
 

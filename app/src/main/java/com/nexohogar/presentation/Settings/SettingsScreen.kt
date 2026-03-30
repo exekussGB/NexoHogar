@@ -22,7 +22,10 @@ import com.nexohogar.presentation.household.DeleteHouseholdConfirmDialog
 import com.nexohogar.presentation.household.DeleteHouseholdFirstDialog
 import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 import com.nexohogar.service.FcmTokenManager
-
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -30,6 +33,7 @@ fun SettingsScreen(
     deleteHouseholdViewModel: DeleteHouseholdViewModel,
     householdRepository: HouseholdRepository,
     tenantContext: TenantContext,
+    tutorialManager: TutorialManager,
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
     onChangeHousehold: () -> Unit,
@@ -39,6 +43,9 @@ fun SettingsScreen(
     val session = remember { sessionManager.fetchSession() }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.HOUSEHOLD))
+    }
 
     // ── Datos del hogar cargados internamente ───────────────────────────────
     val householdId = remember { tenantContext.getCurrentHouseholdId() ?: "" }
@@ -160,20 +167,33 @@ fun SettingsScreen(
 
             // ── Sección: Hogar ───────────────────────────────────────────────
             SectionLabel("Hogar")
-            SettingsItem(
-                icon      = Icons.Default.SwitchAccount,
-                iconColor = Color(0xFF1565C0),
-                title     = "Cambiar hogar",
-                subtitle  = "Seleccionar otro hogar",
-                onClick   = onChangeHousehold
-            )
-            SettingsItem(
-                icon      = Icons.Default.Group,
-                iconColor = Color(0xFF00695C),
-                title     = "Ver miembros",
-                subtitle  = "Usuarios y solicitudes pendientes",
-                onClick   = onViewMembers
-            )
+            Box(modifier = Modifier.testTag("household_info")) {
+                SettingsItem(
+                    icon      = Icons.Default.SwitchAccount,
+                    iconColor = Color(0xFF1565C0),
+                    title     = "Cambiar hogar",
+                    subtitle  = "Seleccionar otro hogar",
+                    onClick   = onChangeHousehold
+                )
+            }
+            Box(modifier = Modifier.testTag("household_members")) {
+                SettingsItem(
+                    icon      = Icons.Default.Group,
+                    iconColor = Color(0xFF00695C),
+                    title     = "Ver miembros",
+                    subtitle  = "Usuarios y solicitudes pendientes",
+                    onClick   = onViewMembers
+                )
+            }
+            Box(modifier = Modifier.testTag("household_invite")) {
+                SettingsItem(
+                    icon      = Icons.Default.PersonAdd,
+                    iconColor = Color(0xFF0097A7),
+                    title     = "Invitar miembro",
+                    subtitle  = "Comparte el código de invitación",
+                    onClick   = onViewMembers  // Redirige a miembros donde está el código
+                )
+            }
 
             // ── Eliminar hogar (solo super_user, y solo si ya se cargaron datos) ─
             if (dataLoaded && userRole == "super_user") {
@@ -193,6 +213,13 @@ fun SettingsScreen(
 
             // ── Sección: Aplicación ──────────────────────────────────────────
             SectionLabel("Aplicación")
+            SettingsItem(
+                icon      = Icons.Default.School,
+                iconColor = Color(0xFF1565C0),
+                title     = "Tutoriales",
+                subtitle  = "Repasa cómo funciona cada módulo",
+                onClick   = onNavigateToTutorial
+            )
             SettingsItem(
                 icon      = Icons.Default.Palette,
                 iconColor = Color(0xFF6A1B9A),
@@ -315,6 +342,20 @@ fun SettingsScreen(
             errorMessage  = deleteState.errorMessage,
             onConfirm     = { typedName -> deleteHouseholdViewModel.confirmDelete(typedName) },
             onDismiss     = { deleteHouseholdViewModel.cancelDelete() }
+        )
+    }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.HOUSEHOLD,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.HOUSEHOLD)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.HOUSEHOLD)
+                showTutorial = false
+            }
         )
     }
 }

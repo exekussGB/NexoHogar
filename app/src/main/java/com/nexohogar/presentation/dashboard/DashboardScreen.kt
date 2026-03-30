@@ -34,6 +34,10 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Formateador de fecha para Chile (America/Santiago)
@@ -64,15 +68,19 @@ internal fun formatChileDate(isoString: String): String {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun DashboardScreen(
-    viewModel              : DashboardViewModel,
-    onTransactionClick     : (String) -> Unit,
-    onSeeAllClick          : () -> Unit,
+    viewModel: DashboardViewModel,
+    tutorialManager: TutorialManager,
+    onTransactionClick: (String) -> Unit,
+    onSeeAllClick: () -> Unit,
     onNavigateToCategoryExp: () -> Unit,
-    onNavigateToPersonal   : (() -> Unit)? = null
+    onNavigateToPersonal: () -> Unit
 ) {
-    val uiState  by viewModel.uiState.collectAsState()
-    val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    val uiState by viewModel.uiState.collectAsState()
+    val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.DASHBOARD))
+    }
     // Refresca al volver a la pantalla (ej. tras agregar un movimiento)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -120,14 +128,18 @@ fun DashboardScreen(
                     }
                 }
             }
-            // ── Balance card ───────────────────────────────────────────────
+            // ── Balance ────────────────────────────────────────────────────
             item {
-                uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+                Box(modifier = Modifier.testTag("dashboard_balance")) {
+                    uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+                }
             }
 
             // ── Gráfico de tendencia ───────────────────────────────────────
             item {
-                MonthlyChart(monthlyData = uiState.monthlyBalance)
+                Box(modifier = Modifier.testTag("dashboard_chart")) {
+                    MonthlyChart(monthlyData = uiState.monthlyBalance)
+                }
             }
 
             // ── Gastos por categoría (botón) ───────────────────────────────
@@ -137,15 +149,32 @@ fun DashboardScreen(
 
             // ── Últimos movimientos ────────────────────────────────────────
             item {
-                RecentTransactionsList(
-                    transactions       = uiState.recentTransactions,
-                    format             = clpFormat,
-                    onTransactionClick = onTransactionClick,
-                    onSeeAllClick      = onSeeAllClick
-                )
+                Box(modifier = Modifier.testTag("dashboard_recent")) {
+                    RecentTransactionsList(
+                        transactions       = uiState.recentTransactions,
+                        format             = clpFormat,
+                        onTransactionClick = onTransactionClick,
+                        onSeeAllClick      = onSeeAllClick
+                    )
+                }
             }
         }
+        // ── Tutorial overlay ────────────────────────────────────────────────────
+        if (showTutorial) {
+            TutorialOverlay(
+                module = TutorialModule.DASHBOARD,
+                onComplete = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
+                    showTutorial = false
+                },
+                onSkip = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
+                    showTutorial = false
+                }
+            )
+        }
     }
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

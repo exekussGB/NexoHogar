@@ -23,14 +23,21 @@ import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
-
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
     viewModel     : AccountsViewModel,
+    tutorialManager: TutorialManager,
     onNavigateBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.ACCOUNTS))
+    }
 
     Scaffold(
         topBar = {
@@ -50,7 +57,10 @@ fun AccountsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.showCreateDialog() }) {
+            FloatingActionButton(
+                onClick = { viewModel.showCreateDialog() },
+                modifier = Modifier.testTag("accounts_add_button")
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Agregar cuenta")
             }
         }
@@ -260,7 +270,9 @@ fun AccountsList(
         }
     } else {
         LazyColumn(
-            modifier            = Modifier.fillMaxSize(),
+            modifier            = Modifier
+                .fillMaxSize()
+                .testTag("accounts_list"),
             contentPadding      = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -311,7 +323,9 @@ fun AccountItem(
     }
 
     Card(
-        modifier  = Modifier.fillMaxWidth(),
+        modifier  = Modifier
+            .fillMaxWidth()
+            .testTag("accounts_item"),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -359,7 +373,22 @@ fun AccountItem(
             }
         }
     }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.ACCOUNTS,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            }
+        )
+    }
 }
+
 
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
