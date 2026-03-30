@@ -1,20 +1,26 @@
 package com.nexohogar.presentation.forgotpassword
 
 import android.util.Patterns
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.util.AppLogger
 import com.nexohogar.domain.repository.AuthRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * COH-05: Migrado de MutableLiveData a MutableStateFlow.
+ * SEC-04: Logs via AppLogger.
+ */
 class ForgotPasswordViewModel(
     private val repository: AuthRepository
 ) : ViewModel() {
 
-    private val _state = MutableLiveData<ForgotPasswordState>(ForgotPasswordState.Idle)
-    val state: LiveData<ForgotPasswordState> = _state
+    private val _state = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Idle)
+    val state: StateFlow<ForgotPasswordState> = _state.asStateFlow()
 
     fun sendRecoveryEmail(email: String) {
         if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
@@ -23,9 +29,13 @@ class ForgotPasswordViewModel(
         }
         _state.value = ForgotPasswordState.Loading
         viewModelScope.launch {
+            AppLogger.d("ForgotPasswordVM", "Enviando correo de recuperación")
             when (val result = repository.forgotPassword(email.trim())) {
                 is AppResult.Success -> _state.value = ForgotPasswordState.Success
-                is AppResult.Error -> _state.value = ForgotPasswordState.Error(result.message)
+                is AppResult.Error -> {
+                    AppLogger.e("ForgotPasswordVM", "Error: ${result.message}")
+                    _state.value = ForgotPasswordState.Error(result.message)
+                }
                 is AppResult.Loading -> {}
             }
         }

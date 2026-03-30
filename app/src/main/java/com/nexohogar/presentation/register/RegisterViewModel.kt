@@ -2,6 +2,7 @@ package com.nexohogar.presentation.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.repository.AuthRepository
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.core.util.PasswordValidator
@@ -15,6 +16,9 @@ data class RegisterUiState(
     val errorMessage: String? = null
 )
 
+/**
+ * COH-04: Adaptado a AppResult (consistente con LoginViewModel).
+ */
 class RegisterViewModel(
     private val authRepository: AuthRepository,
     private val sessionManager: SessionManager
@@ -39,18 +43,18 @@ class RegisterViewModel(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            val result = authRepository.register(email.trim(), password, name.trim())
-            result.fold(
-                onSuccess = {
+            when (val result = authRepository.register(email.trim(), password, name.trim())) {
+                is AppResult.Success -> {
                     _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-                },
-                onFailure = { error ->
+                }
+                is AppResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = error.message ?: "Error desconocido"
+                        errorMessage = result.message
                     )
                 }
-            )
+                is AppResult.Loading -> { }
+            }
         }
     }
 

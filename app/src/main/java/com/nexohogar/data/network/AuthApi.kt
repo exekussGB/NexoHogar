@@ -1,18 +1,18 @@
 package com.nexohogar.data.network
 
 import com.google.gson.JsonObject
-import com.nexohogar.data.model.HouseholdResponse
-import com.nexohogar.data.model.LoginRequest
-import com.nexohogar.data.model.LoginResponse
+import com.nexohogar.data.remote.dto.HouseholdResponse
+import com.nexohogar.data.remote.dto.LoginRequest
+import com.nexohogar.data.remote.dto.LoginResponse
 import com.nexohogar.data.remote.dto.CreateHouseholdRequest
 import com.nexohogar.data.remote.dto.CreateHouseholdResponse
 import com.nexohogar.data.remote.dto.HouseholdMemberWithEmailDto
 import com.nexohogar.data.remote.dto.InviteCodeRequest
 import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.data.remote.dto.RegisterRequest
-import com.nexohogar.data.model.UpdatePasswordRequest
-import com.nexohogar.data.model.VerifyOtpRequest
-import com.nexohogar.data.model.VerifyOtpResponse
+import com.nexohogar.data.remote.dto.UpdatePasswordRequest
+import com.nexohogar.data.remote.dto.VerifyOtpRequest
+import com.nexohogar.data.remote.dto.VerifyOtpResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET

@@ -1,8 +1,9 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.model.PersonalDashboardDto
+import com.nexohogar.data.remote.dto.PersonalDashboardDto
 import com.nexohogar.data.remote.dto.MonthlyBalanceDto
 import com.nexohogar.data.remote.dto.PersonalTransactionDto
+import com.nexohogar.data.remote.dto.PersonalTransactionsRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -27,9 +28,3 @@ interface PersonalDashboardApi {
         @Body body: PersonalTransactionsRequest
     ): Response<List<PersonalTransactionDto>>
 }
-
-data class PersonalTransactionsRequest(
-    val p_household_id: String,
-    val p_user_id: String,
-    val p_limit: Int = 5
-)

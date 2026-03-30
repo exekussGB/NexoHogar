@@ -5,14 +5,14 @@ import com.nexohogar.domain.model.UserSession
 
 /**
  * Interfaz del repositorio de autenticación en la capa de dominio.
+ * COH-04: register() ahora retorna AppResult<Unit> (consistente con los demás métodos).
  */
 interface AuthRepository {
     suspend fun login(email: String, password: String): AppResult<UserSession>
-    suspend fun register(email: String, password: String, name: String): Result<Unit>
+    suspend fun register(email: String, password: String, name: String): AppResult<Unit>
     suspend fun logout()
     suspend fun updatePassword(accessToken: String, newPassword: String): AppResult<Unit>
     suspend fun forgotPassword(email: String): AppResult<Unit>
     fun getCurrentSession(): UserSession?
-
     suspend fun verifyOtp(email: String, code: String): AppResult<String>
 }

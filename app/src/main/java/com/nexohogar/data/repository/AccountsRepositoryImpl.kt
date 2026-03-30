@@ -3,12 +3,12 @@ package com.nexohogar.data.repository
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AccountsApi
-import com.nexohogar.data.model.CreateAccountRequest
+import com.nexohogar.data.remote.dto.CreateAccountRequest
 import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
-import com.nexohogar.data.model.SoftDeleteAccountRequest
+import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
 
 class AccountsRepositoryImpl(
     private val accountsApi   : AccountsApi,

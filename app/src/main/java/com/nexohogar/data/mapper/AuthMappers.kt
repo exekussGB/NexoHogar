@@ -1,7 +1,7 @@
 package com.nexohogar.data.mapper
 
-import com.nexohogar.data.model.HouseholdResponse
-import com.nexohogar.data.model.LoginResponse
+import com.nexohogar.data.remote.dto.HouseholdResponse
+import com.nexohogar.data.remote.dto.LoginResponse
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.model.UserSession
 
