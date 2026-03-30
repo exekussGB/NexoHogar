@@ -38,6 +38,7 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onChangeHousehold: () -> Unit,
     onViewMembers: () -> Unit,
+    onNavigateToTutorial: () -> Unit,
     onHouseholdDeleted: () -> Unit
 ) {
     val session = remember { sessionManager.fetchSession() }
