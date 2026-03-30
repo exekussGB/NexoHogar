@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import com.nexohogar.core.tutorial.TutorialManager
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -36,6 +37,11 @@ object ServiceLocator {
 
     val tenantContext: TenantContext by lazy {
         TenantContext(sessionManager)
+    }
+
+    // ── Tutorial ──────────────────────────────────────────────────────────
+    val tutorialManager: TutorialManager by lazy {
+        TutorialManager(context)
     }
 
     // ── Network ───────────────────────────────────────────────────────────────

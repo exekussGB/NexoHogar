@@ -27,6 +27,10 @@ import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 // ─── Colores de marca ──────────────────────────────────────────────────────────
 private val PrimaryBlue = Color(0xFF1565C0)
@@ -56,11 +60,15 @@ private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
 @Composable
 fun InventoryScreen(
     viewModel: InventoryViewModel,
+    tutorialManager: TutorialManager,
     onBack: () -> Unit,
     onNavigateToScanner: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.INVENTORY))
+    }
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Productos", "Registrar", "Categorías", "Sugerencias")
 
@@ -96,12 +104,22 @@ fun InventoryScreen(
         // Sin floatingActionButton — todo el ingreso es desde la pestaña Registrar
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = LightBlue, edgePadding = 0.dp) {
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = LightBlue,
+                edgePadding = 0.dp,
+                modifier = Modifier.testTag("inventory_list")
+            ) {
                 tabs.forEachIndexed { i, title ->
                     Tab(
                         selected = selectedTab == i,
                         onClick = { selectedTab = i },
-                        text = { Text(title, fontSize = 13.sp) }
+                        text = { Text(title, fontSize = 13.sp) },
+                        modifier = when (i) {
+                            1 -> Modifier.testTag("inventory_add_button")   // Registrar
+                            2 -> Modifier.testTag("inventory_movements")    // Categorías
+                            else -> Modifier
+                        }
                     )
                 }
             }
@@ -1193,7 +1211,22 @@ private fun ProductHistorySheet(
             }
         }
     }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.INVENTORY,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
+                showTutorial = false
+            }
+        )
+    }
 }
+
 
 @Composable
 private fun MovementRow(movement: InventoryMovement, unit: String) {

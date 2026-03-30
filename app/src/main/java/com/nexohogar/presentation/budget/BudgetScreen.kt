@@ -25,7 +25,10 @@ import com.nexohogar.domain.model.BudgetItem
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
-
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 // Semáforo colors
 private val SemaforoBlue   = Color(0xFF42A5F5)
 private val SemaforoGreen  = Color(0xFF66BB6A)
@@ -36,9 +39,13 @@ private val SemaforoRed    = Color(0xFFEF5350)
 @Composable
 fun BudgetScreen(
     viewModel: BudgetViewModel,
+    tutorialManager: TutorialManager,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.BUDGETS))
+    }
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -68,6 +75,7 @@ fun BudgetScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showCreateDialog = true },
+                modifier = Modifier.testTag("budgets_add_button"),
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Nuevo presupuesto")
@@ -124,7 +132,8 @@ fun BudgetScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 16.dp)
+                            .testTag("budgets_list"),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
@@ -308,6 +317,20 @@ fun BudgetScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = { deletingBudget = null }) { Text("Cancelar") }
+                    }
+                )
+            }
+            // ── Tutorial overlay ────────────────────────────────────────────────────
+            if (showTutorial) {
+                TutorialOverlay(
+                    module = TutorialModule.BUDGETS,
+                    onComplete = {
+                        tutorialManager.markTutorialCompleted(TutorialModule.BUDGETS)
+                        showTutorial = false
+                    },
+                    onSkip = {
+                        tutorialManager.markTutorialCompleted(TutorialModule.BUDGETS)
+                        showTutorial = false
                     }
                 )
             }

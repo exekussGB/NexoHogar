@@ -23,15 +23,23 @@ import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.*
-
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     viewModel: TransactionsViewModel,
+    tutorialManager: TutorialManager,
     onTransactionClick: (Transaction) -> Unit,
     onAddTransactionClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.TRANSACTIONS))
+    }
 
     Scaffold(
         topBar = {
@@ -44,7 +52,10 @@ fun TransactionsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransactionClick) {
+            FloatingActionButton(
+                onClick = onAddTransactionClick,
+                modifier = Modifier.testTag("transactions_add_button")
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Nuevo Movimiento")
             }
         }
@@ -53,6 +64,7 @@ fun TransactionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .testTag("transactions_filters")
         ) {
             when (val state = uiState) {
                 is TransactionsUiState.Loading -> {
@@ -82,7 +94,9 @@ fun TransactionsList(
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("transactions_list"),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -165,6 +179,20 @@ fun TransactionItem(
                 color = iconColor
             )
         }
+        // ── Tutorial overlay ────────────────────────────────────────────────────
+        if (showTutorial) {
+            TutorialOverlay(
+                module = TutorialModule.TRANSACTIONS,
+                onComplete = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
+                    showTutorial = false
+                },
+                onSkip = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
+                    showTutorial = false
+                }
+            )
+        }
     }
 }
 
@@ -181,4 +209,5 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
             Text("Reintentar")
         }
     }
+
 }

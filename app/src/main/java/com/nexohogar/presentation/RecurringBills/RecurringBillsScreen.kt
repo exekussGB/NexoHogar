@@ -23,14 +23,21 @@ import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.Locale
-
+import androidx.compose.ui.platform.testTag
+import com.nexohogar.core.tutorial.TutorialManager
+import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.presentation.tutorial.TutorialOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurringBillsScreen(
     viewModel: RecurringBillsViewModel,
+    tutorialManager: TutorialManager,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showTutorial by remember {
+        mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.RECURRING_BILLS))
+    }
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
     Scaffold(
@@ -50,7 +57,10 @@ fun RecurringBillsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.onShowCreateDialog() }) {
+            FloatingActionButton(
+                onClick = { viewModel.onShowCreateDialog() },
+                modifier = Modifier.testTag("recurring_add_button")
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Agregar cuenta recurrente")
             }
         }
@@ -82,7 +92,9 @@ fun RecurringBillsScreen(
                     val statusMap = uiState.billsWithStatus.associateBy { it.id }
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("recurring_list"),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -708,4 +720,19 @@ private fun CreateBillDialog(
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancelar") }
         }
     )
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.RECURRING_BILLS,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
+                showTutorial = false
+            }
+        )
+    }
 }
+
