@@ -120,4 +120,47 @@ class TransactionsRepositoryImpl(
             AppResult.Error(e.message ?: "Error de red")
         }
     }
+
+    override suspend fun getTransactionsByAccount(
+        householdId: String,
+        accountId: String,
+        limit: Int
+    ): AppResult<List<Transaction>> {
+        return try {
+            val response = api.getTransactions(
+                householdFilter = "eq.$householdId",
+                select = "*"
+            )
+
+            if (!response.isSuccessful) {
+                val error = response.errorBody()?.string()
+                Log.e("TRANSACTIONS_API", "HTTP ${response.code()} -> ${error ?: "unknown error"}")
+                return AppResult.Error("Error cargando transacciones de cuenta")
+            }
+
+            val dtoList = response.body() ?: emptyList()
+
+            val result = dtoList
+                .filter { it.accountId == accountId }
+                .map { dto ->
+                    Transaction(
+                        id            = dto.id,
+                        accountId     = dto.accountId,
+                        amount        = dto.amountClp,
+                        description   = dto.description,
+                        createdAt     = dto.createdAt,
+                        type          = dto.type,
+                        createdByName = dto.createdByName
+                    )
+                }
+                .sortedByDescending { it.createdAt }
+                .take(limit)
+
+            AppResult.Success(result)
+
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
 }
