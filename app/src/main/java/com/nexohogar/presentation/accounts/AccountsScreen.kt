@@ -309,13 +309,13 @@ private fun AccountTransactionRow(transaction: Transaction) {
                     maxLines = 1
                 )
                 Text(
-                    text = DateFormatter.formatForDisplay(transaction.transactionDate),
+                    text = DateFormatter.formatForDisplay(transaction.createdAt),
                     fontSize = 11.sp,
                     color = Color.Gray
                 )
             }
             Text(
-                text = clpFormat.format(transaction.amountClp),
+                text = clpFormat.format(transaction.amount),
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = color

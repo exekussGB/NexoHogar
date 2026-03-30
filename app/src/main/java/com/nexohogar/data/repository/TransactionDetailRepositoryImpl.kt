@@ -63,27 +63,5 @@ class TransactionDetailRepositoryImpl(
             AppResult.Error("Fallo de red: ${e.message}")
         }
     }
-    override suspend fun getTransactionsByAccount(
-        householdId: String,
-        accountId: String,
-        limit: Int
-    ): AppResult<List<Transaction>> {
-        return try {
-            val response = api.getTransactionsByAccount(
-                householdIdFilter = "eq.$householdId",
-                accountIdFilter = "eq.$accountId",
-                limit = limit,
-                order = "transaction_date.desc"
-            )
-            if (response.isSuccessful) {
-                val transactions = response.body()?.map { it.toDomain() } ?: emptyList()
-                AppResult.Success(transactions)
-            } else {
-                AppResult.Error("Error ${response.code()}")
-            }
-        } catch (e: Exception) {
-            AppResult.Error("Fallo de red: ${e.message}")
-        }
-    }
 }
 

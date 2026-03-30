@@ -31,8 +31,10 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import com.nexohogar.presentation.tutorial.inventoryTutorialSteps
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import kotlin.compareTo
 import kotlin.text.category
@@ -201,12 +203,8 @@ fun InventoryScreen(
     // ── Tutorial overlay ────────────────────────────────────────────────────
     if (showTutorial) {
         TutorialOverlay(
-            module = TutorialModule.INVENTORY,
-            onComplete = {
-                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
-                showTutorial = false
-            },
-            onSkip = {
+            steps = inventoryTutorialSteps,
+            onDismiss = {
                 tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
                 showTutorial = false
             }
