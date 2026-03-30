@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
+import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.result.getOrThrow
 import com.nexohogar.core.util.AppLogger
 
 enum class ScannerStep { CAMERA, PROCESSING, REVIEW, IMPORTING, DONE, ERROR }
@@ -64,8 +66,10 @@ class ReceiptScannerViewModel(
                     _accounts.value = result.data.map { it.accountId to it.accountName }
                 }
 
-                val cats = inventoryRepository.getCategories(householdId)
-                _categories.value = cats.map { it.id to it.name }
+                val catsResult = inventoryRepository.getCategories(householdId)
+                if (catsResult is AppResult.Success) {
+                    _categories.value = catsResult.data.map { it.id to it.name }
+                }
             } catch (e: Exception) {
                 AppLogger.e("ReceiptScanner", "Error cargando cuentas/categorías", e)
             }
@@ -174,7 +178,7 @@ class ReceiptScannerViewModel(
                     store = state.store.ifBlank { null },
                     receiptDate = state.receiptDate,
                     items = selectedItems
-                )
+                ).getOrThrow()
 
                 _uiState.update {
                     it.copy(

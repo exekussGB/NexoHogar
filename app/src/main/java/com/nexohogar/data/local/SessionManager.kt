@@ -119,4 +119,29 @@ class SessionManager(context: Context) {
     fun clearSession() {
         prefs.edit().clear().apply()
     }
+
+    // ── Métodos genéricos para almacenamiento cifrado extra ──────────────────
+    // RED-04: Permiten a otros componentes (FcmTokenManager, etc.) usar el
+    // almacenamiento cifrado sin acceder directamente a SharedPreferences planas.
+
+    /**
+     * Guarda un valor String cifrado con la clave dada.
+     */
+    fun saveExtra(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+
+    /**
+     * Recupera un valor String cifrado, o null si no existe.
+     */
+    fun getExtra(key: String): String? {
+        return prefs.getString(key, null)
+    }
+
+    /**
+     * Elimina un valor cifrado por su clave.
+     */
+    fun removeExtra(key: String) {
+        prefs.edit().remove(key).apply()
+    }
 }
