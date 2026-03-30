@@ -26,6 +26,12 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.data.local.ThemePreferences
+import com.nexohogar.data.local.NotificationPreferences
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -47,6 +53,12 @@ fun SettingsScreen(
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.HOUSEHOLD))
     }
+
+    // ── Theme & Notifications state ─────────────────────────────────────
+    val themePreferences = remember { ServiceLocator.themePreferences }
+    val notificationPreferences = remember { ServiceLocator.notificationPreferences }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showNotificationsDialog by remember { mutableStateOf(false) }
 
     // ── Datos del hogar cargados internamente ───────────────────────────────
     val householdId = remember { tenantContext.getCurrentHouseholdId() ?: "" }
@@ -217,17 +229,28 @@ fun SettingsScreen(
                 icon      = Icons.Default.Palette,
                 iconColor = Color(0xFF6A1B9A),
                 title     = "Apariencia",
-                subtitle  = "Tema claro / oscuro (próximamente)",
-                enabled   = false,
-                onClick   = {}
+                subtitle  = when (themePreferences.themeMode) {
+                    "light" -> "Tema claro"
+                    "dark"  -> "Tema oscuro"
+                    else    -> "Seguir al sistema"
+                },
+                onClick   = { showThemeDialog = true }
             )
             SettingsItem(
                 icon      = Icons.Default.Notifications,
                 iconColor = Color(0xFFF57F17),
                 title     = "Notificaciones",
-                subtitle  = "Push: cuentas, presupuestos, inventario, hogar",
-                enabled   = false,
-                onClick   = {}
+                subtitle  = run {
+                    val count = listOf(
+                        notificationPreferences.householdEnabled,
+                        notificationPreferences.billsEnabled,
+                        notificationPreferences.budgetEnabled,
+                        notificationPreferences.inventoryEnabled,
+                        notificationPreferences.generalEnabled
+                    ).count { it }
+                    "$count de 5 categorías activas"
+                },
+                onClick   = { showNotificationsDialog = true }
             )
 
             // ── Sección: Acerca de ───────────────────────────────────────────
@@ -351,6 +374,23 @@ fun SettingsScreen(
             }
         )
     }
+
+    // ── Diálogo de tema ─────────────────────────────────────────────────────
+    if (showThemeDialog) {
+        ThemeSelectionDialog(
+            currentMode = themePreferences.themeMode,
+            onSelect    = { mode -> themePreferences.setTheme(mode) },
+            onDismiss   = { showThemeDialog = false }
+        )
+    }
+
+    // ── Diálogo de notificaciones ───────────────────────────────────────────
+    if (showNotificationsDialog) {
+        NotificationSettingsDialog(
+            preferences = notificationPreferences,
+            onDismiss   = { showNotificationsDialog = false }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -429,5 +469,171 @@ private fun SettingsItem(
                 )
             }
         }
+    }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diálogo: Selección de tema
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun ThemeSelectionDialog(
+    currentMode: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(
+        Triple("system", "Automático",  "Sigue la configuración del dispositivo"),
+        Triple("light",  "Tema claro",  "Fondo blanco, texto oscuro"),
+        Triple("dark",   "Tema oscuro", "Fondo oscuro, texto claro")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon  = { Icon(Icons.Default.Palette, contentDescription = null) },
+        title = { Text("Apariencia", fontWeight = FontWeight.Bold) },
+        text  = {
+            Column(modifier = Modifier.selectableGroup()) {
+                options.forEach { (mode, label, description) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = currentMode == mode,
+                                onClick  = { onSelect(mode) },
+                                role     = Role.RadioButton
+                            )
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = currentMode == mode,
+                            onClick  = null
+                        )
+                        Column {
+                            Text(
+                                text       = label,
+                                style      = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text  = description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diálogo: Preferencias de notificaciones
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun NotificationSettingsDialog(
+    preferences: NotificationPreferences,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon  = { Icon(Icons.Default.Notifications, contentDescription = null) },
+        title = { Text("Notificaciones", fontWeight = FontWeight.Bold) },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text  = "Elige qué notificaciones quieres recibir:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                NotificationToggleRow(
+                    icon    = Icons.Default.Home,
+                    label   = "Hogar y miembros",
+                    subtitle = "Solicitudes de unión, aceptación/rechazo",
+                    checked = preferences.householdEnabled,
+                    onToggle = { preferences.setHousehold(it) }
+                )
+                NotificationToggleRow(
+                    icon    = Icons.Default.Repeat,
+                    label   = "Gastos recurrentes",
+                    subtitle = "Alertas de vencimiento próximo",
+                    checked = preferences.billsEnabled,
+                    onToggle = { preferences.setBills(it) }
+                )
+                NotificationToggleRow(
+                    icon    = Icons.Default.AccountBalanceWallet,
+                    label   = "Presupuestos",
+                    subtitle = "Alertas cuando llegas al límite",
+                    checked = preferences.budgetEnabled,
+                    onToggle = { preferences.setBudget(it) }
+                )
+                NotificationToggleRow(
+                    icon    = Icons.Default.Inventory,
+                    label   = "Inventario",
+                    subtitle = "Alertas de stock bajo",
+                    checked = preferences.inventoryEnabled,
+                    onToggle = { preferences.setInventory(it) }
+                )
+                NotificationToggleRow(
+                    icon    = Icons.Default.Info,
+                    label   = "General",
+                    subtitle = "Otras notificaciones de la app",
+                    checked = preferences.generalEnabled,
+                    onToggle = { preferences.setGeneral(it) }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Listo") }
+        }
+    )
+}
+
+@Composable
+private fun NotificationToggleRow(
+    icon: ImageVector,
+    label: String,
+    subtitle: String,
+    checked: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint     = if (checked) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(22.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text       = label,
+                style      = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text  = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked         = checked,
+            onCheckedChange = onToggle
+        )
     }
 }
