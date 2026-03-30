@@ -259,11 +259,10 @@ fun NavGraph(navController: NavHostController) {
 
         // ── Accounts ───────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
-            val vm = AccountsViewModel(accountsRepository, tenantContext)
+            val vm = AccountsViewModel(accountsRepository, transactionsRepository, tenantContext)
             AccountsScreen(
-                viewModel       = vm,
-                tutorialManager = tutorialManager,
-                onNavigateBack  = { navController.popBackStack() }
+                viewModel      = vm,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
