@@ -3,7 +3,7 @@ package com.nexohogar.core.network
 import com.google.gson.Gson
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.mapper.toDomain
-import com.nexohogar.data.model.LoginResponse
+import com.nexohogar.data.remote.dto.LoginResponse
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

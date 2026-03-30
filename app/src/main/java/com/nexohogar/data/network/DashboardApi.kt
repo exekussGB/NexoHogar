@@ -1,6 +1,6 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.model.DashboardDto
+import com.nexohogar.data.remote.dto.DashboardDto
 import com.nexohogar.data.remote.dto.AccountBalanceViewDto
 import com.nexohogar.data.remote.dto.MonthlyBalanceDto
 import retrofit2.Response

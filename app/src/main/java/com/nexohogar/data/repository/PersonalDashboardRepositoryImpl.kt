@@ -1,9 +1,9 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.data.model.toDomain
+import com.nexohogar.data.remote.dto.toDomain
 import com.nexohogar.data.network.PersonalDashboardApi
-import com.nexohogar.data.network.PersonalTransactionsRequest
+import com.nexohogar.data.remote.dto.PersonalTransactionsRequest
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.PersonalDashboardSummary
 import com.nexohogar.domain.model.Transaction

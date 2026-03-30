@@ -1,20 +1,21 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.util.AppLogger
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.mapper.toDomain
-import com.nexohogar.data.model.LoginRequest
+import com.nexohogar.data.remote.dto.LoginRequest
 import com.nexohogar.data.network.AuthApi
 import com.nexohogar.data.remote.dto.RegisterRequest
 import com.nexohogar.domain.model.UserSession
 import com.nexohogar.domain.repository.AuthRepository
-import com.nexohogar.data.model.UpdatePasswordRequest
-import com.nexohogar.data.model.VerifyOtpRequest
-
+import com.nexohogar.data.remote.dto.UpdatePasswordRequest
+import com.nexohogar.data.remote.dto.VerifyOtpRequest
 
 /**
  * Implementación del repositorio de autenticación.
- * Maneja la lógica de login y la persistencia de la sesión.
+ * COH-04: register() ahora retorna AppResult (consistente con login, forgotPassword, etc.)
+ * SEC-04: Logging via AppLogger.
  */
 class AuthRepositoryImpl(
     private val authApi: AuthApi,
@@ -29,7 +30,6 @@ class AuthRepositoryImpl(
                 val domainSession = body?.toDomain()
 
                 if (domainSession != null) {
-                    // Guardamos la sesión exitosa
                     sessionManager.saveSession(domainSession)
                     AppResult.Success(domainSession)
                 } else {
@@ -39,11 +39,12 @@ class AuthRepositoryImpl(
                 AppResult.Error("Credenciales inválidas")
             }
         } catch (e: Exception) {
+            AppLogger.e("AuthRepository", "Error en login: ${e.message}")
             AppResult.Error("Error de conexión: ${e.message}")
         }
     }
 
-    override suspend fun register(email: String, password: String, name: String): Result<Unit> {
+    override suspend fun register(email: String, password: String, name: String): AppResult<Unit> {
         return try {
             val request = RegisterRequest(
                 email = email,
@@ -57,9 +58,9 @@ class AuthRepositoryImpl(
 
                 if (domainSession != null) {
                     sessionManager.saveSession(domainSession)
-                    Result.success(Unit)
+                    AppResult.Success(Unit)
                 } else {
-                    Result.failure(Exception("No se recibió token de acceso"))
+                    AppResult.Error("No se recibió token de acceso")
                 }
             } else {
                 val errorMsg = when (response.code()) {
@@ -67,10 +68,11 @@ class AuthRepositoryImpl(
                     400 -> "Datos inválidos"
                     else -> "Error al registrar (${response.code()})"
                 }
-                Result.failure(Exception(errorMsg))
+                AppResult.Error(errorMsg)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            AppLogger.e("AuthRepository", "Error en register: ${e.message}")
+            AppResult.Error("Error de conexión: ${e.message}")
         }
     }
 
@@ -87,6 +89,7 @@ class AuthRepositoryImpl(
                 AppResult.Error("No se pudo enviar el correo de recuperación")
             }
         } catch (e: Exception) {
+            AppLogger.e("AuthRepository", "Error en forgotPassword: ${e.message}")
             AppResult.Error(e.message ?: "Error de conexión")
         }
     }
@@ -104,6 +107,7 @@ class AuthRepositoryImpl(
                 AppResult.Error(errorBody ?: "No se pudo cambiar la contraseña")
             }
         } catch (e: Exception) {
+            AppLogger.e("AuthRepository", "Error en updatePassword: ${e.message}")
             AppResult.Error(e.message ?: "Error de conexión")
         }
     }
@@ -128,6 +132,7 @@ class AuthRepositoryImpl(
                 AppResult.Error("Código inválido o expirado")
             }
         } catch (e: Exception) {
+            AppLogger.e("AuthRepository", "Error en verifyOtp: ${e.message}")
             AppResult.Error(e.message ?: "Error de conexión")
         }
     }

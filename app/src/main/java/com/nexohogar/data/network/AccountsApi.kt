@@ -1,7 +1,7 @@
 package com.nexohogar.data.network
 
-import com.nexohogar.data.model.AccountDto
-import com.nexohogar.data.model.CreateAccountRequest
+import com.nexohogar.data.remote.dto.AccountDto
+import com.nexohogar.data.remote.dto.CreateAccountRequest
 import com.nexohogar.data.remote.dto.AccountBalanceViewDto
 import com.nexohogar.data.remote.dto.AccountResponse
 import retrofit2.http.Body
@@ -11,7 +11,7 @@ import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.PATCH
-import com.nexohogar.data.model.SoftDeleteAccountRequest
+import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
 import retrofit2.Response
 interface AccountsApi {
 

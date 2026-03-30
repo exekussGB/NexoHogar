@@ -50,7 +50,7 @@ import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
 import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
 import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
 import android.net.Uri
-import com.nexohogar.presentation.screens.VerifyOtpScreen
+import com.nexohogar.presentation.forgotpassword.VerifyOtpScreen
 import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialListScreen
