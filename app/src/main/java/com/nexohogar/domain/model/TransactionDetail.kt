@@ -11,5 +11,7 @@ data class TransactionDetail(
     val toAccountId: String?,
     val fromAccountName: String?,
     val toAccountName: String?,
-    val createdByName: String? = null
+    val createdByName: String? = null,
+    // ✅ NUEVO: timestamp completo para mostrar fecha + hora
+    val createdAt: String? = null
 )

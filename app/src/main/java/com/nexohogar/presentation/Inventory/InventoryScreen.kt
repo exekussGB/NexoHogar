@@ -31,6 +31,12 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import kotlin.compareTo
+import kotlin.text.category
+
 
 // ─── Colores de marca ──────────────────────────────────────────────────────────
 private val PrimaryBlue = Color(0xFF1565C0)
@@ -65,6 +71,7 @@ fun InventoryScreen(
     onNavigateToScanner: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var productForAction by remember { mutableStateOf<Product?>(null) }
 
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.INVENTORY))
@@ -138,7 +145,8 @@ fun InventoryScreen(
                         },
                         onQuickConsume = { p -> productToConsume = p },
                         onSelectCategory = { viewModel.selectCategory(it) },
-                        onAddToInventory = { selectedTab = 1 }
+                        onAddToInventory = { selectedTab = 1 },
+                        onProductAction = { productForAction = it }
                     )
                     1 -> RegisterTab(
                         viewModel = viewModel,
@@ -177,6 +185,19 @@ fun InventoryScreen(
             onDismiss = { productToConsume = null }
         )
     }
+    // ─── Popup de acciones de producto ──────────────────────────────────────────
+    productForAction?.let { product ->
+        ProductActionPopup(
+            product = product,
+            onDismiss = { productForAction = null },
+            onViewHistory = { p ->
+                selectedProductForHistory = p
+                viewModel.loadMovementsForProduct(p)
+            },
+            onQuickConsume = { p -> productToConsume = p }
+        )
+    }
+
     // ── Tutorial overlay ────────────────────────────────────────────────────
     if (showTutorial) {
         TutorialOverlay(
@@ -200,7 +221,8 @@ private fun ProductsTab(
     onProductClick: (Product) -> Unit,
     onQuickConsume: (Product) -> Unit,
     onSelectCategory: (String?) -> Unit,
-    onAddToInventory: () -> Unit
+    onAddToInventory: () -> Unit,
+    onProductAction: (Product) -> Unit
 ) {
     val products = uiState.filteredProducts
     val categories = uiState.availableCategories
@@ -260,12 +282,14 @@ private fun ProductsTab(
                 }
             }
         } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    // Botón para agregar producto con stock 0
+                item(span = { GridItemSpan(2) }) {
+                    // Botón para agregar producto
                     OutlinedButton(
                         onClick = onAddToInventory,
                         modifier = Modifier.fillMaxWidth(),
@@ -278,10 +302,9 @@ private fun ProductsTab(
                     }
                 }
                 items(products, key = { it.id }) { product ->
-                    ProductCard(
+                    ProductGridCard(
                         product = product,
-                        onClick = { onProductClick(product) },
-                        onQuickConsume = { onQuickConsume(product) }
+                        onClick = { onProductAction(product) }
                     )
                 }
             }
@@ -291,10 +314,9 @@ private fun ProductsTab(
 
 // ─── Card de producto — stock prominente ──────────────────────────────────────
 @Composable
-private fun ProductCard(
+private fun ProductGridCard(
     product: Product,
-    onClick: () -> Unit,
-    onQuickConsume: () -> Unit
+    onClick: () -> Unit
 ) {
     val stockColor = when {
         product.currentStock <= 0  -> Color(0xFFC62828)
@@ -303,7 +325,7 @@ private fun ProductCard(
     }
     val stockLabel = when {
         product.currentStock <= 0 -> "Sin stock"
-        else -> String.format("%.2f", product.currentStock).trimEnd('0').trimEnd('.')
+        else -> String.format("%.1f", product.currentStock).trimEnd('0').trimEnd('.')
     }
 
     Card(
@@ -314,58 +336,156 @@ private fun ProductCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 14.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Info principal
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(product.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF212121))
+            // Nombre del producto
+            Text(
+                product.name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF212121),
+                maxLines = 2
+            )
 
-                // Stock en número grande
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Stock en número grande
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = stockLabel,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp,
+                    color = stockColor,
+                    lineHeight = 26.sp
+                )
+                if (product.currentStock > 0) {
                     Text(
-                        text = stockLabel,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 28.sp,
-                        color = stockColor,
-                        lineHeight = 30.sp
+                        text = product.unit,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        color = stockColor.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(bottom = 3.dp)
                     )
-                    if (product.currentStock > 0) {
-                        Text(
-                            text = product.unit,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = stockColor.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
-                }
-
-                // Categoría y marca (info secundaria)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (!product.category.isNullOrBlank()) {
-                        Surface(color = PrimaryBlue.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                            Text(product.category, fontSize = 10.sp, color = PrimaryBlue,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                        }
-                    }
-                    if (!product.brand.isNullOrBlank()) {
-                        Text(product.brand, fontSize = 11.sp, color = Color.Gray)
-                    }
                 }
             }
 
-            // Botón consumo rápido
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(onClick = onQuickConsume, modifier = Modifier.size(44.dp)) {
-                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Registrar consumo",
-                        tint = RedOut, modifier = Modifier.size(26.dp))
+            // Categoría
+            if (!product.category.isNullOrBlank()) {
+                Surface(
+                    color = PrimaryBlue.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        product.category,
+                        fontSize = 10.sp,
+                        color = PrimaryBlue,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
-                Text("consumir", fontSize = 9.sp, color = Color.Gray)
             }
         }
     }
+}
+@Composable
+private fun ProductActionPopup(
+    product: Product,
+    onDismiss: () -> Unit,
+    onViewHistory: (Product) -> Unit,
+    onQuickConsume: (Product) -> Unit
+) {
+    val stockColor = when {
+        product.currentStock <= 0  -> Color(0xFFC62828)
+        product.currentStock < 1.0 -> Color(0xFFE65100)
+        else                       -> Color(0xFF2E7D32)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Stock: ",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                    Text(
+                        "${String.format("%.2f", product.currentStock)} ${product.unit}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = stockColor
+                    )
+                }
+                if (!product.category.isNullOrBlank()) {
+                    Surface(
+                        color = PrimaryBlue.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            product.category,
+                            fontSize = 11.sp,
+                            color = PrimaryBlue,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                if (!product.brand.isNullOrBlank()) {
+                    Text(
+                        "Marca: ${product.brand}",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Botón: Ver historial
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onViewHistory(product)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ver historial", fontWeight = FontWeight.SemiBold)
+                }
+
+                // Botón: Registrar consumo
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onQuickConsume(product)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = RedOut),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = product.currentStock > 0
+                ) {
+                    Icon(Icons.Default.RemoveCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Registrar consumo", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
 }
 
 // ─── Diálogo de consumo rápido ─────────────────────────────────────────────────
@@ -428,6 +548,7 @@ private fun RegisterTab(
     var productDropdownExpanded by remember { mutableStateOf(false) }
     var unitDropdownExpanded by remember { mutableStateOf(false) }
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
+    var showCreateCategoryDialog by remember { mutableStateOf(false) }
     val units = listOf("kg", "gramos", "unidades", "litros", "ml")
 
     // Cuando el tipo cambia a "Consumo", forzar modo producto existente
@@ -589,6 +710,7 @@ private fun RegisterTab(
                             }
                         )
                     }
+
                 }
             }
 
@@ -728,6 +850,33 @@ private fun RegisterTab(
                             onClick = { viewModel.onProductCategoryChange(cat.name); categoryDropdownExpanded = false }
                         )
                     }
+                    // ── Botón: Crear nueva categoría inline ──
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.AddCircleOutline,
+                                    contentDescription = null,
+                                    tint = PrimaryBlue,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Crear nueva categoría",
+                                    color = PrimaryBlue,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            categoryDropdownExpanded = false
+                            showCreateCategoryDialog = true
+                        }
+                    )
                 }
             }
 
@@ -872,6 +1021,60 @@ private fun RegisterTab(
                 }
             }
         }
+    }
+
+    // ── Diálogo para crear categoría desde el formulario de nuevo producto ──
+    if (showCreateCategoryDialog) {
+        var newCatName by remember { mutableStateOf("") }
+        var newCatIcon by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showCreateCategoryDialog = false },
+            title = {
+                Text("Nueva categoría", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = newCatName,
+                        onValueChange = { newCatName = it },
+                        label = { Text("Nombre *") },
+                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newCatIcon,
+                        onValueChange = { newCatIcon = it },
+                        label = { Text("Ícono (emoji, opcional)") },
+                        placeholder = { Text("Ej: 🥩 🧴 🍎") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newCatName.isNotBlank()) {
+                            viewModel.onCategoryNameChange(newCatName.trim())
+                            viewModel.onCategoryIconChange(newCatIcon.trim())
+                            viewModel.submitCategory()
+                            viewModel.onProductCategoryChange(newCatName.trim())
+                            showCreateCategoryDialog = false
+                        }
+                    },
+                    enabled = newCatName.isNotBlank()
+                ) {
+                    Text("Crear", color = PrimaryBlue, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateCategoryDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 

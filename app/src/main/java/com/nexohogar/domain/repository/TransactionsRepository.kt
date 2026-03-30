@@ -20,5 +20,11 @@ interface TransactionsRepository {
         request: CreateTransferRequest
     ): AppResult<Unit>
 
+    suspend fun getTransactionsByAccount(
+        householdId: String,
+        accountId: String,
+        limit: Int = 10
+    ): AppResult<List<Transaction>>
+
     suspend fun getAccounts(householdId: String): AppResult<List<Account>>
 }
