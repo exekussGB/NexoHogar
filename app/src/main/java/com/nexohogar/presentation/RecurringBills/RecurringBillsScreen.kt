@@ -224,6 +224,20 @@ fun RecurringBillsScreen(
             onDismiss  = { viewModel.dismissHistory() }
         )
     }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.RECURRING_BILLS,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
+                showTutorial = false
+            }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -720,19 +734,5 @@ private fun CreateBillDialog(
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancelar") }
         }
     )
-    // ── Tutorial overlay ────────────────────────────────────────────────────
-    if (showTutorial) {
-        TutorialOverlay(
-            module = TutorialModule.RECURRING_BILLS,
-            onComplete = {
-                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
-                showTutorial = false
-            },
-            onSkip = {
-                tutorialManager.markTutorialCompleted(TutorialModule.RECURRING_BILLS)
-                showTutorial = false
-            }
-        )
-    }
 }
 

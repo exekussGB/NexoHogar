@@ -27,6 +27,9 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
@@ -79,6 +82,20 @@ fun TransactionsScreen(
                     }
                 }
             }
+        }
+        // ── Tutorial overlay ────────────────────────────────────────────────────
+        if (showTutorial) {
+            TutorialOverlay(
+                module = TutorialModule.TRANSACTIONS,
+                onComplete = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
+                    showTutorial = false
+                },
+                onSkip = {
+                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
+                    showTutorial = false
+                }
+            )
         }
     }
 }
@@ -177,20 +194,6 @@ fun TransactionItem(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = iconColor
-            )
-        }
-        // ── Tutorial overlay ────────────────────────────────────────────────────
-        if (showTutorial) {
-            TutorialOverlay(
-                module = TutorialModule.TRANSACTIONS,
-                onComplete = {
-                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
-                    showTutorial = false
-                },
-                onSkip = {
-                    tutorialManager.markTutorialCompleted(TutorialModule.TRANSACTIONS)
-                    showTutorial = false
-                }
             )
         }
     }

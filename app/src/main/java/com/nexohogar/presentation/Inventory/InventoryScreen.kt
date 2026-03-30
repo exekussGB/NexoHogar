@@ -177,6 +177,20 @@ fun InventoryScreen(
             onDismiss = { productToConsume = null }
         )
     }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.INVENTORY,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
+                showTutorial = false
+            }
+        )
+    }
 }
 
 // ─── Pestaña: Productos (solo muestra stock) ───────────────────────────────────
@@ -1210,20 +1224,6 @@ private fun ProductHistorySheet(
                 }
             }
         }
-    }
-    // ── Tutorial overlay ────────────────────────────────────────────────────
-    if (showTutorial) {
-        TutorialOverlay(
-            module = TutorialModule.INVENTORY,
-            onComplete = {
-                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
-                showTutorial = false
-            },
-            onSkip = {
-                tutorialManager.markTutorialCompleted(TutorialModule.INVENTORY)
-                showTutorial = false
-            }
-        )
     }
 }
 

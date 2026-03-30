@@ -115,7 +115,23 @@ fun AccountsScreen(
             }
         )
     }
+    // ── Tutorial overlay ────────────────────────────────────────────────────
+    if (showTutorial) {
+        TutorialOverlay(
+            module = TutorialModule.ACCOUNTS,
+            onComplete = {
+                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            },
+            onSkip = {
+                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
+                showTutorial = false
+            }
+        )
+    }
 }
+
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Diálogo de creación de cuenta
@@ -372,20 +388,6 @@ fun AccountItem(
                 )
             }
         }
-    }
-    // ── Tutorial overlay ────────────────────────────────────────────────────
-    if (showTutorial) {
-        TutorialOverlay(
-            module = TutorialModule.ACCOUNTS,
-            onComplete = {
-                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
-                showTutorial = false
-            },
-            onSkip = {
-                tutorialManager.markTutorialCompleted(TutorialModule.ACCOUNTS)
-                showTutorial = false
-            }
-        )
     }
 }
 
