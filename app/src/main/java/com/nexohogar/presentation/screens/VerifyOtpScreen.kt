@@ -17,11 +17,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.viewmodel.VerifyOtpViewModel
 
+/**
+ * SEC-05: onVerified ahora recibe el accessToken como parámetro
+ * para pasarlo como argumento de navegación (sin singleton).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerifyOtpScreen(
     email: String,
-    onVerified: () -> Unit,
+    onVerified: (String) -> Unit,
     onBack: () -> Unit,
     viewModel: VerifyOtpViewModel = viewModel(
         factory = VerifyOtpViewModel.Factory(ServiceLocator.authRepository)
@@ -32,7 +36,8 @@ fun VerifyOtpScreen(
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
-            onVerified()
+            val token = state.accessToken ?: ""
+            onVerified(token)
         }
     }
 

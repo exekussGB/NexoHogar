@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.repository.AuthRepository
-import com.nexohogar.presentation.ResetPasswordTokenHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,14 +16,17 @@ data class ResetPasswordUiState(
     val errorMessage: String? = null
 )
 
+/**
+ * SEC-05: El token se recibe como parámetro del constructor en lugar de
+ * leerlo del singleton ResetPasswordTokenHolder (eliminado).
+ */
 class ResetPasswordViewModel(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val accessToken: String
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ResetPasswordUiState())
     val uiState: StateFlow<ResetPasswordUiState> = _uiState.asStateFlow()
-
-    private val accessToken: String = ResetPasswordTokenHolder.token ?: ""
 
     fun resetPassword(newPassword: String) {
         if (accessToken.isBlank()) {
@@ -38,7 +40,6 @@ class ResetPasswordViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             when (val result = authRepository.updatePassword(accessToken, newPassword)) {
                 is AppResult.Success -> {
-                    ResetPasswordTokenHolder.token = null  // Limpiar token usado
                     _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
                 }
                 is AppResult.Error -> {
@@ -56,10 +57,13 @@ class ResetPasswordViewModel(
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
-    class Factory(private val authRepository: AuthRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val authRepository: AuthRepository,
+        private val accessToken: String
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ResetPasswordViewModel(authRepository) as T
+            return ResetPasswordViewModel(authRepository, accessToken) as T
         }
     }
 }

@@ -2,6 +2,7 @@ package com.nexohogar.core.di
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.nexohogar.BuildConfig
 import com.nexohogar.core.network.AuthInterceptor
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
@@ -62,8 +63,13 @@ object ServiceLocator {
     }
 
     private val okHttpClient: OkHttpClient by lazy {
+        // SEC-04: Solo loguear body HTTP en debug, NONE en release
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
@@ -72,8 +78,9 @@ object ServiceLocator {
     }
 
     private val retrofit: Retrofit by lazy {
+        // SEC-01: Usar SupabaseConfig.BASE_URL en lugar de URL hardcodeada
         Retrofit.Builder()
-            .baseUrl("https://REMOVED.supabase.co/")
+            .baseUrl(SupabaseConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -81,53 +88,18 @@ object ServiceLocator {
 
     // ── API interfaces ────────────────────────────────────────────────────────
 
-    val authApi: AuthApi by lazy {
-        retrofit.create(AuthApi::class.java)
-    }
-
-    val dashboardApi: DashboardApi by lazy {
-        retrofit.create(DashboardApi::class.java)
-    }
-
-    val accountsApi: AccountsApi by lazy {
-        retrofit.create(AccountsApi::class.java)
-    }
-
-    val transactionsApi: TransactionsApi by lazy {
-        retrofit.create(TransactionsApi::class.java)
-    }
-
-    val transactionDetailApi: TransactionDetailApi by lazy {
-        retrofit.create(TransactionDetailApi::class.java)
-    }
-
-    val categoriesApi: CategoriesApi by lazy {
-        retrofit.create(CategoriesApi::class.java)
-    }
-
-    val recurringBillsApi: RecurringBillsApi by lazy {
-        retrofit.create(RecurringBillsApi::class.java)
-    }
-
-    val inventoryApi: InventoryApi by lazy {
-        retrofit.create(InventoryApi::class.java)
-    }
-
-    val fcmApi: FcmApi by lazy {
-        retrofit.create(FcmApi::class.java)
-    }
-
-    val budgetApi: BudgetApi by lazy {
-        retrofit.create(BudgetApi::class.java)
-    }
-
-    val categoryExpensesApi: CategoryExpensesApi by lazy {
-        retrofit.create(CategoryExpensesApi::class.java)
-    }
-
-    val personalDashboardApi: PersonalDashboardApi by lazy {
-        retrofit.create(PersonalDashboardApi::class.java)
-    }
+    val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
+    val dashboardApi: DashboardApi by lazy { retrofit.create(DashboardApi::class.java) }
+    val accountsApi: AccountsApi by lazy { retrofit.create(AccountsApi::class.java) }
+    val transactionsApi: TransactionsApi by lazy { retrofit.create(TransactionsApi::class.java) }
+    val transactionDetailApi: TransactionDetailApi by lazy { retrofit.create(TransactionDetailApi::class.java) }
+    val categoriesApi: CategoriesApi by lazy { retrofit.create(CategoriesApi::class.java) }
+    val recurringBillsApi: RecurringBillsApi by lazy { retrofit.create(RecurringBillsApi::class.java) }
+    val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
+    val fcmApi: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
+    val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
+    val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
+    val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
 
     // ── Repositories ──────────────────────────────────────────────────────────
 

@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.repository.AuthRepository
-import com.nexohogar.presentation.ResetPasswordTokenHolder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,9 +14,14 @@ import kotlinx.coroutines.launch
 data class VerifyOtpState(
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
+    val accessToken: String? = null,
     val error: String? = null
 )
 
+/**
+ * SEC-05: El access_token obtenido se expone via state para que la pantalla
+ * lo pase como argumento de navegación, en lugar de usar el singleton eliminado.
+ */
 class VerifyOtpViewModel(
     private val authRepository: AuthRepository
 ) : ViewModel() {
@@ -35,8 +39,13 @@ class VerifyOtpViewModel(
             _state.update { it.copy(isLoading = true, error = null) }
             when (val result = authRepository.verifyOtp(email, code)) {
                 is AppResult.Success -> {
-                    ResetPasswordTokenHolder.token = result.data
-                    _state.update { it.copy(isLoading = false, isSuccess = true) }
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            isSuccess = true,
+                            accessToken = result.data
+                        )
+                    }
                 }
                 is AppResult.Error -> {
                     _state.update { it.copy(isLoading = false, error = result.message) }

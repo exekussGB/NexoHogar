@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
-import android.util.Log
+import com.nexohogar.core.util.AppLogger
 
 enum class ScannerStep { CAMERA, PROCESSING, REVIEW, IMPORTING, DONE, ERROR }
 
@@ -67,7 +67,7 @@ class ReceiptScannerViewModel(
                 val cats = inventoryRepository.getCategories(householdId)
                 _categories.value = cats.map { it.id to it.name }
             } catch (e: Exception) {
-                Log.e("ReceiptScanner", "Error cargando cuentas/categorías", e)
+                AppLogger.e("ReceiptScanner", "Error cargando cuentas/categorías", e)
             }
         }
     }
@@ -236,7 +236,7 @@ class ReceiptScannerViewModel(
                     )
                 }
             } catch (e: Exception) {
-                Log.e("ReceiptScanner", "Error procesando imagen", e)
+                AppLogger.e("ReceiptScanner", "Error procesando imagen", e)
                 _uiState.update {
                     it.copy(
                         step = ScannerStep.ERROR,

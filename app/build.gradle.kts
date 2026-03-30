@@ -1,7 +1,18 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+}
+
+// ── SEC-01: Leer API Key desde local.properties ──────────────────────────────
+val localProperties = Properties()
+rootProject.file("local.properties").let { file ->
+    if (file.exists()) {
+        localProperties.load(FileInputStream(file))
+    }
 }
 
 android {
@@ -19,11 +30,25 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // SEC-01: Inyectar valores desde local.properties via BuildConfig
+        buildConfigField(
+            "String",
+            "SUPABASE_KEY",
+            "\"${localProperties.getProperty("SUPABASE_KEY", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            "\"${localProperties.getProperty("SUPABASE_URL", "https://REMOVED.supabase.co/")}\""
+        )
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // SEC-03: Habilitar ofuscacion y shrink en release
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -36,8 +61,8 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
         compose = true
+        buildConfig = true   // Necesario para BuildConfig.SUPABASE_KEY
     }
 
     composeOptions {
@@ -88,6 +113,9 @@ dependencies {
     // ── WorkManager (notificaciones en background) ────────────────────────
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // ── SEC-02: EncryptedSharedPreferences ─────────────────────────────────
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
@@ -98,13 +126,13 @@ dependencies {
     // ML Kit Text Recognition (OCR offline)
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
-// CameraX
+    // CameraX
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-// ── Firebase (AGREGAR) ──
+    // ── Firebase ──
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
 }

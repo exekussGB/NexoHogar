@@ -12,7 +12,8 @@ import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
-import com.nexohogar.presentation.addtransaction.AddTransactionScreen
+// RED-01: Import desde addmovement (paquete no deprecado)
+import com.nexohogar.presentation.addmovement.AddTransactionScreen
 import com.nexohogar.presentation.addmovement.AddMovementViewModel
 import com.nexohogar.presentation.budget.BudgetScreen
 import com.nexohogar.presentation.budget.BudgetViewModel
@@ -195,7 +196,7 @@ fun NavGraph(navController: NavHostController) {
             TutorialListScreen(
                 tutorialManager = tutorialManager,
                 onStartTutorial = { module ->
-                    navController.popBackStack() // volver de la lista
+                    navController.popBackStack()
                     when (module) {
                         TutorialModule.DASHBOARD       -> navController.navigate(Screen.Dashboard.route)
                         TutorialModule.ACCOUNTS        -> navController.navigate(Screen.Accounts.route)
@@ -464,15 +465,24 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable("reset_password") {
+
+        // ── SEC-05: Reset Password ahora recibe token como argumento ──────
+        composable(
+            "reset_password/{accessToken}",
+            arguments = listOf(navArgument("accessToken") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val accessToken = Uri.decode(backStackEntry.arguments?.getString("accessToken") ?: "")
             ResetPasswordScreen(
+                accessToken = accessToken,
                 onResetSuccess = {
                     navController.navigate("login") {
-                        popUpTo("reset_password") { inclusive = true }
+                        popUpTo("reset_password/{accessToken}") { inclusive = true }
                     }
                 }
             )
         }
+
+        // ── SEC-05: Verify OTP ahora pasa token al navegar ────────────────
         composable(
             "verify_otp/{email}",
             arguments = listOf(navArgument("email") { type = NavType.StringType })
@@ -480,8 +490,8 @@ fun NavGraph(navController: NavHostController) {
             val email = Uri.decode(backStackEntry.arguments?.getString("email") ?: "")
             VerifyOtpScreen(
                 email = email,
-                onVerified = {
-                    navController.navigate("reset_password") {
+                onVerified = { accessToken ->
+                    navController.navigate("reset_password/${Uri.encode(accessToken)}") {
                         popUpTo("verify_otp/{email}") { inclusive = true }
                     }
                 },

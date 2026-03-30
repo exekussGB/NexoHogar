@@ -1,4 +1,4 @@
-package com.nexohogar.presentation.addtransaction
+package com.nexohogar.presentation.addmovement
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*

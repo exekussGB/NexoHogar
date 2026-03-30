@@ -6,34 +6,28 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.nexohogar.R
 import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.core.util.AppLogger
 import com.nexohogar.presentation.MainActivity
 
 /**
- * Servicio que maneja mensajes entrantes de Firebase Cloud Messaging.
- * Soporta múltiples canales: hogar, cuentas, presupuesto, inventario.
+ * Servicio FCM. SEC-04: Logs via AppLogger (solo DEBUG).
  */
 class NexoHogarMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "FCM"
 
-        // Canales de notificación
         const val CHANNEL_GENERAL   = "nexohogar_general"
         const val CHANNEL_HOUSEHOLD = "nexohogar_household"
         const val CHANNEL_BILLS     = "nexohogar_bills"
         const val CHANNEL_BUDGET    = "nexohogar_budget"
         const val CHANNEL_INVENTORY = "nexohogar_inventory"
 
-        /**
-         * Crear todos los canales de notificación.
-         * Llamar desde Application.onCreate().
-         */
         fun createNotificationChannels(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val manager = context.getSystemService(NotificationManager::class.java)
@@ -72,7 +66,7 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Nuevo token FCM generado")
+        AppLogger.d(TAG, "Nuevo token FCM generado")
 
         val session = ServiceLocator.sessionManager.fetchSession()
         if (session != null) {
@@ -85,7 +79,7 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        Log.d(TAG, "Mensaje recibido de: ${message.from}")
+        AppLogger.d(TAG, "Mensaje recibido de: ${message.from}")
 
         val title = message.notification?.title
             ?: message.data["title"]
@@ -98,10 +92,9 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
         val type = message.data["type"] ?: "general"
 
         if (body.isNotBlank()) {
-            // Verificar preferencias de notificación del usuario
             val notifPrefs = ServiceLocator.notificationPreferences
             if (!notifPrefs.isTypeEnabled(type)) {
-                Log.d(TAG, "Notificación tipo '$type' deshabilitada por el usuario")
+                AppLogger.d(TAG, "Notificación tipo '$type' deshabilitada por el usuario")
                 return
             }
 
