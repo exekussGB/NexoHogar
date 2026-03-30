@@ -23,12 +23,16 @@ import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.core.util.PasswordValidator
 import com.nexohogar.presentation.components.PasswordStrengthIndicator
 
+/**
+ * SEC-05: Recibe accessToken como parámetro en lugar de usar el singleton.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResetPasswordScreen(
+    accessToken: String,
     onResetSuccess: () -> Unit,
     viewModel: ResetPasswordViewModel = viewModel(
-        factory = ResetPasswordViewModel.Factory(ServiceLocator.authRepository)
+        factory = ResetPasswordViewModel.Factory(ServiceLocator.authRepository, accessToken)
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -115,7 +119,6 @@ fun ResetPasswordScreen(
                 enabled = !uiState.isLoading
             )
 
-            // Indicador visual de fortaleza de contraseña
             if (password.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 PasswordStrengthIndicator(password = password)

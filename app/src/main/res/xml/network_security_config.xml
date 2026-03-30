@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SEC-03: Configuración de seguridad de red.
+    - Obliga HTTPS en todas las conexiones.
+    - Desactiva cleartext traffic.
+    - Solo confía en certificados del sistema.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

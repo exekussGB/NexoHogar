@@ -13,11 +13,12 @@
 
     <application
         android:name=".NexoHogarApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="NexoHogar"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.NexoHogar">
 
         <activity
@@ -42,11 +43,6 @@
 
         </activity>
 
-        <!--
-            WorkManager registra su propio ContentProvider automáticamente.
-            No es necesario declarar el Worker aquí — WorkManager lo descubre
-            a través del classpath.
-        -->
         <!-- Firebase Cloud Messaging -->
         <service
             android:name=".service.NexoHogarMessagingService"

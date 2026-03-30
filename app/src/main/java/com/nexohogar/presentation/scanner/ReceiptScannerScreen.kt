@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Log
+import com.nexohogar.core.util.AppLogger
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -138,7 +138,7 @@ private fun CameraStep(
                     onImageCaptured(bitmap)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading image from gallery", e)
+                AppLogger.e(TAG, "Error loading image from gallery", e)
             }
         }
     }
@@ -179,7 +179,7 @@ private fun CameraStep(
                                 capture
                             )
                         } catch (e: Exception) {
-                            Log.e(TAG, "Camera bind failed", e)
+                            AppLogger.e(TAG, "Camera bind failed", e)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 
@@ -237,7 +237,7 @@ private fun CameraStep(
                                 }
 
                                 override fun onError(exception: ImageCaptureException) {
-                                    Log.e(TAG, "Photo capture failed", exception)
+                                    AppLogger.e(TAG, "Photo capture failed", exception)
                                 }
                             }
                         )
