@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.nexohogar.core.result.getOrThrow
 import java.time.LocalDate
 
 // ─── Estadística por categoría ─────────────────────────────────────────────────
@@ -122,9 +123,9 @@ class InventoryViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val products = repository.getProducts(householdId)
-                val movements = try { repository.getMovements(householdId) } catch (e: Exception) { emptyList() }
-                val categories = try { repository.getCategories(householdId) } catch (e: Exception) { emptyList() }
+                val products = repository.getProducts(householdId).getOrThrow()
+                val movements = try { repository.getMovements(householdId).getOrThrow() } catch (e: Exception) { emptyList() }
+                val categories = try { repository.getCategories(householdId).getOrThrow() } catch (e: Exception) { emptyList() }
                 val suggestions = calcSuggestions(products, movements)
                 val stats = calcCategoryStats(products, movements)
                 _uiState.value = _uiState.value.copy(
@@ -266,7 +267,7 @@ class InventoryViewModel(
                     unit        = form.unit,
                     brand       = form.brand.takeIf { it.isNotBlank() },
                     category    = form.category.takeIf { it.isNotBlank() }
-                )
+                ).getOrThrow()
                 // Si hay cantidad inicial, registrar movimiento de entrada
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
@@ -278,7 +279,7 @@ class InventoryViewModel(
                         priceTotal   = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
                         brand        = form.brand.takeIf { it.isNotBlank() },
                         store        = if (form.registerAsPurchase) form.store.takeIf { it.isNotBlank() } else null
-                    )
+                    ).getOrThrow()
                 }
                 _productForm.value = ProductFormState(success = true)
                 loadData()
@@ -310,7 +311,7 @@ class InventoryViewModel(
                     householdId = householdId,
                     name = form.name.trim(),
                     icon = form.icon.takeIf { it.isNotBlank() }
-                )
+                ).getOrThrow()
                 _categoryForm.value = CategoryFormState(success = true)
                 loadData()
             } catch (e: Exception) {
@@ -325,7 +326,7 @@ class InventoryViewModel(
     fun deleteCategory(categoryId: String) {
         viewModelScope.launch {
             try {
-                repository.deleteCategory(categoryId)
+                repository.deleteCategory(categoryId).getOrThrow()
                 loadData()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -419,14 +420,14 @@ class InventoryViewModel(
                         priceTotal   = form.priceTotal.toDoubleOrNull(),
                         brand        = form.brand.takeIf { it.isNotBlank() },
                         store        = form.store.takeIf { it.isNotBlank() }
-                    )
+                    ).getOrThrow()
                 } else {
                     repository.addConsumption(
                         householdId  = householdId,
                         itemId       = product.id,
                         quantity     = qty,
                         movementDate = form.movementDate
-                    )
+                    ).getOrThrow()
                 }
                 _movementForm.value = MovementFormState(success = true)
                 loadData()
@@ -450,7 +451,7 @@ class InventoryViewModel(
                     itemId       = itemId,
                     quantity     = quantity,
                     movementDate = LocalDate.now().toString()
-                )
+                ).getOrThrow()
                 loadData()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -465,7 +466,7 @@ class InventoryViewModel(
         viewModelScope.launch {
             _movementsState.value = MovementsUiState(isLoading = true, product = product)
             try {
-                val movements = repository.getMovements(householdId, product.id)
+                val movements = repository.getMovements(householdId, product.id).getOrThrow()
                 _movementsState.value = MovementsUiState(
                     movements = movements,
                     product   = product,

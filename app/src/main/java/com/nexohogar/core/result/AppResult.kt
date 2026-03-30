@@ -9,3 +9,13 @@ sealed class AppResult<out T> {
     data class Error(val message: String, val exception: Throwable? = null) : AppResult<Nothing>()
     object Loading : AppResult<Nothing>()
 }
+
+/**
+ * COH-03: Extensión para extraer el valor de un AppResult.Success o lanzar excepción.
+ * Útil para ViewModels que ya manejan errores con try/catch.
+ */
+fun <T> AppResult<T>.getOrThrow(): T = when (this) {
+    is AppResult.Success -> data
+    is AppResult.Error -> throw Exception(message, exception)
+    is AppResult.Loading -> throw IllegalStateException("Operation still loading")
+}

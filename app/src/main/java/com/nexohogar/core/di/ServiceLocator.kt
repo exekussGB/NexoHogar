@@ -10,6 +10,7 @@ import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
+import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -62,6 +63,27 @@ object ServiceLocator {
         AuthInterceptor(sessionManager)
     }
 
+    /**
+     * SEC-07: Certificate pinning para Supabase.
+     * Se fija al certificado intermedio (Google Trust Services WE1) y al root (GTS Root R4)
+     * para tolerar rotación del certificado leaf.
+     *
+     * ⚠️ Si Supabase cambia de CA, estos pins deberán actualizarse.
+     * Revisar periódicamente con:
+     *   openssl s_client -servername <host> -connect <host>:443 -showcerts
+     */
+    private val certificatePinner: CertificatePinner by lazy {
+        val supabaseHost = SupabaseConfig.BASE_URL
+            .removePrefix("https://")
+            .removeSuffix("/")
+        CertificatePinner.Builder()
+            // Intermediate: Google Trust Services WE1
+            .add(supabaseHost, "sha256/kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=")
+            // Root: GTS Root R4
+            .add(supabaseHost, "sha256/mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=")
+            .build()
+    }
+
     private val okHttpClient: OkHttpClient by lazy {
         // SEC-04: Solo loguear body HTTP en debug, NONE en release
         val logging = HttpLoggingInterceptor().apply {
@@ -74,6 +96,7 @@ object ServiceLocator {
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
+            .certificatePinner(certificatePinner) // SEC-07
             .build()
     }
 
