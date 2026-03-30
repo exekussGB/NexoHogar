@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +26,7 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
-    val state by viewModel.loginState.observeAsState(LoginState.Idle)
+    val state by viewModel.loginState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     fun validateEmail(): Boolean {
@@ -112,11 +112,10 @@ fun LoginScreen(
 
             TextButton(onClick = onNavigateToRegister, modifier = Modifier.fillMaxWidth()) {
                 Text("¿No tienes cuenta? Regístrate")
+            }
 
-            TextButton(onClick = onNavigateToForgotPassword, modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("¿Olvidaste tu contraseña?")
-                }
+            TextButton(onClick = onNavigateToForgotPassword, modifier = Modifier.fillMaxWidth()) {
+                Text("¿Olvidaste tu contraseña?")
             }
         }
 
