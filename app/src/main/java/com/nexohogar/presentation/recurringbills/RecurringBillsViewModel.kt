@@ -114,11 +114,21 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) {
+    fun createBill(
+        name: String,
+        amountClp: Long,
+        dueDayOfMonth: Int,
+        notes: String?,
+        totalInstallments: Int? = null,
+        paidInstallments: Int = 0
+    ) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes)) {
+            when (val result = repository.createRecurringBill(
+                householdId, name, amountClp, dueDayOfMonth, notes,
+                totalInstallments, paidInstallments
+            )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
                         isCreating       = false,
