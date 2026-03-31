@@ -87,7 +87,6 @@ fun ReceiptScannerScreen(
                     onUpdateStore = viewModel::updateStore,
                     onUpdateDate = viewModel::updateDate,
                     onSetAccount = viewModel::setAccount,
-                    onSetCategory = viewModel::setCategory,
                     onConfirmImport = viewModel::confirmImport,
                     onRetakePhoto = viewModel::retakePhoto
                 )
@@ -333,7 +332,6 @@ private fun ReviewStep(
     onUpdateStore: (String) -> Unit,
     onUpdateDate: (String) -> Unit,
     onSetAccount: (String) -> Unit,
-    onSetCategory: (String?) -> Unit,
     onConfirmImport: () -> Unit,
     onRetakePhoto: () -> Unit
 ) {
@@ -501,48 +499,6 @@ private fun ReviewStep(
                 }
             }
 
-            // Category selector (optional)
-            item {
-                var categoryExpanded by remember { mutableStateOf(false) }
-                val selectedCategoryName = categories.find { it.first == uiState.selectedCategoryId }?.second ?: "Sin categoría"
-
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategoryName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Categoría financiera (opcional)") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) }
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Sin categoría") },
-                            onClick = {
-                                onSetCategory(null)
-                                categoryExpanded = false
-                            }
-                        )
-                        categories.forEach { (id, name) ->
-                            DropdownMenuItem(
-                                text = { Text(name) },
-                                onClick = {
-                                    onSetCategory(id)
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
             // Items header
             item {
                 Row(
@@ -563,10 +519,11 @@ private fun ReviewStep(
                 }
             }
 
-            // Item cards
+            // Item cards — ahora cada uno recibe la lista de categorías
             itemsIndexed(uiState.items) { index, item ->
                 ReceiptItemCard(
                     item = item,
+                    categories = categories,
                     onToggle = { onToggleItem(index) },
                     onUpdate = { updated -> onUpdateItem(index, updated) },
                     onRemove = { onRemoveItem(index) }
@@ -581,9 +538,11 @@ private fun ReviewStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReceiptItemCard(
     item: ScannedReceiptItem,
+    categories: List<Pair<String, String>>,
     onToggle: () -> Unit,
     onUpdate: (ScannedReceiptItem) -> Unit,
     onRemove: () -> Unit
@@ -624,6 +583,14 @@ private fun ReceiptItemCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Mostrar categoría asignada en vista colapsada
+                    if (!isExpanded && item.category != null) {
+                        Text(
+                            text = "📁 ${item.category}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 IconButton(onClick = { isExpanded = !isExpanded }) {
@@ -701,6 +668,54 @@ private fun ReceiptItemCard(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ─── Categoría por producto ─────────────────────────────
+                var categoryExpanded by remember { mutableStateOf(false) }
+                val selectedCategoryName = if (item.categoryId != null) {
+                    categories.find { it.first == item.categoryId }?.second ?: item.category ?: "Sin categoría"
+                } else {
+                    item.category ?: "Sin categoría"
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCategoryName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        // Opción "Sin categoría"
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = {
+                                onUpdate(item.copy(categoryId = null, category = null))
+                                categoryExpanded = false
+                            }
+                        )
+                        // Categorías existentes del hogar
+                        categories.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    onUpdate(item.copy(categoryId = id, category = name))
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
