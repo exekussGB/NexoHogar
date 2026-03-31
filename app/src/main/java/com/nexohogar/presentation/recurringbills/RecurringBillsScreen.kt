@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.recurringbills
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurringBillsScreen(
@@ -148,7 +150,6 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
-                                    onEdit         = { viewModel.onShowEditDialog(bill) },
                                     onMarkAsPaid   = {
                                         statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
                                             ?: viewModel.confirmMarkAsPaid(bill)
@@ -175,7 +176,6 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
-                                    onEdit         = { viewModel.onShowEditDialog(bill) },
                                     onMarkAsPaid   = {},
                                     onToggleActive = { viewModel.toggleActive(bill) },
                                     onDelete       = { viewModel.deleteBill(bill) },
@@ -197,20 +197,8 @@ fun RecurringBillsScreen(
             isCreating  = uiState.isCreating,
             createError = uiState.createError,
             onDismiss   = { viewModel.onDismissCreateDialog() },
-            onCreate    = { name, amount, day, notes -> viewModel.createBill(name, amount, day, notes) }
-        )
-    }
-
-    // ── Diálogo de edición ───────────────────────────────────────────────────
-    val billToEdit = uiState.billToEdit
-    if (billToEdit != null) {
-        EditBillDialog(
-            bill       = billToEdit,
-            isEditing  = uiState.isEditingBill,
-            editError  = uiState.editBillError,
-            onDismiss  = { viewModel.onDismissEditDialog() },
-            onConfirm  = { name, amount, day, notes, totalInst, paidInst ->
-                viewModel.updateBill(name, amount, day, notes, totalInst, paidInst)
+            onCreate    = { name, amount, day, notes, totalInstallments ->
+                viewModel.createBill(name, amount, day, notes, totalInstallments)
             }
         )
     }
@@ -328,7 +316,6 @@ private fun PayBillDialog(
         title = { Text("Pagar ${bill.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Monto editable
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { c -> c.isDigit() } },
@@ -339,8 +326,6 @@ private fun PayBillDialog(
                     singleLine = true,
                     enabled = !isPaying
                 )
-
-                // Selector de cuenta de pago
                 if (accounts.isNotEmpty()) {
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(
@@ -371,8 +356,6 @@ private fun PayBillDialog(
                         }
                     }
                 }
-
-                // Notas opcionales
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -381,8 +364,6 @@ private fun PayBillDialog(
                     maxLines = 2,
                     enabled = !isPaying
                 )
-
-                // Info de vencimiento
                 if (bill.isOverdue) {
                     Text(
                         "⚠️ Vencida (día ${bill.dueDay})",
@@ -402,11 +383,7 @@ private fun PayBillDialog(
                 onClick = {
                     val parsedAmount = amount.toLongOrNull()
                     if (parsedAmount != null && parsedAmount > 0) {
-                        onConfirm(
-                            parsedAmount,
-                            selectedAccountId,
-                            notes.ifBlank { null }
-                        )
+                        onConfirm(parsedAmount, selectedAccountId, notes.ifBlank { null })
                     }
                 },
                 enabled = !isPaying && (amount.toLongOrNull()?.let { it > 0 } ?: false)
@@ -419,9 +396,7 @@ private fun PayBillDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isPaying) {
-                Text("Cancelar")
-            }
+            TextButton(onClick = onDismiss, enabled = !isPaying) { Text("Cancelar") }
         }
     )
 }
@@ -490,7 +465,7 @@ private fun PaymentHistoryDialog(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item de cuenta recurrente (mejorado con historial)
+// Item de cuenta recurrente
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -498,7 +473,6 @@ private fun RecurringBillItem(
     bill: RecurringBill,
     statusDto: RecurringBillWithStatusDto?,
     format: NumberFormat,
-    onEdit: () -> Unit,
     onMarkAsPaid: () -> Unit,
     onToggleActive: () -> Unit,
     onDelete: () -> Unit,
@@ -509,7 +483,7 @@ private fun RecurringBillItem(
     val (statusColor, statusLabel, statusIcon) = when (status) {
         RecurringBillStatus.OVERDUE  -> Triple(Color(0xFFB71C1C), "VENCIDO", Icons.Default.ErrorOutline)
         RecurringBillStatus.DUE_SOON -> Triple(Color(0xFFE65100), "VENCE PRONTO", Icons.Default.Warning)
-        RecurringBillStatus.PAID     -> Triple(Color(0xFF2E7D32), "PAGADO", Icons.Default.CheckCircle)
+        RecurringBillStatus.PAID     -> Triple(Color(0xFF2E7D32), if (bill.installmentsCompleted) "COMPLETADO" else "PAGADO", Icons.Default.CheckCircle)
         RecurringBillStatus.OK       -> Triple(Color(0xFF1565C0), "Al día ${bill.dueDayOfMonth}", Icons.Default.CalendarToday)
         RecurringBillStatus.INACTIVE -> Triple(Color(0xFF757575), "PAUSADO", Icons.Default.PauseCircle)
     }
@@ -556,7 +530,17 @@ private fun RecurringBillItem(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Mostrar último pago si existe
+                        // Mostrar progreso de cuotas
+                        bill.installmentLabel?.let { label ->
+                            Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF6A1B9A),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        // Mostrar último pago
                         statusDto?.lastPaymentAmount?.let { lastAmt ->
                             if (statusDto.isPaidThisMonth) {
                                 Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
@@ -574,11 +558,6 @@ private fun RecurringBillItem(
                         Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Editar") },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                            onClick = { expanded = false; onEdit() }
-                        )
                         if (bill.isActive && status != RecurringBillStatus.PAID) {
                             DropdownMenuItem(
                                 text = { Text("Pagar") },
@@ -657,7 +636,7 @@ private fun EmptyBillsState(onAdd: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de creación
+// Diálogo de creación (con soporte de cuotas)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -665,7 +644,7 @@ private fun CreateBillDialog(
     isCreating: Boolean,
     createError: String?,
     onDismiss: () -> Unit,
-    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) -> Unit
+    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?) -> Unit
 ) {
     var name        by remember { mutableStateOf("") }
     var amountText  by remember { mutableStateOf("") }
@@ -673,6 +652,11 @@ private fun CreateBillDialog(
     var notes       by remember { mutableStateOf("") }
     var nameError   by remember { mutableStateOf(false) }
     var dayError    by remember { mutableStateOf(false) }
+
+    // ── Cuotas ──
+    var isInstallment      by remember { mutableStateOf(false) }
+    var installmentsText   by remember { mutableStateOf("") }
+    var installmentsError  by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -722,6 +706,60 @@ private fun CreateBillDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isCreating
                 )
+
+                // ── Toggle de cuotas ──
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.CreditCard,
+                        contentDescription = null,
+                        tint = if (isInstallment) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "¿Es en cuotas?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = isInstallment,
+                        onCheckedChange = {
+                            isInstallment = it
+                            if (!it) {
+                                installmentsText = ""
+                                installmentsError = false
+                            }
+                        },
+                        enabled = !isCreating
+                    )
+                }
+
+                // ── Campo de número de cuotas (visible solo si isInstallment) ──
+                AnimatedVisibility(visible = isInstallment) {
+                    OutlinedTextField(
+                        value = installmentsText,
+                        onValueChange = {
+                            installmentsText = it.filter { c -> c.isDigit() }.take(3)
+                            installmentsError = false
+                        },
+                        label = { Text("Número total de cuotas") },
+                        placeholder = { Text("Ej: 12") },
+                        isError = installmentsError,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        enabled = !isCreating,
+                        supportingText = if (installmentsError) {
+                            { Text("Ingresa un número válido (1-999)") }
+                        } else {
+                            { Text("Se irá descontando cada vez que pagues") }
+                        }
+                    )
+                }
+
                 if (createError != null) {
                     Text(createError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
@@ -740,12 +778,21 @@ private fun CreateBillDialog(
                     val day = dueDayText.toIntOrNull()
                     nameError = name.isBlank()
                     dayError  = day == null || day < 1 || day > 31
-                    if (!nameError && !dayError) {
+
+                    // Validar cuotas si el toggle está activo
+                    val totalInst = if (isInstallment) {
+                        val parsed = installmentsText.toIntOrNull()
+                        installmentsError = parsed == null || parsed < 1
+                        parsed
+                    } else null
+
+                    if (!nameError && !dayError && !installmentsError) {
                         onCreate(
                             name.trim(),
                             amountText.toLongOrNull() ?: 0L,
                             day!!,
-                            notes.trim().ifBlank { null }
+                            notes.trim().ifBlank { null },
+                            totalInst
                         )
                     }
                 },
@@ -754,121 +801,6 @@ private fun CreateBillDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancelar") }
-        }
-    )
-}
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EditBillDialog
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun EditBillDialog(
-    bill      : RecurringBill,
-    isEditing : Boolean,
-    editError : String?,
-    onDismiss : () -> Unit,
-    onConfirm : (String, Long, Int, String?, Int?, Int) -> Unit
-) {
-    var nameText         by remember { mutableStateOf(bill.name) }
-    var amountText       by remember { mutableStateOf(bill.amountClp.toString()) }
-    var dayText          by remember { mutableStateOf(bill.dueDayOfMonth.toString()) }
-    var notesText        by remember { mutableStateOf(bill.notes ?: "") }
-    var isInstallment    by remember { mutableStateOf(bill.isInstallment) }
-    var totalInstText    by remember { mutableStateOf(bill.totalInstallments?.toString() ?: "") }
-    var paidInstText     by remember { mutableStateOf(bill.paidInstallments.toString()) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title   = { Text("Editar cuenta recurrente") },
-        text    = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value         = nameText,
-                    onValueChange = { nameText = it },
-                    label         = { Text("Nombre *") },
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value         = amountText,
-                    onValueChange = { amountText = it.filter { c -> c.isDigit() } },
-                    label         = { Text("Monto (CLP) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value         = dayText,
-                    onValueChange = { dayText = it.filter { c -> c.isDigit() } },
-                    label         = { Text("Día de vencimiento (1-31) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value         = notesText,
-                    onValueChange = { notesText = it },
-                    label         = { Text("Notas (opcional)") },
-                    maxLines      = 2,
-                    modifier      = Modifier.fillMaxWidth()
-                )
-
-                // Cuotas
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked         = isInstallment,
-                        onCheckedChange = { isInstallment = it }
-                    )
-                    Text("Es pago en cuotas", style = MaterialTheme.typography.bodyMedium)
-                }
-
-                if (isInstallment) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value         = totalInstText,
-                            onValueChange = { totalInstText = it.filter { c -> c.isDigit() } },
-                            label         = { Text("Total cuotas") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine    = true,
-                            modifier      = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value         = paidInstText,
-                            onValueChange = { paidInstText = it.filter { c -> c.isDigit() } },
-                            label         = { Text("Cuotas pagadas") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine    = true,
-                            modifier      = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                if (editError != null) {
-                    Text(editError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val amount    = amountText.toLongOrNull() ?: 0L
-                    val day       = dayText.toIntOrNull()?.coerceIn(1, 31) ?: bill.dueDayOfMonth
-                    val totalInst = if (isInstallment) totalInstText.toIntOrNull() else null
-                    val paidInst  = paidInstText.toIntOrNull() ?: 0
-                    onConfirm(nameText.trim(), amount, day, notesText.trim().ifBlank { null }, totalInst, paidInst)
-                },
-                enabled = nameText.isNotBlank() && !isEditing
-            ) {
-                if (isEditing) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Guardar")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }
