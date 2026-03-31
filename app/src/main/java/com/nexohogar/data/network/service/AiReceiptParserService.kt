@@ -13,10 +13,10 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.TimeUnit
 
 /**
  * Resultado del parseo con IA.
- * Campos alineados con ParsedReceipt del ChileanReceiptParser.
  */
 data class AiParsedReceipt(
     val store: String?,
@@ -29,10 +29,13 @@ data class AiParsedReceipt(
  * Servicio que envía la foto de la boleta a una Edge Function de Supabase
  * que usa Gemini Vision para extraer productos, precios y categorías.
  *
- * Fallback: si falla, el ViewModel cae al flujo local (ML Kit + ChileanReceiptParser).
+ * USA SU PROPIO OkHttpClient con:
+ *  - Timeout de 60s (la IA puede tardar 15-30s)
+ *  - Sin AuthInterceptor (usa API_KEY directamente)
+ *  - Sin CertificatePinner (evita problemas de rotación de certs)
  */
 class AiReceiptParserService(
-    private val httpClient: OkHttpClient
+    @Suppress("UNUSED_PARAMETER") unusedClient: OkHttpClient? = null
 ) {
 
     companion object {
@@ -40,6 +43,16 @@ class AiReceiptParserService(
         private const val FUNCTION_NAME = "parse-receipt-ai"
         private const val MAX_IMAGE_WIDTH = 1024
         private const val JPEG_QUALITY = 85
+        private const val TIMEOUT_SECONDS = 60L
+    }
+
+    // Cliente propio — sin interceptors que interfieran, con timeout largo
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
     }
 
     /**
@@ -70,27 +83,29 @@ class AiReceiptParserService(
                 .url(url)
                 .post(body)
                 .addHeader("Authorization", "Bearer ${SupabaseConfig.API_KEY}")
+                .addHeader("apikey", SupabaseConfig.API_KEY)
                 .addHeader("Content-Type", "application/json")
                 .build()
 
-            AppLogger.d(TAG, "Enviando a: $url")
+            AppLogger.d(TAG, "Enviando a: $url (timeout: ${TIMEOUT_SECONDS}s)")
 
-            // 4. Ejecutar request
+            // 4. Ejecutar request con cliente propio
             val response = httpClient.newCall(request).execute()
 
             if (!response.isSuccessful) {
-                AppLogger.e(TAG, "Error HTTP ${response.code}: ${response.body?.string()}")
+                val errorBody = response.body?.string() ?: "sin body"
+                AppLogger.e(TAG, "Error HTTP ${response.code}: $errorBody")
                 return@withContext null
             }
 
             val responseBody = response.body?.string() ?: return@withContext null
-            AppLogger.d(TAG, "Respuesta recibida: ${responseBody.take(200)}...")
+            AppLogger.d(TAG, "Respuesta IA recibida: ${responseBody.take(300)}...")
 
             // 5. Parsear respuesta JSON
             return@withContext parseResponse(responseBody)
 
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Error al analizar los datos con IA", e)
+            AppLogger.e(TAG, "Error al parsear con IA: ${e.javaClass.simpleName}: ${e.message}", e)
             return@withContext null
         }
     }
