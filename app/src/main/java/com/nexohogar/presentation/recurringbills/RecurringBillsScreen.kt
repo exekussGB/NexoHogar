@@ -1,6 +1,5 @@
 package com.nexohogar.presentation.recurringbills
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,7 +27,6 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurringBillsScreen(
@@ -150,6 +148,7 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
+                                    onEdit         = { viewModel.onShowEditDialog(bill) },
                                     onMarkAsPaid   = {
                                         statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
                                             ?: viewModel.confirmMarkAsPaid(bill)
@@ -176,6 +175,7 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
+                                    onEdit         = { viewModel.onShowEditDialog(bill) },
                                     onMarkAsPaid   = {},
                                     onToggleActive = { viewModel.toggleActive(bill) },
                                     onDelete       = { viewModel.deleteBill(bill) },
@@ -197,8 +197,20 @@ fun RecurringBillsScreen(
             isCreating  = uiState.isCreating,
             createError = uiState.createError,
             onDismiss   = { viewModel.onDismissCreateDialog() },
-            onCreate    = { name, amount, day, notes, totalInst, paidInst ->
-                viewModel.createBill(name, amount, day, notes, totalInst, paidInst)
+            onCreate    = { name, amount, day, notes -> viewModel.createBill(name, amount, day, notes) }
+        )
+    }
+
+    // ── Diálogo de edición ───────────────────────────────────────────────────
+    val billToEdit = uiState.billToEdit
+    if (billToEdit != null) {
+        EditBillDialog(
+            bill       = billToEdit,
+            isEditing  = uiState.isEditingBill,
+            editError  = uiState.editBillError,
+            onDismiss  = { viewModel.onDismissEditDialog() },
+            onConfirm  = { name, amount, day, notes, totalInst, paidInst ->
+                viewModel.updateBill(name, amount, day, notes, totalInst, paidInst)
             }
         )
     }
@@ -316,43 +328,6 @@ private fun PayBillDialog(
         title = { Text("Pagar ${bill.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
-                // ══ Info de cuotas ══
-                if (bill.isInstallment) {
-                    val nextPaid = bill.paidInstallments + 1
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1565C0).copy(alpha = 0.1f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                "📋 Cuota $nextPaid de ${bill.totalInstallments}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1565C0)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            val progress = nextPaid.toFloat() / (bill.totalInstallments ?: 1).toFloat()
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth().height(6.dp),
-                                color = Color(0xFF1565C0),
-                                trackColor = Color(0xFF1565C0).copy(alpha = 0.2f)
-                            )
-                            if (nextPaid >= (bill.totalInstallments ?: 0)) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "🎉 ¡Esta es la última cuota!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // Monto editable
                 OutlinedTextField(
                     value = amount,
@@ -515,7 +490,7 @@ private fun PaymentHistoryDialog(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item de cuenta recurrente (mejorado con cuotas)
+// Item de cuenta recurrente (mejorado con historial)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -523,6 +498,7 @@ private fun RecurringBillItem(
     bill: RecurringBill,
     statusDto: RecurringBillWithStatusDto?,
     format: NumberFormat,
+    onEdit: () -> Unit,
     onMarkAsPaid: () -> Unit,
     onToggleActive: () -> Unit,
     onDelete: () -> Unit,
@@ -592,54 +568,20 @@ private fun RecurringBillItem(
                             }
                         }
                     }
-
-                    // ══ Barra de progreso de cuotas ══
-                    if (bill.isInstallment) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = bill.installmentLabel ?: "",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1565C0)
-                            )
-                            val animatedProgress by animateFloatAsState(
-                                targetValue = bill.installmentProgress,
-                                label = "installment_progress"
-                            )
-                            LinearProgressIndicator(
-                                progress = { animatedProgress },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(5.dp),
-                                color = if (bill.installmentProgress >= 1f) Color(0xFF2E7D32) else Color(0xFF1565C0),
-                                trackColor = Color(0xFF1565C0).copy(alpha = 0.15f)
-                            )
-                            if (bill.installmentProgress >= 1f) {
-                                Text(
-                                    "✅",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
-                    }
                 }
                 Box {
                     IconButton(onClick = { expanded = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Editar") },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                            onClick = { expanded = false; onEdit() }
+                        )
                         if (bill.isActive && status != RecurringBillStatus.PAID) {
                             DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (bill.isInstallment) "Pagar cuota"
-                                        else "Pagar"
-                                    )
-                                },
+                                text = { Text("Pagar") },
                                 leadingIcon = { Icon(Icons.Default.Payment, contentDescription = null, tint = Color(0xFF2E7D32)) },
                                 onClick = { expanded = false; onMarkAsPaid() }
                             )
@@ -715,7 +657,7 @@ private fun EmptyBillsState(onAdd: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de creación (con soporte de cuotas)
+// Diálogo de creación
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -723,7 +665,7 @@ private fun CreateBillDialog(
     isCreating: Boolean,
     createError: String?,
     onDismiss: () -> Unit,
-    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?, paidInstallments: Int) -> Unit
+    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) -> Unit
 ) {
     var name        by remember { mutableStateOf("") }
     var amountText  by remember { mutableStateOf("") }
@@ -731,13 +673,6 @@ private fun CreateBillDialog(
     var notes       by remember { mutableStateOf("") }
     var nameError   by remember { mutableStateOf(false) }
     var dayError    by remember { mutableStateOf(false) }
-
-    // ── Cuotas ──
-    var isInstallment       by remember { mutableStateOf(false) }
-    var totalInstText       by remember { mutableStateOf("") }
-    var paidInstText        by remember { mutableStateOf("0") }
-    var totalInstError      by remember { mutableStateOf(false) }
-    var paidInstError       by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -787,128 +722,6 @@ private fun CreateBillDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isCreating
                 )
-
-                // ══ Toggle de cuotas ══
-                Divider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            "¿Es en cuotas?",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            "Ej: TV en 12 cuotas",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isInstallment,
-                        onCheckedChange = {
-                            isInstallment = it
-                            if (!it) {
-                                totalInstText = ""
-                                paidInstText = "0"
-                                totalInstError = false
-                                paidInstError = false
-                            }
-                        },
-                        enabled = !isCreating
-                    )
-                }
-
-                if (isInstallment) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = totalInstText,
-                            onValueChange = {
-                                totalInstText = it.filter { c -> c.isDigit() }.take(3)
-                                totalInstError = false
-                            },
-                            label = { Text("Total cuotas") },
-                            placeholder = { Text("12") },
-                            isError = totalInstError,
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            enabled = !isCreating
-                        )
-                        OutlinedTextField(
-                            value = paidInstText,
-                            onValueChange = {
-                                paidInstText = it.filter { c -> c.isDigit() }.take(3)
-                                paidInstError = false
-                            },
-                            label = { Text("Ya pagadas") },
-                            placeholder = { Text("0") },
-                            isError = paidInstError,
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            enabled = !isCreating
-                        )
-                    }
-
-                    // Preview de progreso
-                    val total = totalInstText.toIntOrNull() ?: 0
-                    val paid  = paidInstText.toIntOrNull() ?: 0
-                    if (total > 0) {
-                        val progress = paid.toFloat() / total.toFloat()
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF1565C0).copy(alpha = 0.08f)
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    "Cuota ${paid}/$total",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1565C0)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                LinearProgressIndicator(
-                                    progress = { progress.coerceIn(0f, 1f) },
-                                    modifier = Modifier.fillMaxWidth().height(5.dp),
-                                    color = if (progress >= 1f) Color(0xFF2E7D32) else Color(0xFF1565C0),
-                                    trackColor = Color(0xFF1565C0).copy(alpha = 0.2f)
-                                )
-                                if (paid > 0 && total > paid) {
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        "Quedan ${total - paid} cuota${if (total - paid > 1) "s" else ""}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (totalInstError) {
-                        Text(
-                            "Ingresa el total de cuotas (mínimo 2)",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    if (paidInstError) {
-                        Text(
-                            "Las cuotas pagadas no pueden superar el total",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-
                 if (createError != null) {
                     Text(createError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
@@ -927,27 +740,12 @@ private fun CreateBillDialog(
                     val day = dueDayText.toIntOrNull()
                     nameError = name.isBlank()
                     dayError  = day == null || day < 1 || day > 31
-
-                    // Validar cuotas
-                    var installmentsValid = true
-                    if (isInstallment) {
-                        val totalInst = totalInstText.toIntOrNull()
-                        val paidInst  = paidInstText.toIntOrNull() ?: 0
-                        totalInstError = totalInst == null || totalInst < 2
-                        paidInstError  = paidInst < 0 || (totalInst != null && paidInst >= totalInst)
-                        installmentsValid = !totalInstError && !paidInstError
-                    }
-
-                    if (!nameError && !dayError && installmentsValid) {
-                        val totalInst = if (isInstallment) totalInstText.toIntOrNull() else null
-                        val paidInst  = if (isInstallment) (paidInstText.toIntOrNull() ?: 0) else 0
+                    if (!nameError && !dayError) {
                         onCreate(
                             name.trim(),
                             amountText.toLongOrNull() ?: 0L,
                             day!!,
-                            notes.trim().ifBlank { null },
-                            totalInst,
-                            paidInst
+                            notes.trim().ifBlank { null }
                         )
                     }
                 },
@@ -956,6 +754,121 @@ private fun CreateBillDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancelar") }
+        }
+    )
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EditBillDialog
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun EditBillDialog(
+    bill      : RecurringBill,
+    isEditing : Boolean,
+    editError : String?,
+    onDismiss : () -> Unit,
+    onConfirm : (String, Long, Int, String?, Int?, Int) -> Unit
+) {
+    var nameText         by remember { mutableStateOf(bill.name) }
+    var amountText       by remember { mutableStateOf(bill.amountClp.toString()) }
+    var dayText          by remember { mutableStateOf(bill.dueDayOfMonth.toString()) }
+    var notesText        by remember { mutableStateOf(bill.notes ?: "") }
+    var isInstallment    by remember { mutableStateOf(bill.isInstallment) }
+    var totalInstText    by remember { mutableStateOf(bill.totalInstallments?.toString() ?: "") }
+    var paidInstText     by remember { mutableStateOf(bill.paidInstallments.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title   = { Text("Editar cuenta recurrente") },
+        text    = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value         = nameText,
+                    onValueChange = { nameText = it },
+                    label         = { Text("Nombre *") },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value         = amountText,
+                    onValueChange = { amountText = it.filter { c -> c.isDigit() } },
+                    label         = { Text("Monto (CLP) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value         = dayText,
+                    onValueChange = { dayText = it.filter { c -> c.isDigit() } },
+                    label         = { Text("Día de vencimiento (1-31) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value         = notesText,
+                    onValueChange = { notesText = it },
+                    label         = { Text("Notas (opcional)") },
+                    maxLines      = 2,
+                    modifier      = Modifier.fillMaxWidth()
+                )
+
+                // Cuotas
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked         = isInstallment,
+                        onCheckedChange = { isInstallment = it }
+                    )
+                    Text("Es pago en cuotas", style = MaterialTheme.typography.bodyMedium)
+                }
+
+                if (isInstallment) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value         = totalInstText,
+                            onValueChange = { totalInstText = it.filter { c -> c.isDigit() } },
+                            label         = { Text("Total cuotas") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine    = true,
+                            modifier      = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value         = paidInstText,
+                            onValueChange = { paidInstText = it.filter { c -> c.isDigit() } },
+                            label         = { Text("Cuotas pagadas") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine    = true,
+                            modifier      = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                if (editError != null) {
+                    Text(editError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amount    = amountText.toLongOrNull() ?: 0L
+                    val day       = dayText.toIntOrNull()?.coerceIn(1, 31) ?: bill.dueDayOfMonth
+                    val totalInst = if (isInstallment) totalInstText.toIntOrNull() else null
+                    val paidInst  = paidInstText.toIntOrNull() ?: 0
+                    onConfirm(nameText.trim(), amount, day, notesText.trim().ifBlank { null }, totalInst, paidInst)
+                },
+                enabled = nameText.isNotBlank() && !isEditing
+            ) {
+                if (isEditing) CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                else Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
 }

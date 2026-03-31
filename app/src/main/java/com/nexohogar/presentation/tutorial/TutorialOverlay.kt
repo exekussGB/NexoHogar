@@ -494,6 +494,38 @@ val inviteMemberTutorialSteps = listOf(
     )
 )
 
+
+val wishlistTutorialSteps = listOf(
+    TutorialStep(
+        title = "Lista de Deseos",
+        description = "Aquí registras los artículos que el hogar quiere comprar en el futuro.",
+        icon = Icons.Default.Favorite,
+        iconColor = Color(0xFFE91E63),
+        iconBgColor = Color(0xFFFCE4EC)
+    ),
+    TutorialStep(
+        title = "Agregar deseo",
+        description = "Toca + para agregar un nuevo artículo con nombre, costo estimado y prioridad.",
+        icon = Icons.Default.Add,
+        iconColor = Color(0xFF1565C0),
+        iconBgColor = Color(0xFFE3F2FD)
+    ),
+    TutorialStep(
+        title = "Prioridad",
+        description = "Clasifica cada artículo como Alta, Media o Baja prioridad para organizar mejor.",
+        icon = Icons.Default.Star,
+        iconColor = Color(0xFFF57F17),
+        iconBgColor = Color(0xFFFFF8E1)
+    ),
+    TutorialStep(
+        title = "Marcar como comprado",
+        description = "Cuando adquieras un artículo, márcalo como comprado desde el menú de opciones.",
+        icon = Icons.Default.CheckCircle,
+        iconColor = Color(0xFF2E7D32),
+        iconBgColor = Color(0xFFE8F5E9)
+    )
+)
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Sobrecarga de compatibilidad: acepta TutorialModule + callbacks
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -507,6 +539,7 @@ private fun stepsForModule(module: TutorialModule): List<TutorialStep> = when (m
     TutorialModule.RECURRING_BILLS -> recurringBillsTutorialSteps
     TutorialModule.HOUSEHOLD       -> householdTutorialSteps
     TutorialModule.INVITE_MEMBER   -> inviteMemberTutorialSteps
+    TutorialModule.WISHLIST        -> wishlistTutorialSteps
 }
 
 @Composable
@@ -518,5 +551,17 @@ fun TutorialOverlay(
     TutorialOverlay(
         steps = stepsForModule(module),
         onDismiss = onComplete
+    )
+}
+
+
+@Composable
+fun TutorialOverlay(
+    module: TutorialModule,
+    onFinish: () -> Unit
+) {
+    TutorialOverlay(
+        steps     = stepsForModule(module),
+        onDismiss = onFinish
     )
 }
