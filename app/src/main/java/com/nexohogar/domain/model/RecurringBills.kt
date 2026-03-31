@@ -4,6 +4,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
+/**
+ * Modelo de dominio para una cuenta recurrente (servicios mensuales).
+ *
+ * @param dueDayOfMonth día del mes en que vence (1-31)
+ * @param lastPaidDate fecha del último pago en formato "YYYY-MM-DD", o null si nunca se ha pagado
+ * @param totalInstallments total de cuotas (null = cuenta fija, sin cuotas)
+ * @param paidInstallments cuotas ya pagadas
+ */
 data class RecurringBill(
     val id: String,
     val householdId: String,
@@ -21,11 +29,14 @@ data class RecurringBill(
         private val ZONE = ZoneId.of("America/Santiago")
     }
 
+    /** true si esta cuenta es en cuotas */
     val isInstallment: Boolean get() = totalInstallments != null && totalInstallments > 0
 
+    /** Etiqueta de cuotas, ej: "3/12 cuotas" */
     val installmentLabel: String?
         get() = if (isInstallment) "$paidInstallments/$totalInstallments cuotas" else null
 
+    /** true si ya se pagaron todas las cuotas */
     val installmentsCompleted: Boolean
         get() = isInstallment && paidInstallments >= (totalInstallments ?: 0)
 
@@ -49,7 +60,6 @@ data class RecurringBill(
 
     fun getStatus(): BillStatus {
         if (!isActive) return BillStatus.INACTIVE
-        if (installmentsCompleted) return BillStatus.GREEN
         val days = daysUntilDue()
         return when {
             days == Int.MAX_VALUE -> BillStatus.GREEN
@@ -61,7 +71,6 @@ data class RecurringBill(
 
     fun statusLabel(): String {
         if (!isActive) return "PAUSADO"
-        if (installmentsCompleted) return "COMPLETADO"
         val days = daysUntilDue()
         return when {
             days == Int.MAX_VALUE -> "PAGADO"
@@ -75,7 +84,6 @@ data class RecurringBill(
 
     fun status(): RecurringBillStatus {
         if (!isActive) return RecurringBillStatus.INACTIVE
-        if (installmentsCompleted) return RecurringBillStatus.PAID
         val days = daysUntilDue()
         return when {
             days == Int.MAX_VALUE -> RecurringBillStatus.PAID
@@ -86,6 +94,10 @@ data class RecurringBill(
     }
 }
 
-enum class BillStatus { GREEN, YELLOW, RED, INACTIVE }
+enum class BillStatus {
+    GREEN, YELLOW, RED, INACTIVE
+}
 
-enum class RecurringBillStatus { PAID, OK, DUE_SOON, OVERDUE, INACTIVE }
+enum class RecurringBillStatus {
+    PAID, OK, DUE_SOON, OVERDUE, INACTIVE
+}

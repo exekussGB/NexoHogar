@@ -4,17 +4,17 @@ import com.google.gson.annotations.SerializedName
 import com.nexohogar.domain.model.RecurringBill
 
 data class RecurringBillDto(
-    @SerializedName("id")                 val id: String,
-    @SerializedName("household_id")       val householdId: String,
-    @SerializedName("name")               val name: String,
-    @SerializedName("amount_clp")         val amountClp: Long = 0L,
-    @SerializedName("due_day")            val dueDayOfMonth: Int,
-    @SerializedName("is_active")          val isActive: Boolean = true,
-    @SerializedName("last_paid_date")     val lastPaidDate: String? = null,
-    @SerializedName("notes")              val notes: String? = null,
-    @SerializedName("created_at")         val createdAt: String = "",
-    @SerializedName("total_installments") val totalInstallments: Int? = null,
-    @SerializedName("paid_installments")  val paidInstallments: Int = 0
+    @SerializedName("id")                  val id: String,
+    @SerializedName("household_id")        val householdId: String,
+    @SerializedName("name")                val name: String,
+    @SerializedName("amount_clp")          val amountClp: Long = 0L,
+    @SerializedName("due_day")             val dueDayOfMonth: Int,
+    @SerializedName("is_active")           val isActive: Boolean = true,
+    @SerializedName("last_paid_date")      val lastPaidDate: String? = null,
+    @SerializedName("notes")               val notes: String? = null,
+    @SerializedName("created_at")          val createdAt: String = "",
+    @SerializedName("total_installments")  val totalInstallments: Int? = null,
+    @SerializedName("paid_installments")   val paidInstallments: Int = 0
 ) {
     fun toDomain() = RecurringBill(
         id                = id,
@@ -32,14 +32,22 @@ data class RecurringBillDto(
 }
 
 data class CreateRecurringBillRequest(
-    @SerializedName("household_id")       val householdId: String,
-    @SerializedName("name")               val name: String,
-    @SerializedName("amount_clp")         val amountClp: Long,
-    @SerializedName("due_day")            val dueDayOfMonth: Int,
-    @SerializedName("notes")              val notes: String? = null,
-    @SerializedName("is_active")          val isActive: Boolean = true,
-    @SerializedName("total_installments") val totalInstallments: Int? = null,
-    @SerializedName("paid_installments")  val paidInstallments: Int = 0
+    @SerializedName("household_id")        val householdId: String,
+    @SerializedName("name")                val name: String,
+    @SerializedName("amount_clp")          val amountClp: Long,
+    @SerializedName("due_day")             val dueDayOfMonth: Int,
+    @SerializedName("notes")               val notes: String? = null,
+    @SerializedName("is_active")           val isActive: Boolean = true,
+    @SerializedName("total_installments")  val totalInstallments: Int? = null
+)
+
+data class UpdateRecurringBillRequest(
+    @SerializedName("name")                val name: String? = null,
+    @SerializedName("amount_clp")          val amountClp: Long? = null,
+    @SerializedName("due_day")             val dueDayOfMonth: Int? = null,
+    @SerializedName("notes")               val notes: String? = null,
+    @SerializedName("is_active")           val isActive: Boolean? = null,
+    @SerializedName("total_installments")  val totalInstallments: Int? = null
 )
 
 data class UpdateLastPaidRequest(

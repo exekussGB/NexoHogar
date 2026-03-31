@@ -9,6 +9,7 @@ import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
+import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.domain.repository.RecurringBillsRepository
 
@@ -53,6 +54,40 @@ class RecurringBillsRepositoryImpl(
                 AppResult.Success(created.toDomain())
             } else {
                 AppResult.Error("Error al crear cuenta recurrente: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    override suspend fun updateRecurringBill(
+        billId: String,
+        name: String?,
+        amountClp: Long?,
+        dueDayOfMonth: Int?,
+        notes: String?,
+        isActive: Boolean?,
+        totalInstallments: Int?
+    ): AppResult<RecurringBill> {
+        return try {
+            val request = UpdateRecurringBillRequest(
+                name              = name,
+                amountClp         = amountClp,
+                dueDayOfMonth     = dueDayOfMonth,
+                notes             = notes,
+                isActive          = isActive,
+                totalInstallments = totalInstallments
+            )
+            val response = api.updateRecurringBill(
+                idFilter = "eq.$billId",
+                request  = request
+            )
+            if (response.isSuccessful) {
+                val updated = response.body()?.firstOrNull()
+                    ?: return AppResult.Error("No se recibió respuesta del servidor")
+                AppResult.Success(updated.toDomain())
+            } else {
+                AppResult.Error("Error al actualizar cuenta: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
@@ -108,7 +143,7 @@ class RecurringBillsRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Pagar con integración contable ───────────────────────────
+    // ── Pagar con integración contable ───────────────────────────────
 
     override suspend fun payBill(
         billId: String,

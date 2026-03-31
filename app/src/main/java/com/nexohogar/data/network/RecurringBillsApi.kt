@@ -8,8 +8,8 @@ import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
-import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
+import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -29,6 +29,13 @@ interface RecurringBillsApi {
     ): Response<List<RecurringBillDto>>
 
     @PATCH("rest/v1/recurring_bills")
+    suspend fun updateRecurringBill(
+        @Query("id")       idFilter: String,
+        @Header("Prefer")  prefer: String = "return=representation",
+        @Body request: UpdateRecurringBillRequest
+    ): Response<List<RecurringBillDto>>
+
+    @PATCH("rest/v1/recurring_bills")
     suspend fun markAsPaid(
         @Query("id")       idFilter: String,
         @Header("Prefer")  prefer: String = "return=representation",
@@ -42,19 +49,12 @@ interface RecurringBillsApi {
         @Body request: ToggleActiveRequest
     ): Response<List<RecurringBillDto>>
 
-    @PATCH("rest/v1/recurring_bills")
-    suspend fun updateRecurringBill(
-        @Query("id")       idFilter: String,
-        @Header("Prefer")  prefer: String = "return=representation",
-        @Body request: UpdateRecurringBillRequest
-    ): Response<List<RecurringBillDto>>
-
     @DELETE("rest/v1/recurring_bills")
     suspend fun deleteRecurringBill(
         @Query("id") idFilter: String
     ): Response<Unit>
 
-    // ── NUEVOS: endpoints RPC con integración contable ──────────────────
+    // ── Endpoints RPC con integración contable ──────────────────────────
 
     @POST("rest/v1/rpc/rpc_pay_recurring_bill")
     suspend fun payRecurringBill(
