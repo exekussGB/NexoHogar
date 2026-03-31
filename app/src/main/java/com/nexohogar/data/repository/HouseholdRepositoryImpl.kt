@@ -166,7 +166,47 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Eliminar hogar (llama a la RPC delete_household) ──────────
+    // ── NUEVO: Eliminar miembro del hogar (solo super_user) ─────────────
+
+    override suspend fun removeMember(
+        householdId: String,
+        memberUserId: String
+    ): AppResult<Boolean> {
+        return try {
+            val response = authApi.removeMember(
+                mapOf(
+                    "p_household_id" to householdId,
+                    "p_member_user_id" to memberUserId
+                )
+            )
+            if (response.isSuccessful) {
+                val body = response.body()
+                val success = body?.get("success")?.asBoolean ?: true
+                if (success) {
+                    AppResult.Success(true)
+                } else {
+                    AppResult.Error("No se pudo eliminar al miembro")
+                }
+            } else {
+                val errorBody = response.errorBody()?.string() ?: ""
+                val errorMsg = when {
+                    response.code() == 403 || errorBody.contains("administrador", ignoreCase = true) ->
+                        "Solo el administrador puede eliminar miembros"
+                    errorBody.contains("ti mismo", ignoreCase = true) ->
+                        "No puedes eliminarte a ti mismo"
+                    errorBody.contains("no encontrado", ignoreCase = true) ->
+                        "Miembro no encontrado"
+                    else -> "Error al eliminar miembro: ${response.code()}"
+                }
+                AppResult.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── Eliminar hogar (llama a la RPC delete_household) ──────────
+
     override suspend fun deleteHousehold(
         householdId: String,
         confirmName: String

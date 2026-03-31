@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.HouseholdMember
 import com.nexohogar.presentation.components.LoadingOverlay
@@ -31,6 +32,68 @@ fun HouseholdMembersScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearActionMessage()
         }
+    }
+
+    // ── Diálogo de confirmación para eliminar miembro ─────────────────
+    uiState.memberToRemove?.let { member ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelRemoveMember() },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.PersonRemove,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = {
+                Text(
+                    "Eliminar miembro",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "¿Estás seguro de que deseas eliminar a:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        member.label(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Esta acción no se puede deshacer. El miembro perderá acceso al hogar y sus datos asociados.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.confirmRemoveMember() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { viewModel.cancelRemoveMember() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -100,6 +163,7 @@ fun HouseholdMembersScreen(
                     // Separar miembros activos y pendientes
                     val active  = uiState.members.filter { !it.isPending }
                     val pending = uiState.members.filter { it.isPending }
+                    val isSuperUser = uiState.currentUserRole == "super_user"
 
                     Column(modifier = Modifier.fillMaxSize()) {
                         // Contador
@@ -168,7 +232,13 @@ fun HouseholdMembersScreen(
                                     )
                                 }
                                 items(active) { member ->
-                                    MemberCard(member)
+                                    val isSelf = member.userId == uiState.currentUserId
+                                    MemberCard(
+                                        member = member,
+                                        showRemoveButton = isSuperUser && !isSelf,
+                                        isProcessing = uiState.isProcessing,
+                                        onRemove = { viewModel.requestRemoveMember(member) }
+                                    )
                                 }
                             }
                         }
@@ -278,11 +348,16 @@ private fun PendingMemberCard(
     }
 }
 
-// ── Card para miembro activo ─────────────────────────────────────────────
+// ── Card para miembro activo (con botón eliminar opcional) ────────────────
 
 @Composable
-private fun MemberCard(member: HouseholdMember) {
-    val isAdmin = member.role.lowercase() == "admin"
+private fun MemberCard(
+    member: HouseholdMember,
+    showRemoveButton: Boolean = false,
+    isProcessing: Boolean = false,
+    onRemove: () -> Unit = {}
+) {
+    val isSuperUser = member.role.lowercase() == "super_user"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -297,15 +372,15 @@ private fun MemberCard(member: HouseholdMember) {
         ) {
             Surface(
                 shape = MaterialTheme.shapes.large,
-                color = if (isAdmin) MaterialTheme.colorScheme.primary
+                color = if (isSuperUser) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (isAdmin) Icons.Default.Star else Icons.Default.Person,
+                        imageVector = if (isSuperUser) Icons.Default.Star else Icons.Default.Person,
                         contentDescription = null,
-                        tint = if (isAdmin) MaterialTheme.colorScheme.onPrimary
+                        tint = if (isSuperUser) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(22.dp)
                     )
@@ -327,17 +402,40 @@ private fun MemberCard(member: HouseholdMember) {
                 }
             }
 
+            // Badge de rol
             Surface(
                 shape = MaterialTheme.shapes.small,
-                color = if (isAdmin) Color(0xFFFFF3E0) else Color(0xFFE8F5E9)
+                color = if (isSuperUser) Color(0xFFFFF3E0) else Color(0xFFE8F5E9)
             ) {
                 Text(
-                    text = if (isAdmin) "Admin" else "Miembro",
+                    text = if (isSuperUser) "Admin" else "Miembro",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isAdmin) Color(0xFFE65100) else Color(0xFF2E7D32)
+                    color = if (isSuperUser) Color(0xFFE65100) else Color(0xFF2E7D32)
                 )
+            }
+
+            // Botón eliminar (solo visible para super_user, nunca para sí mismo)
+            if (showRemoveButton) {
+                IconButton(
+                    onClick = onRemove,
+                    enabled = !isProcessing
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.PersonRemove,
+                            contentDescription = "Eliminar miembro",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
             }
         }
     }
