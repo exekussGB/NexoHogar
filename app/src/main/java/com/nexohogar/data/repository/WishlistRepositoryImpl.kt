@@ -31,19 +31,19 @@ class WishlistRepositoryImpl(
     override suspend fun createWishlistItem(
         householdId: String,
         name: String,
-        estimatedCost: Long,
-        notes: String?,
-        priority: Int,
+        description: String?,
+        price: Double?,
+        priority: String,
         createdBy: String
     ): AppResult<WishlistItem> {
         return try {
             val request = CreateWishlistItemRequest(
-                householdId   = householdId,
-                name          = name,
-                estimatedCost = estimatedCost,
-                notes         = notes,
-                priority      = priority,
-                createdBy     = createdBy
+                householdId = householdId,
+                name        = name,
+                description = description,
+                price       = price,
+                priority    = priority,
+                createdBy   = createdBy
             )
             val response = api.createWishlistItem(request = request)
             if (response.isSuccessful) {
@@ -61,17 +61,17 @@ class WishlistRepositoryImpl(
     override suspend fun updateWishlistItem(
         itemId: String,
         name: String,
-        estimatedCost: Long,
-        notes: String?,
-        priority: Int
+        description: String?,
+        price: Double?,
+        priority: String
     ): AppResult<WishlistItem> {
         return try {
             val request = UpdateWishlistItemRequest(
-                name          = name,
-                estimatedCost = estimatedCost,
-                notes         = notes,
-                priority      = priority,
-                updatedAt     = nowIso()
+                name        = name,
+                description = description,
+                price       = price,
+                priority    = priority,
+                updatedAt   = nowIso()
             )
             val response = api.updateWishlistItem(
                 idFilter = "eq.$itemId",
@@ -89,15 +89,11 @@ class WishlistRepositoryImpl(
         }
     }
 
-    override suspend fun markAsPurchased(
-        itemId: String,
-        purchasedBy: String
-    ): AppResult<WishlistItem> {
+    override suspend fun markAsPurchased(itemId: String): AppResult<WishlistItem> {
         return try {
             val request = UpdateWishlistItemRequest(
                 isPurchased = true,
                 purchasedAt = nowIso(),
-                purchasedBy = purchasedBy,
                 updatedAt   = nowIso()
             )
             val response = api.updateWishlistItem(

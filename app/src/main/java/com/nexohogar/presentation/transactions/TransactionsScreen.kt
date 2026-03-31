@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -30,6 +29,7 @@ import com.nexohogar.presentation.tutorial.TutorialOverlay
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
@@ -53,14 +53,6 @@ fun TransactionsScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddTransactionClick,
-                modifier = Modifier.testTag("transactions_add_button")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nuevo Movimiento")
-            }
         }
     ) { padding ->
         Box(

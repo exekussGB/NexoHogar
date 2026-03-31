@@ -10,24 +10,21 @@ interface WishlistRepository {
     suspend fun createWishlistItem(
         householdId: String,
         name: String,
-        estimatedCost: Long,
-        notes: String?,
-        priority: Int,
+        description: String?,
+        price: Double?,
+        priority: String,
         createdBy: String
     ): AppResult<WishlistItem>
 
     suspend fun updateWishlistItem(
         itemId: String,
         name: String,
-        estimatedCost: Long,
-        notes: String?,
-        priority: Int
+        description: String?,
+        price: Double?,
+        priority: String
     ): AppResult<WishlistItem>
 
-    suspend fun markAsPurchased(
-        itemId: String,
-        purchasedBy: String
-    ): AppResult<WishlistItem>
+    suspend fun markAsPurchased(itemId: String): AppResult<WishlistItem>
 
     suspend fun deleteWishlistItem(itemId: String): AppResult<Unit>
 }
