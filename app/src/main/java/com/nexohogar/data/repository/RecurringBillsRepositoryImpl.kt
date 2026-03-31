@@ -8,7 +8,6 @@ import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
-import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
 import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.domain.repository.RecurringBillsRepository
@@ -35,15 +34,17 @@ class RecurringBillsRepositoryImpl(
         name: String,
         amountClp: Long,
         dueDayOfMonth: Int,
-        notes: String?
+        notes: String?,
+        totalInstallments: Int?
     ): AppResult<RecurringBill> {
         return try {
             val request = CreateRecurringBillRequest(
-                householdId   = householdId,
-                name          = name,
-                amountClp     = amountClp,
-                dueDayOfMonth = dueDayOfMonth,
-                notes         = notes
+                householdId       = householdId,
+                name              = name,
+                amountClp         = amountClp,
+                dueDayOfMonth     = dueDayOfMonth,
+                notes             = notes,
+                totalInstallments = totalInstallments
             )
             val response = api.createRecurringBill(request = request)
             if (response.isSuccessful) {
@@ -107,38 +108,6 @@ class RecurringBillsRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Editar cuenta recurrente ─────────────────────────────────────
-    override suspend fun updateRecurringBill(
-        billId: String,
-        name: String,
-        amountClp: Long,
-        dueDayOfMonth: Int,
-        notes: String?,
-        totalInstallments: Int?,
-        paidInstallments: Int
-    ): AppResult<RecurringBill> {
-        return try {
-            val request = UpdateRecurringBillRequest(
-                name              = name,
-                amountClp         = amountClp,
-                dueDayOfMonth     = dueDayOfMonth,
-                notes             = notes,
-                totalInstallments = totalInstallments,
-                paidInstallments  = paidInstallments
-            )
-            val response = api.updateRecurringBill(idFilter = "eq.$billId", request = request)
-            if (response.isSuccessful) {
-                val updated = response.body()?.firstOrNull()
-                    ?: return AppResult.Error("No se recibió respuesta del servidor")
-                AppResult.Success(updated.toDomain())
-            } else {
-                AppResult.Error("Error al actualizar cuenta recurrente: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Error desconocido")
-        }
-    }
-
     // ── NUEVO: Pagar con integración contable ───────────────────────────
 
     override suspend fun payBill(
@@ -168,8 +137,6 @@ class RecurringBillsRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Resumen mensual ──────────────────────────────────────────
-
     override suspend fun getRecurringSummary(householdId: String): AppResult<RecurringSummaryDto> {
         return try {
             val response = api.getRecurringSummary(mapOf("p_household_id" to householdId))
@@ -185,8 +152,6 @@ class RecurringBillsRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Bills con estado ─────────────────────────────────────────
-
     override suspend fun getBillsWithStatus(householdId: String): AppResult<List<RecurringBillWithStatusDto>> {
         return try {
             val response = api.getRecurringBillsWithStatus(mapOf("p_household_id" to householdId))
@@ -199,8 +164,6 @@ class RecurringBillsRepositoryImpl(
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
-
-    // ── NUEVO: Historial de pagos ───────────────────────────────────────
 
     override suspend fun getBillHistory(
         billId: String,

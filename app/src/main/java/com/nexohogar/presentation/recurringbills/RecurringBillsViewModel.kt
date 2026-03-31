@@ -39,12 +39,7 @@ data class RecurringBillsUiState(
     // Historial de pagos
     val showHistoryFor: RecurringBillWithStatusDto?   = null,
     val paymentHistory: List<RecurringBillPaymentDto> = emptyList(),
-    val isLoadingHistory: Boolean                     = false,
-
-    // Diálogo de edición
-    val billToEdit: RecurringBill?      = null,
-    val isEditingBill: Boolean          = false,
-    val editBillError: String?          = null
+    val isLoadingHistory: Boolean                     = false
 )
 
 class RecurringBillsViewModel(
@@ -67,7 +62,6 @@ class RecurringBillsViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // Cargar bills con status, resumen y cuentas en paralelo
             val billsJob = launch {
                 when (val result = repository.getBillsWithStatus(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(billsWithStatus = result.data) }
@@ -78,18 +72,17 @@ class RecurringBillsViewModel(
             val summaryJob = launch {
                 when (val result = repository.getRecurringSummary(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(summary = result.data) }
-                    is AppResult.Error   -> {} // silencioso
+                    is AppResult.Error   -> {}
                     is AppResult.Loading -> Unit
                 }
             }
             val accountsJob = launch {
                 when (val result = accountsRepository.getAccounts(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(accounts = result.data) }
-                    is AppResult.Error   -> {} // silencioso
+                    is AppResult.Error   -> {}
                     is AppResult.Loading -> Unit
                 }
             }
-            // También cargar bills originales para crear/editar
             val legacyJob = launch {
                 when (val result = repository.getRecurringBills(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(bills = result.data) }
@@ -109,48 +102,6 @@ class RecurringBillsViewModel(
 
     fun loadBills() = loadAll()
 
-    // ── Editar ───────────────────────────────────────────────────────────────
-
-    fun onShowEditDialog(bill: RecurringBill) {
-        _uiState.update { it.copy(billToEdit = bill, editBillError = null) }
-    }
-
-    fun onDismissEditDialog() {
-        _uiState.update { it.copy(billToEdit = null, editBillError = null) }
-    }
-
-    fun updateBill(
-        name: String,
-        amountClp: Long,
-        dueDayOfMonth: Int,
-        notes: String?,
-        totalInstallments: Int?,
-        paidInstallments: Int
-    ) {
-        val bill = _uiState.value.billToEdit ?: return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isEditingBill = true, editBillError = null) }
-            when (val result = repository.updateRecurringBill(
-                billId            = bill.id,
-                name              = name,
-                amountClp         = amountClp,
-                dueDayOfMonth     = dueDayOfMonth,
-                notes             = notes,
-                totalInstallments = totalInstallments,
-                paidInstallments  = paidInstallments
-            )) {
-                is AppResult.Success -> {
-                    _uiState.update { it.copy(isEditingBill = false, billToEdit = null) }
-                    loadAll()
-                }
-                is AppResult.Error -> _uiState.update {
-                    it.copy(editBillError = result.message, isEditingBill = false)
-                }
-                is AppResult.Loading -> Unit
-            }
-        }
-    }
-
     // ── Crear ────────────────────────────────────────────────────────────────
 
     fun onShowCreateDialog() {
@@ -161,17 +112,25 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) {
+    fun createBill(
+        name: String,
+        amountClp: Long,
+        dueDayOfMonth: Int,
+        notes: String?,
+        totalInstallments: Int? = null
+    ) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes)) {
+            when (val result = repository.createRecurringBill(
+                householdId, name, amountClp, dueDayOfMonth, notes, totalInstallments
+            )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
                         isCreating       = false,
                         showCreateDialog = false
                     )}
-                    loadAll() // Recargar todo
+                    loadAll()
                 }
                 is AppResult.Error -> _uiState.update { it.copy(
                     createError = result.message,
@@ -192,10 +151,6 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(billToPay = null) }
     }
 
-    /**
-     * Paga una bill con el monto confirmado/editado por el usuario.
-     * Crea la transacción contable automáticamente en la DB.
-     */
     fun payBill(amountClp: Long, accountId: String?, notes: String?) {
         val bill = _uiState.value.billToPay ?: return
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
@@ -228,12 +183,10 @@ class RecurringBillsViewModel(
     // ── Marcar como pagado (legacy, simple) ─────────────────────────────────
 
     fun confirmMarkAsPaid(bill: RecurringBill) {
-        // Redirigir al nuevo flujo buscando en billsWithStatus
         val withStatus = _uiState.value.billsWithStatus.find { it.id == bill.id }
         if (withStatus != null) {
             showPayDialog(withStatus)
         } else {
-            // Fallback al legacy
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             viewModelScope.launch {
                 when (val result = repository.markAsPaid(bill.id, today)) {
