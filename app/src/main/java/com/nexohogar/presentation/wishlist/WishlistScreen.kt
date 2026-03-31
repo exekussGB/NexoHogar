@@ -163,8 +163,8 @@ fun WishlistScreen(
             isLoading   = uiState.isCreating,
             error       = uiState.createError,
             onDismiss   = { viewModel.onDismissCreateDialog() },
-            onConfirm   = { name, cost, notes, priority ->
-                viewModel.createItem(name, cost, notes, priority)
+            onConfirm   = { name, price, description, priority ->
+                viewModel.createItem(name, price, description, priority)
             }
         )
     }
@@ -173,16 +173,16 @@ fun WishlistScreen(
     val itemToEdit = uiState.itemToEdit
     if (itemToEdit != null) {
         WishlistItemDialog(
-            title         = "Editar deseo",
-            initialName   = itemToEdit.name,
-            initialCost   = itemToEdit.estimatedCost,
-            initialNotes  = itemToEdit.notes ?: "",
+            title           = "Editar deseo",
+            initialName     = itemToEdit.name,
+            initialPrice    = itemToEdit.price,
+            initialDesc     = itemToEdit.description ?: "",
             initialPriority = itemToEdit.priority,
-            isLoading     = uiState.isEditing,
-            error         = uiState.editError,
-            onDismiss     = { viewModel.onDismissEditDialog() },
-            onConfirm     = { name, cost, notes, priority ->
-                viewModel.updateItem(itemToEdit.id, name, cost, notes, priority)
+            isLoading       = uiState.isEditing,
+            error           = uiState.editError,
+            onDismiss       = { viewModel.onDismissEditDialog() },
+            onConfirm       = { name, price, description, priority ->
+                viewModel.updateItem(itemToEdit.id, name, price, description, priority)
             }
         )
     }
@@ -212,9 +212,9 @@ private fun WishlistItemCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val priorityColor = when (item.priority) {
-        1 -> Color(0xFFD32F2F) // rojo alta
-        2 -> Color(0xFFF57F17) // naranja media
-        else -> Color(0xFF388E3C)  // verde baja
+        "HIGH"   -> Color(0xFFD32F2F) // rojo alta
+        "MEDIUM" -> Color(0xFFF57F17) // naranja media
+        else     -> Color(0xFF388E3C) // verde baja
     }
 
     Card(
@@ -251,16 +251,17 @@ private fun WishlistItemCard(
                     },
                     fontWeight = FontWeight.Medium
                 )
-                if (item.estimatedCost > 0) {
+                val price = item.price
+                if (price != null && price > 0) {
                     Text(
-                        text  = format.format(item.estimatedCost),
+                        text  = format.format(price.toLong()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                if (!item.notes.isNullOrBlank()) {
+                if (!item.description.isNullOrBlank()) {
                     Text(
-                        text  = item.notes,
+                        text  = item.description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -315,22 +316,24 @@ private fun WishlistItemCard(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WishlistItemDialog(
-    title          : String,
-    initialName    : String  = "",
-    initialCost    : Long    = 0L,
-    initialNotes   : String  = "",
-    initialPriority: Int     = 2,
-    isLoading      : Boolean,
-    error          : String?,
-    onDismiss      : () -> Unit,
-    onConfirm      : (String, Long, String?, Int) -> Unit
+    title           : String,
+    initialName     : String  = "",
+    initialPrice    : Double? = null,
+    initialDesc     : String  = "",
+    initialPriority : String  = "MEDIUM",
+    isLoading       : Boolean,
+    error           : String?,
+    onDismiss       : () -> Unit,
+    onConfirm       : (String, Double?, String?, String) -> Unit
 ) {
-    var name        by remember { mutableStateOf(initialName) }
-    var costText    by remember { mutableStateOf(if (initialCost > 0) initialCost.toString() else "") }
-    var notes       by remember { mutableStateOf(initialNotes) }
-    var priority    by remember { mutableStateOf(initialPriority) }
+    var name      by remember { mutableStateOf(initialName) }
+    var priceText by remember { mutableStateOf(
+        if (initialPrice != null && initialPrice > 0) initialPrice.toLong().toString() else ""
+    ) }
+    var desc      by remember { mutableStateOf(initialDesc) }
+    var priority  by remember { mutableStateOf(initialPriority) }
 
-    val priorityOptions = listOf(1 to "Alta", 2 to "Media", 3 to "Baja")
+    val priorityOptions = listOf("HIGH" to "Alta", "MEDIUM" to "Media", "LOW" to "Baja")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -345,16 +348,16 @@ private fun WishlistItemDialog(
                     modifier      = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value         = costText,
-                    onValueChange = { costText = it.filter { c -> c.isDigit() } },
+                    value         = priceText,
+                    onValueChange = { priceText = it.filter { c -> c.isDigit() } },
                     label         = { Text("Costo estimado (CLP)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine    = true,
                     modifier      = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value         = notes,
-                    onValueChange = { notes = it },
+                    value         = desc,
+                    onValueChange = { desc = it },
                     label         = { Text("Notas (opcional)") },
                     maxLines      = 2,
                     modifier      = Modifier.fillMaxWidth()
@@ -379,8 +382,8 @@ private fun WishlistItemDialog(
         confirmButton = {
             Button(
                 onClick  = {
-                    val cost = costText.toLongOrNull() ?: 0L
-                    onConfirm(name.trim(), cost, notes.trim().ifBlank { null }, priority)
+                    val price = priceText.toLongOrNull()?.toDouble()
+                    onConfirm(name.trim(), price, desc.trim().ifBlank { null }, priority)
                 },
                 enabled  = name.isNotBlank() && !isLoading
             ) {

@@ -70,12 +70,14 @@ class WishlistViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createItem(name: String, estimatedCost: Long, notes: String?, priority: Int) {
+    fun createItem(name: String, price: Double?, description: String?, priority: String) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         val userId = sessionManager.fetchSession()?.userId ?: ""
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createWishlistItem(householdId, name, estimatedCost, notes, priority, userId)) {
+            when (val result = repository.createWishlistItem(
+                householdId, name, description, price, priority, userId
+            )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }
                     loadItems()
@@ -98,10 +100,10 @@ class WishlistViewModel(
         _uiState.update { it.copy(itemToEdit = null, editError = null) }
     }
 
-    fun updateItem(itemId: String, name: String, estimatedCost: Long, notes: String?, priority: Int) {
+    fun updateItem(itemId: String, name: String, price: Double?, description: String?, priority: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isEditing = true, editError = null) }
-            when (val result = repository.updateWishlistItem(itemId, name, estimatedCost, notes, priority)) {
+            when (val result = repository.updateWishlistItem(itemId, name, description, price, priority)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isEditing = false, itemToEdit = null) }
                     loadItems()
@@ -117,9 +119,8 @@ class WishlistViewModel(
     // ── Comprar ──────────────────────────────────────────────────────────────
 
     fun markAsPurchased(item: WishlistItem) {
-        val userId = sessionManager.fetchSession()?.userId ?: ""
         viewModelScope.launch {
-            when (repository.markAsPurchased(item.id, userId)) {
+            when (repository.markAsPurchased(item.id)) {
                 is AppResult.Success -> loadItems()
                 is AppResult.Error   -> _uiState.update { it.copy(error = "Error al marcar como comprado") }
                 is AppResult.Loading -> Unit
