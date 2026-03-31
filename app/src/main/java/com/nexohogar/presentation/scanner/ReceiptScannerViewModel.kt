@@ -225,7 +225,14 @@ class ReceiptScannerViewModel(
             if (aiReceiptParserService != null) {
                 try {
                     AppLogger.d("ReceiptScanner", "Intentando parseo con IA...")
-                    val aiResult = aiReceiptParserService.parseReceipt(bitmap)
+
+                    // Obtener nombres de categorías existentes para que Gemini las use
+                    val categoryNames = _categories.value.map { it.second }
+
+                    val aiResult = aiReceiptParserService.parseReceipt(
+                        bitmap = bitmap,
+                        existingCategories = categoryNames
+                    )
 
                     if (aiResult != null && aiResult.items.isNotEmpty()) {
                         AppLogger.d("ReceiptScanner", "IA parseó ${aiResult.items.size} productos")

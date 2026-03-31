@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
@@ -57,9 +58,16 @@ class AiReceiptParserService(
 
     /**
      * Envía la imagen a la Edge Function y retorna los items parseados.
+     * @param bitmap La imagen de la boleta.
+     * @param existingCategories Lista de nombres de categorías ya creadas en el hogar.
+     * @param existingProducts Lista de nombres de productos ya existentes en el inventario.
      * @return AiParsedReceipt con productos, o null si falla.
      */
-    suspend fun parseReceipt(bitmap: Bitmap): AiParsedReceipt? = withContext(Dispatchers.IO) {
+    suspend fun parseReceipt(
+        bitmap: Bitmap,
+        existingCategories: List<String> = emptyList(),
+        existingProducts: List<String> = emptyList()
+    ): AiParsedReceipt? = withContext(Dispatchers.IO) {
         try {
             // 1. Redimensionar si es muy grande
             val scaled = scaleBitmap(bitmap)
@@ -71,9 +79,15 @@ class AiReceiptParserService(
 
             AppLogger.d(TAG, "Imagen: ${scaled.width}x${scaled.height}, base64: ${base64Image.length} chars")
 
-            // 3. Construir request
+            // 3. Construir request con categorías y productos existentes
             val json = JSONObject().apply {
                 put("image_base64", base64Image)
+                if (existingCategories.isNotEmpty()) {
+                    put("existing_categories", JSONArray(existingCategories))
+                }
+                if (existingProducts.isNotEmpty()) {
+                    put("existing_products", JSONArray(existingProducts))
+                }
             }
 
             val url = "${SupabaseConfig.BASE_URL}/functions/v1/$FUNCTION_NAME"
@@ -87,7 +101,7 @@ class AiReceiptParserService(
                 .addHeader("Content-Type", "application/json")
                 .build()
 
-            AppLogger.d(TAG, "Enviando a: $url (timeout: ${TIMEOUT_SECONDS}s)")
+            AppLogger.d(TAG, "Enviando a: $url (timeout: ${TIMEOUT_SECONDS}s, categorías: ${existingCategories.size}, productos: ${existingProducts.size})")
 
             // 4. Ejecutar request con cliente propio
             val response = httpClient.newCall(request).execute()
