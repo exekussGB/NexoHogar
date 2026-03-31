@@ -32,6 +32,11 @@ data class RecurringBillsUiState(
     val isCreating: Boolean                          = false,
     val createError: String?                         = null,
 
+    // Diálogo de edición
+    val billToEdit: RecurringBill?                   = null,
+    val isUpdating: Boolean                          = false,
+    val updateError: String?                         = null,
+
     // Diálogo de pago mejorado
     val billToPay: RecurringBillWithStatusDto?       = null,
     val isPayingBill: Boolean                        = false,
@@ -83,6 +88,7 @@ class RecurringBillsViewModel(
                     is AppResult.Loading -> Unit
                 }
             }
+            // También cargar bills originales para crear/editar
             val legacyJob = launch {
                 when (val result = repository.getRecurringBills(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(bills = result.data) }
@@ -112,19 +118,11 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createBill(
-        name: String,
-        amountClp: Long,
-        dueDayOfMonth: Int,
-        notes: String?,
-        totalInstallments: Int? = null
-    ) {
+    fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int? = null) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createRecurringBill(
-                householdId, name, amountClp, dueDayOfMonth, notes, totalInstallments
-            )) {
+            when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes, totalInstallments)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
                         isCreating       = false,
@@ -141,6 +139,47 @@ class RecurringBillsViewModel(
         }
     }
 
+    // ── Editar ───────────────────────────────────────────────────────────────
+
+    fun onShowEditDialog(bill: RecurringBill) {
+        _uiState.update { it.copy(billToEdit = bill, updateError = null) }
+    }
+
+    fun onDismissEditDialog() {
+        _uiState.update { it.copy(billToEdit = null, updateError = null) }
+    }
+
+    fun updateBill(
+        name: String?,
+        amountClp: Long?,
+        dueDayOfMonth: Int?,
+        notes: String?,
+        totalInstallments: Int?
+    ) {
+        val bill = _uiState.value.billToEdit ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdating = true, updateError = null) }
+            when (val result = repository.updateRecurringBill(
+                billId            = bill.id,
+                name              = name,
+                amountClp         = amountClp,
+                dueDayOfMonth     = dueDayOfMonth,
+                notes             = notes,
+                totalInstallments = totalInstallments
+            )) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(billToEdit = null, isUpdating = false) }
+                    loadAll()
+                }
+                is AppResult.Error -> _uiState.update { it.copy(
+                    updateError = result.message,
+                    isUpdating  = false
+                )}
+                is AppResult.Loading -> Unit
+            }
+        }
+    }
+
     // ── Pagar con popup (monto editable) ────────────────────────────────────
 
     fun showPayDialog(bill: RecurringBillWithStatusDto) {
@@ -151,6 +190,10 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(billToPay = null) }
     }
 
+    /**
+     * Paga una bill con el monto confirmado/editado por el usuario.
+     * Crea la transacción contable automáticamente en la DB.
+     */
     fun payBill(amountClp: Long, accountId: String?, notes: String?) {
         val bill = _uiState.value.billToPay ?: return
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
