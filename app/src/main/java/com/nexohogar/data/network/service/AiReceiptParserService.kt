@@ -60,7 +60,7 @@ class AiReceiptParserService(
 
             // 3. Construir request
             val json = JSONObject().apply {
-                put("image", base64Image)
+                put("image_base64", base64Image)
             }
 
             val url = "${SupabaseConfig.BASE_URL}/functions/v1/$FUNCTION_NAME"
