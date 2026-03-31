@@ -32,7 +32,6 @@ data class ReceiptScannerUiState(
     val items: List<ScannedReceiptItem> = emptyList(),
     val detectedTotal: Double? = null,
     val selectedAccountId: String? = null,
-    val selectedCategoryId: String? = null,
     val isProcessing: Boolean = false,
     val error: String? = null,
     val importResult: Map<String, Any>? = null,
@@ -137,8 +136,35 @@ class ReceiptScannerViewModel(
         _uiState.update { it.copy(selectedAccountId = accountId) }
     }
 
-    fun setCategory(categoryId: String?) {
-        _uiState.update { it.copy(selectedCategoryId = categoryId) }
+    /**
+     * Autoasigna categoryId/category a un item basándose en el nombre de categoría
+     * que devolvió Gemini, haciendo match con las categorías existentes del hogar.
+     */
+    private fun matchCategoryForItems(items: List<ScannedReceiptItem>): List<ScannedReceiptItem> {
+        val existingCategories = _categories.value
+        if (existingCategories.isEmpty()) return items
+
+        return items.map { item ->
+            if (item.category != null && item.categoryId == null) {
+                // Intentar match exacto (case-insensitive)
+                val matched = existingCategories.find { (_, name) ->
+                    name.equals(item.category, ignoreCase = true)
+                }
+                // Si no hay exacto, intentar match parcial (la categoría contiene el nombre o viceversa)
+                    ?: existingCategories.find { (_, name) ->
+                        name.contains(item.category, ignoreCase = true) ||
+                                item.category.contains(name, ignoreCase = true)
+                    }
+
+                if (matched != null) {
+                    item.copy(categoryId = matched.first, category = matched.second)
+                } else {
+                    item
+                }
+            } else {
+                item
+            }
+        }
     }
 
     fun confirmImport() {
@@ -176,7 +202,7 @@ class ReceiptScannerViewModel(
                     householdId = householdId,
                     userId = userId,
                     accountId = accountId,
-                    categoryId = state.selectedCategoryId,
+                    categoryId = null,  // Ya no hay categoría global; cada item tiene la suya
                     store = state.store.ifBlank { null },
                     receiptDate = state.receiptDate,
                     items = selectedItems
@@ -236,12 +262,16 @@ class ReceiptScannerViewModel(
 
                     if (aiResult != null && aiResult.items.isNotEmpty()) {
                         AppLogger.d("ReceiptScanner", "IA parseó ${aiResult.items.size} productos")
+
+                        // Auto-match categorías de Gemini con IDs de categorías existentes
+                        val matchedItems = matchCategoryForItems(aiResult.items)
+
                         _uiState.update {
                             it.copy(
                                 step = ScannerStep.REVIEW,
                                 ocrText = "(Procesado con IA)",
                                 store = aiResult.store ?: "",
-                                items = aiResult.items,
+                                items = matchedItems,
                                 detectedTotal = aiResult.total,
                                 isProcessing = false,
                                 parsedWithAi = true,
