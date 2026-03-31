@@ -13,7 +13,9 @@ interface RecurringBillsRepository {
         name: String,
         amountClp: Long,
         dueDayOfMonth: Int,
-        notes: String?
+        notes: String?,
+        totalInstallments: Int? = null,
+        paidInstallments: Int = 0
     ): AppResult<RecurringBill>
     suspend fun markAsPaid(billId: String, paidDate: String): AppResult<RecurringBill>
     suspend fun toggleActive(billId: String, isActive: Boolean): AppResult<RecurringBill>

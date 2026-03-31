@@ -34,15 +34,19 @@ class RecurringBillsRepositoryImpl(
         name: String,
         amountClp: Long,
         dueDayOfMonth: Int,
-        notes: String?
+        notes: String?,
+        totalInstallments: Int?,
+        paidInstallments: Int
     ): AppResult<RecurringBill> {
         return try {
             val request = CreateRecurringBillRequest(
-                householdId   = householdId,
-                name          = name,
-                amountClp     = amountClp,
-                dueDayOfMonth = dueDayOfMonth,
-                notes         = notes
+                householdId       = householdId,
+                name              = name,
+                amountClp         = amountClp,
+                dueDayOfMonth     = dueDayOfMonth,
+                notes             = notes,
+                totalInstallments = totalInstallments,
+                paidInstallments  = paidInstallments
             )
             val response = api.createRecurringBill(request = request)
             if (response.isSuccessful) {

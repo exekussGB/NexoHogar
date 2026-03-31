@@ -5,10 +5,12 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 /**
- * Modelo de dominio para una cuenta recurrente (servicios mensuales).
+ * Modelo de dominio para una cuenta recurrente (servicios mensuales o cuotas).
  *
  * @param dueDayOfMonth día del mes en que vence (1-31)
  * @param lastPaidDate fecha del último pago en formato "YYYY-MM-DD", o null si nunca se ha pagado
+ * @param totalInstallments null = servicio recurrente, NOT null = pago en cuotas
+ * @param paidInstallments cuotas ya pagadas (permite empezar desde cualquier número)
  */
 data class RecurringBill(
     val id: String,
@@ -19,11 +21,26 @@ data class RecurringBill(
     val isActive: Boolean,
     val lastPaidDate: String?,
     val notes: String?,
-    val createdAt: String
+    val createdAt: String,
+    val totalInstallments: Int? = null,
+    val paidInstallments: Int = 0
 ) {
     companion object {
         private val ZONE = ZoneId.of("America/Santiago")
     }
+
+    /** true si es pago en cuotas (no servicio recurrente normal) */
+    val isInstallment: Boolean get() = totalInstallments != null
+
+    /** Texto "Cuota 5/12" o null si es servicio normal */
+    val installmentLabel: String?
+        get() = if (totalInstallments != null) "Cuota $paidInstallments/$totalInstallments" else null
+
+    /** Progreso de cuotas como fracción [0.0, 1.0] */
+    val installmentProgress: Float
+        get() = if (totalInstallments != null && totalInstallments > 0)
+            paidInstallments.toFloat() / totalInstallments.toFloat()
+        else 0f
 
     /**
      * Calcula cuántos días faltan para el vencimiento este mes.
