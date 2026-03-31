@@ -2,10 +2,7 @@ package com.nexohogar.data.network.service
 
 import android.graphics.Bitmap
 import android.util.Base64
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.nexohogar.core.network.SupabaseConfig
-import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.util.AppLogger
 import com.nexohogar.domain.model.ScannedReceiptItem
 import kotlinx.coroutines.Dispatchers
@@ -14,152 +11,163 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 
 /**
- * Servicio que envía la imagen de una boleta a la Edge Function parse-receipt-ai
- * para obtener los productos parseados mediante IA (Gemini Vision).
+ * Resultado del parseo con IA.
+ * Campos alineados con ParsedReceipt del ChileanReceiptParser.
+ */
+data class AiParsedReceipt(
+    val store: String?,
+    val date: String?,
+    val items: List<ScannedReceiptItem>,
+    val total: Double?
+)
+
+/**
+ * Servicio que envía la foto de la boleta a una Edge Function de Supabase
+ * que usa Gemini Vision para extraer productos, precios y categorías.
  *
- * Usa el OkHttpClient compartido para aprovechar AuthInterceptor (apikey + Bearer token)
- * y certificate pinning.
+ * Fallback: si falla, el ViewModel cae al flujo local (ML Kit + ChileanReceiptParser).
  */
 class AiReceiptParserService(
-    private val okHttpClient: OkHttpClient
+    private val httpClient: OkHttpClient
 ) {
-    private val gson = Gson()
 
-    // ── DTOs de respuesta ────────────────────────────────────────────────────
-
-    data class AiParsedReceipt(
-        val store: String?,
-        val date: String?,
-        val total: Double?,
-        val items: List<AiParsedItem>
-    )
-
-    data class AiParsedItem(
-        val name: String,
-        val quantity: Double?,
-        @SerializedName("pricePerUnit") val pricePerUnit: Double?,
-        @SerializedName("priceTotal") val priceTotal: Double?,
-        val brand: String?,
-        val unit: String?,
-        val category: String?
-    )
-
-    // ── DTO de request ───────────────────────────────────────────────────────
-
-    private data class AiParseRequest(
-        @SerializedName("image_base64") val imageBase64: String,
-        @SerializedName("existing_products") val existingProducts: List<String>?,
-        @SerializedName("existing_categories") val existingCategories: List<String>?
-    )
-
-    // ── API pública ──────────────────────────────────────────────────────────
+    companion object {
+        private const val TAG = "AiReceiptParser"
+        private const val FUNCTION_NAME = "parse-receipt-ai"
+        private const val MAX_IMAGE_WIDTH = 1024
+        private const val JPEG_QUALITY = 85
+    }
 
     /**
-     * Envía la imagen de la boleta a la Edge Function y devuelve los productos parseados.
-     *
-     * @param bitmap           Imagen capturada de la boleta
-     * @param existingProducts Nombres de productos existentes en inventario (para matching)
-     * @param existingCategories Nombres de categorías del hogar (para clasificación)
-     * @return AppResult con el receipt parseado o error
+     * Envía la imagen a la Edge Function y retorna los items parseados.
+     * @return AiParsedReceipt con productos, o null si falla.
      */
-    suspend fun parseReceipt(
-        bitmap: Bitmap,
-        existingProducts: List<String> = emptyList(),
-        existingCategories: List<String> = emptyList()
-    ): AppResult<AiParsedReceipt> = withContext(Dispatchers.IO) {
+    suspend fun parseReceipt(bitmap: Bitmap): AiParsedReceipt? = withContext(Dispatchers.IO) {
         try {
-            // 1. Comprimir y codificar la imagen
-            val base64Image = bitmapToBase64(bitmap)
+            // 1. Redimensionar si es muy grande
+            val scaled = scaleBitmap(bitmap)
 
-            // 2. Construir el request
-            val requestBody = AiParseRequest(
-                imageBase64 = base64Image,
-                existingProducts = existingProducts.takeIf { it.isNotEmpty() },
-                existingCategories = existingCategories.takeIf { it.isNotEmpty() }
-            )
-            val jsonBody = gson.toJson(requestBody)
+            // 2. Convertir a base64
+            val baos = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, baos)
+            val base64Image = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
 
-            // 3. Llamar a la Edge Function
-            // AuthInterceptor inyecta apikey y Bearer token automáticamente
-            val url = "${SupabaseConfig.BASE_URL}functions/v1/parse-receipt-ai"
+            AppLogger.d(TAG, "Imagen: ${scaled.width}x${scaled.height}, base64: ${base64Image.length} chars")
+
+            // 3. Construir request
+            val json = JSONObject().apply {
+                put("image", base64Image)
+            }
+
+            val url = "${SupabaseConfig.BASE_URL}/functions/v1/$FUNCTION_NAME"
+            val body = json.toString().toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
                 .url(url)
-                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .post(body)
+                .addHeader("Authorization", "Bearer ${SupabaseConfig.API_KEY}")
+                .addHeader("Content-Type", "application/json")
                 .build()
 
-            val response = okHttpClient.newCall(request).execute()
+            AppLogger.d(TAG, "Enviando a: $url")
+
+            // 4. Ejecutar request
+            val response = httpClient.newCall(request).execute()
 
             if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: "Error desconocido"
-                AppLogger.e("AiReceiptParser", "Error ${response.code}: $errorBody")
-                return@withContext AppResult.Error(
-                    "Error al procesar boleta con IA (${response.code})"
+                AppLogger.e(TAG, "Error HTTP ${response.code}: ${response.body?.string()}")
+                return@withContext null
+            }
+
+            val responseBody = response.body?.string() ?: return@withContext null
+            AppLogger.d(TAG, "Respuesta recibida: ${responseBody.take(200)}...")
+
+            // 5. Parsear respuesta JSON
+            return@withContext parseResponse(responseBody)
+
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error al analizar los datos con IA", e)
+            return@withContext null
+        }
+    }
+
+    /**
+     * Parsea la respuesta JSON de la Edge Function.
+     */
+    private fun parseResponse(jsonString: String): AiParsedReceipt? {
+        try {
+            val json = JSONObject(jsonString)
+
+            // Verificar si hubo error
+            if (json.has("error")) {
+                AppLogger.e(TAG, "Edge Function error: ${json.getString("error")}")
+                return null
+            }
+
+            val store = json.optString("store", "").ifBlank { null }
+            val date = json.optString("date", "").ifBlank { null }
+            val total = if (json.has("total") && !json.isNull("total")) json.optDouble("total") else null
+
+            val itemsArray = json.optJSONArray("items") ?: return null
+            val items = mutableListOf<ScannedReceiptItem>()
+
+            for (i in 0 until itemsArray.length()) {
+                val itemObj = itemsArray.getJSONObject(i)
+                val name = itemObj.optString("name", "").trim()
+                if (name.isBlank()) continue
+
+                val quantity = itemObj.optDouble("quantity", 1.0)
+                val pricePerUnit = if (itemObj.has("price_per_unit") && !itemObj.isNull("price_per_unit"))
+                    itemObj.optDouble("price_per_unit") else null
+                val priceTotal = if (itemObj.has("price_total") && !itemObj.isNull("price_total"))
+                    itemObj.optDouble("price_total") else null
+                val category = itemObj.optString("category", "").ifBlank { null }
+                val unit = itemObj.optString("unit", "unidad").ifBlank { "unidad" }
+
+                items.add(
+                    ScannedReceiptItem(
+                        name = name,
+                        quantity = quantity,
+                        pricePerUnit = pricePerUnit,
+                        priceTotal = priceTotal,
+                        category = category,
+                        unit = unit,
+                        isSelected = true
+                    )
                 )
             }
 
-            val responseBody = response.body?.string()
-                ?: return@withContext AppResult.Error("Respuesta vacía del servidor")
+            if (items.isEmpty()) {
+                AppLogger.d(TAG, "IA no encontró productos en la respuesta")
+                return null
+            }
 
-            val parsed = gson.fromJson(responseBody, AiParsedReceipt::class.java)
-            AppLogger.d("AiReceiptParser", "Parseados ${parsed.items.size} productos con IA")
-            AppResult.Success(parsed)
+            AppLogger.d(TAG, "Parseados ${items.size} productos con IA")
+            return AiParsedReceipt(
+                store = store,
+                date = date,
+                items = items,
+                total = total
+            )
 
         } catch (e: Exception) {
-            AppLogger.e("AiReceiptParser", "Error procesando boleta con IA", e)
-            AppResult.Error("Error de conexión: ${e.message}", e)
+            AppLogger.e(TAG, "Error parseando respuesta JSON", e)
+            return null
         }
     }
 
     /**
-     * Convierte [AiParsedReceipt] a lista de [ScannedReceiptItem] para la UI.
+     * Escala el bitmap para no exceder MAX_IMAGE_WIDTH manteniendo proporciones.
      */
-    fun toScannedItems(parsed: AiParsedReceipt): List<ScannedReceiptItem> {
-        return parsed.items.map { item ->
-            ScannedReceiptItem(
-                name = item.name,
-                quantity = item.quantity ?: 1.0,
-                pricePerUnit = item.pricePerUnit,
-                priceTotal = item.priceTotal,
-                brand = item.brand,
-                unit = item.unit ?: "unidad",
-                category = item.category,
-                isSelected = true
-            )
-        }
-    }
+    private fun scaleBitmap(bitmap: Bitmap): Bitmap {
+        if (bitmap.width <= MAX_IMAGE_WIDTH) return bitmap
 
-    // ── Helpers privados ─────────────────────────────────────────────────────
-
-    /**
-     * Comprime un Bitmap a JPEG base64.
-     * Redimensiona si excede 1920px para reducir payload (~200-400 KB típico).
-     */
-    private fun bitmapToBase64(bitmap: Bitmap): String {
-        val maxDimension = 1920
-        val scaledBitmap = if (bitmap.width > maxDimension || bitmap.height > maxDimension) {
-            val scale = maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height)
-            Bitmap.createScaledBitmap(
-                bitmap,
-                (bitmap.width * scale).toInt(),
-                (bitmap.height * scale).toInt(),
-                true
-            )
-        } else {
-            bitmap
-        }
-
-        val outputStream = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
-        val bytes = outputStream.toByteArray()
-
-        if (scaledBitmap !== bitmap) {
-            scaledBitmap.recycle()
-        }
-
-        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+        val ratio = MAX_IMAGE_WIDTH.toFloat() / bitmap.width
+        val newHeight = (bitmap.height * ratio).toInt()
+        return Bitmap.createScaledBitmap(bitmap, MAX_IMAGE_WIDTH, newHeight, true)
     }
 }
