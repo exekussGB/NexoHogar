@@ -17,6 +17,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.data.local.ThemePreferences
+import com.nexohogar.data.network.service.AiReceiptParserService
 import com.nexohogar.data.local.NotificationPreferences
 
 @SuppressLint("StaticFieldLeak")
@@ -119,6 +120,12 @@ object ServiceLocator {
     val categoriesApi: CategoriesApi by lazy { retrofit.create(CategoriesApi::class.java) }
     val recurringBillsApi: RecurringBillsApi by lazy { retrofit.create(RecurringBillsApi::class.java) }
     val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
+
+    // ── AI Receipt Parser ─────────────────────────────────────────────────────
+    val aiReceiptParserService: AiReceiptParserService by lazy {
+        AiReceiptParserService(okHttpClient)
+    }
+
     val fcmApi: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
     val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }

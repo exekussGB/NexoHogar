@@ -455,9 +455,10 @@ fun NavGraph(navController: NavHostController) {
         composable("receipt_scanner") {
             val viewModel = remember {
                 ReceiptScannerViewModel(
-                    inventoryRepository = ServiceLocator.inventoryRepository,
-                    accountsRepository  = ServiceLocator.accountsRepository,
-                    tenantContext       = ServiceLocator.tenantContext
+                    inventoryRepository    = ServiceLocator.inventoryRepository,
+                    accountsRepository     = ServiceLocator.accountsRepository,
+                    tenantContext          = ServiceLocator.tenantContext,
+                    aiReceiptParserService = ServiceLocator.aiReceiptParserService
                 )
             }
             ReceiptScannerScreen(
