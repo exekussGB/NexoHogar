@@ -98,6 +98,13 @@ interface AuthApi {
         @Body request: Map<String, String>
     ): Response<JsonObject>
 
+    // ── Eliminar miembros (solo super_user) ─────────────────────────────
+
+    @POST("rest/v1/rpc/remove_household_member")
+    suspend fun removeMember(
+        @Body request: Map<String, String>
+    ): Response<JsonObject>
+
     @POST("rest/v1/rpc/delete_household")
     suspend fun deleteHousehold(
         @Body params: Map<String, String>
