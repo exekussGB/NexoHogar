@@ -39,7 +39,12 @@ data class RecurringBillsUiState(
     // Historial de pagos
     val showHistoryFor: RecurringBillWithStatusDto?   = null,
     val paymentHistory: List<RecurringBillPaymentDto> = emptyList(),
-    val isLoadingHistory: Boolean                     = false
+    val isLoadingHistory: Boolean                     = false,
+
+    // Diálogo de edición
+    val billToEdit: RecurringBill?      = null,
+    val isEditingBill: Boolean          = false,
+    val editBillError: String?          = null
 )
 
 class RecurringBillsViewModel(
@@ -104,6 +109,48 @@ class RecurringBillsViewModel(
 
     fun loadBills() = loadAll()
 
+    // ── Editar ───────────────────────────────────────────────────────────────
+
+    fun onShowEditDialog(bill: RecurringBill) {
+        _uiState.update { it.copy(billToEdit = bill, editBillError = null) }
+    }
+
+    fun onDismissEditDialog() {
+        _uiState.update { it.copy(billToEdit = null, editBillError = null) }
+    }
+
+    fun updateBill(
+        name: String,
+        amountClp: Long,
+        dueDayOfMonth: Int,
+        notes: String?,
+        totalInstallments: Int?,
+        paidInstallments: Int
+    ) {
+        val bill = _uiState.value.billToEdit ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isEditingBill = true, editBillError = null) }
+            when (val result = repository.updateRecurringBill(
+                billId            = bill.id,
+                name              = name,
+                amountClp         = amountClp,
+                dueDayOfMonth     = dueDayOfMonth,
+                notes             = notes,
+                totalInstallments = totalInstallments,
+                paidInstallments  = paidInstallments
+            )) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(isEditingBill = false, billToEdit = null) }
+                    loadAll()
+                }
+                is AppResult.Error -> _uiState.update {
+                    it.copy(editBillError = result.message, isEditingBill = false)
+                }
+                is AppResult.Loading -> Unit
+            }
+        }
+    }
+
     // ── Crear ────────────────────────────────────────────────────────────────
 
     fun onShowCreateDialog() {
@@ -114,21 +161,11 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createBill(
-        name: String,
-        amountClp: Long,
-        dueDayOfMonth: Int,
-        notes: String?,
-        totalInstallments: Int? = null,
-        paidInstallments: Int = 0
-    ) {
+    fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createRecurringBill(
-                householdId, name, amountClp, dueDayOfMonth, notes,
-                totalInstallments, paidInstallments
-            )) {
+            when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
                         isCreating       = false,

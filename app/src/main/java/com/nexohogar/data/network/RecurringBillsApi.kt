@@ -8,6 +8,7 @@ import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
+import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
 import retrofit2.Response
 import retrofit2.http.*
@@ -39,6 +40,13 @@ interface RecurringBillsApi {
         @Query("id")       idFilter: String,
         @Header("Prefer")  prefer: String = "return=representation",
         @Body request: ToggleActiveRequest
+    ): Response<List<RecurringBillDto>>
+
+    @PATCH("rest/v1/recurring_bills")
+    suspend fun updateRecurringBill(
+        @Query("id")       idFilter: String,
+        @Header("Prefer")  prefer: String = "return=representation",
+        @Body request: UpdateRecurringBillRequest
     ): Response<List<RecurringBillDto>>
 
     @DELETE("rest/v1/recurring_bills")

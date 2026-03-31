@@ -8,6 +8,9 @@ import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
+import com.nexohogar.data.network.WishlistApi
+import com.nexohogar.data.repository.WishlistRepositoryImpl
+import com.nexohogar.domain.repository.WishlistRepository
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
 import okhttp3.CertificatePinner
@@ -18,7 +21,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.data.local.ThemePreferences
 import com.nexohogar.data.local.NotificationPreferences
-import com.nexohogar.data.network.service.AiReceiptParserService
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -122,6 +124,7 @@ object ServiceLocator {
     val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
     val fcmApi: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
     val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
+    val wishlistApi: WishlistApi by lazy { retrofit.create(WishlistApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
     val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
 
@@ -179,9 +182,7 @@ object ServiceLocator {
         PersonalDashboardRepositoryImpl(personalDashboardApi)
     }
 
-    // ── AI Receipt Parser ─────────────────────────────────────────────────
-    val aiReceiptParserService: AiReceiptParserService by lazy {
-        AiReceiptParserService(okHttpClient)
+    val wishlistRepository: WishlistRepository by lazy {
+        WishlistRepositoryImpl(wishlistApi)
     }
-
 }
