@@ -7,6 +7,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.nexohogar.data.service.ChileanReceiptParser
+import com.nexohogar.data.network.service.AiReceiptParserService
 import com.nexohogar.domain.model.ScannedReceiptItem
 import com.nexohogar.domain.repository.InventoryRepository
 import com.nexohogar.core.tenant.TenantContext
@@ -34,13 +35,15 @@ data class ReceiptScannerUiState(
     val selectedCategoryId: String? = null,
     val isProcessing: Boolean = false,
     val error: String? = null,
-    val importResult: Map<String, Any>? = null
+    val importResult: Map<String, Any>? = null,
+    val parsedWithAi: Boolean = false  // Indica si se usó IA o fallback OCR
 )
 
 class ReceiptScannerViewModel(
     private val inventoryRepository: InventoryRepository,
     private val accountsRepository: com.nexohogar.domain.repository.AccountsRepository,
-    private val tenantContext: com.nexohogar.core.tenant.TenantContext
+    private val tenantContext: com.nexohogar.core.tenant.TenantContext,
+    private val aiReceiptParserService: AiReceiptParserService? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReceiptScannerUiState())
@@ -53,6 +56,10 @@ class ReceiptScannerViewModel(
     private val _categories = MutableStateFlow<List<Pair<String, String>>>(emptyList())
     val categories: StateFlow<List<Pair<String, String>>> = _categories.asStateFlow()
 
+    // Nombres para contexto de la IA
+    private var existingProductNames: List<String> = emptyList()
+    private var existingCategoryNames: List<String> = emptyList()
+
     init {
         loadAccountsAndCategories()
     }
@@ -61,14 +68,24 @@ class ReceiptScannerViewModel(
         viewModelScope.launch {
             try {
                 val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
+
+                // Cargar cuentas
                 val result = accountsRepository.getAccountBalances(householdId)
                 if (result is com.nexohogar.core.result.AppResult.Success) {
                     _accounts.value = result.data.map { it.accountId to it.accountName }
                 }
 
+                // Cargar categorías
                 val catsResult = inventoryRepository.getCategories(householdId)
                 if (catsResult is AppResult.Success) {
                     _categories.value = catsResult.data.map { it.id to it.name }
+                    existingCategoryNames = catsResult.data.map { it.name }
+                }
+
+                // Cargar nombres de productos existentes (para matching de IA)
+                val prodsResult = inventoryRepository.getProducts(householdId)
+                if (prodsResult is AppResult.Success) {
+                    existingProductNames = prodsResult.data.map { it.name }
                 }
             } catch (e: Exception) {
                 AppLogger.e("ReceiptScanner", "Error cargando cuentas/categorías", e)
@@ -209,15 +226,54 @@ class ReceiptScannerViewModel(
                 step = ScannerStep.CAMERA,
                 ocrText = "",
                 items = emptyList(),
-                error = null
+                error = null,
+                parsedWithAi = false
             )
         }
     }
 
+    /**
+     * Procesa la imagen de la boleta.
+     *
+     * Flujo:
+     *   1. Intenta parseo con IA (Edge Function + Gemini Vision) → más preciso
+     *   2. Si falla (sin internet, error de servidor), usa fallback local:
+     *      ML Kit OCR + ChileanReceiptParser
+     */
     fun processImage(bitmap: android.graphics.Bitmap) {
         _uiState.update { it.copy(step = ScannerStep.PROCESSING, isProcessing = true) }
 
         viewModelScope.launch {
+            // ── Intento 1: IA (Edge Function) ────────────────────────────────
+            if (aiReceiptParserService != null) {
+                val aiResult = aiReceiptParserService.parseReceipt(
+                    bitmap = bitmap,
+                    existingProducts = existingProductNames,
+                    existingCategories = existingCategoryNames
+                )
+
+                if (aiResult is AppResult.Success) {
+                    val parsed = aiResult.data
+                    _uiState.update {
+                        it.copy(
+                            step = ScannerStep.REVIEW,
+                            ocrText = "[Procesado con IA - ${parsed.items.size} productos detectados]",
+                            store = parsed.store ?: "",
+                            items = aiReceiptParserService.toScannedItems(parsed),
+                            detectedTotal = parsed.total,
+                            isProcessing = false,
+                            receiptDate = parsed.date ?: LocalDate.now().toString(),
+                            parsedWithAi = true
+                        )
+                    }
+                    return@launch
+                }
+
+                // IA falló, continuar con fallback
+                AppLogger.w("ReceiptScanner", "IA no disponible, usando OCR local como fallback")
+            }
+
+            // ── Intento 2: Fallback local (ML Kit + ChileanReceiptParser) ────
             try {
                 val image = InputImage.fromBitmap(bitmap, 0)
                 val recognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
@@ -236,7 +292,8 @@ class ReceiptScannerViewModel(
                         items = parseResult.items,
                         detectedTotal = parseResult.total,
                         isProcessing = false,
-                        receiptDate = parseResult.date ?: LocalDate.now().toString()
+                        receiptDate = parseResult.date ?: LocalDate.now().toString(),
+                        parsedWithAi = false
                     )
                 }
             } catch (e: Exception) {
