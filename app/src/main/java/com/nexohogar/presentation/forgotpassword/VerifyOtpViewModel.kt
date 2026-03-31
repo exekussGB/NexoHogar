@@ -1,4 +1,4 @@
-package com.nexohogar.presentation.viewmodel
+package com.nexohogar.presentation.forgotpassword
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

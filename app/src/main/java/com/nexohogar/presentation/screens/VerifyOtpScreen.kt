@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nexohogar.core.di.ServiceLocator
-import com.nexohogar.presentation.viewmodel.VerifyOtpViewModel
+import com.nexohogar.presentation.forgotpassword.VerifyOtpViewModel
 
 /**
  * SEC-05: onVerified ahora recibe el accessToken como parámetro
