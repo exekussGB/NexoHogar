@@ -28,6 +28,8 @@ import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.HubScreen
 import com.nexohogar.presentation.inventory.InventoryScreen
 import com.nexohogar.presentation.inventory.InventoryViewModel
+import com.nexohogar.presentation.wishlist.WishlistScreen
+import com.nexohogar.presentation.wishlist.WishlistViewModel
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
 import com.nexohogar.presentation.invitemember.InviteMemberViewModel
 import com.nexohogar.presentation.login.LoginScreen
@@ -82,6 +84,7 @@ sealed class Screen(val route: String) {
 
     object ForgotPassword : Screen("forgot_password")
     object TutorialList   : Screen("tutorial_list")
+    object Wishlist       : Screen("wishlist")
 
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
@@ -203,6 +206,7 @@ fun NavGraph(navController: NavHostController) {
                         TutorialModule.TRANSACTIONS    -> navController.navigate(Screen.Transactions.route)
                         TutorialModule.BUDGETS         -> navController.navigate(Screen.Budget.route)
                         TutorialModule.INVENTORY       -> navController.navigate(Screen.Inventory.route)
+                        TutorialModule.WISHLIST        -> navController.navigate(Screen.Wishlist.route)
                         TutorialModule.RECURRING_BILLS -> navController.navigate(Screen.RecurringBills.route)
                         TutorialModule.HOUSEHOLD       -> navController.navigate(Screen.Settings.route)
                         TutorialModule.INVITE_MEMBER   -> navController.navigate(Screen.InviteMember.route)
@@ -248,6 +252,7 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
                 onNavigateToBudget         = { navController.navigate(Screen.Budget.route) },
                 onNavigateToInventory      = { navController.navigate(Screen.Inventory.route) },
+                onNavigateToWishlist       = { navController.navigate(Screen.Wishlist.route) },
                 onNavigateToOptions        = { navController.navigate(Screen.Settings.route) }
             )
         }
@@ -382,6 +387,19 @@ fun NavGraph(navController: NavHostController) {
         }
 
         // ── Inventory ──────────────────────────────────────────────────────
+        composable(Screen.Wishlist.route) {
+            val vm = WishlistViewModel(
+                repository     = ServiceLocator.wishlistRepository,
+                tenantContext  = ServiceLocator.tenantContext,
+                sessionManager = ServiceLocator.sessionManager
+            )
+            WishlistScreen(
+                viewModel       = vm,
+                tutorialManager = ServiceLocator.tutorialManager,
+                onNavigateBack  = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Inventory.route) {
             val vm: InventoryViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {

@@ -47,5 +47,10 @@ enum class TutorialModule(
         key = "tutorial_invite_member",
         displayName = "Invitar Miembro",
         description = "Cómo invitar personas a tu hogar"
+    ),
+    WISHLIST(
+        key = "tutorial_wishlist",
+        displayName = "Lista de Deseos",
+        description = "Organiza compras pendientes del hogar"
     )
 }

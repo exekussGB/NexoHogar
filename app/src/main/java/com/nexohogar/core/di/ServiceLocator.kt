@@ -8,6 +8,9 @@ import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
+import com.nexohogar.data.network.WishlistApi
+import com.nexohogar.data.repository.WishlistRepositoryImpl
+import com.nexohogar.domain.repository.WishlistRepository
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
 import okhttp3.CertificatePinner
@@ -121,6 +124,7 @@ object ServiceLocator {
     val inventoryApi: InventoryApi by lazy { retrofit.create(InventoryApi::class.java) }
     val fcmApi: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
     val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
+    val wishlistApi: WishlistApi by lazy { retrofit.create(WishlistApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
     val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
 
@@ -176,5 +180,9 @@ object ServiceLocator {
 
     val personalDashboardRepository: PersonalDashboardRepository by lazy {
         PersonalDashboardRepositoryImpl(personalDashboardApi)
+    }
+
+    val wishlistRepository: WishlistRepository by lazy {
+        WishlistRepositoryImpl(wishlistApi)
     }
 }

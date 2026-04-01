@@ -140,5 +140,29 @@ object TutorialSteps {
                 targetTag = "invite_join"
             )
         )
+
+
+        TutorialModule.WISHLIST -> listOf(
+            TutorialStep(
+                title = "Lista de Deseos",
+                description = "Aquí registras los artículos que el hogar quiere comprar en el futuro.",
+                targetTag = "wishlist_list"
+            ),
+            TutorialStep(
+                title = "Agregar deseo",
+                description = "Toca + para agregar un nuevo artículo con nombre, costo estimado y prioridad.",
+                targetTag = "wishlist_add"
+            ),
+            TutorialStep(
+                title = "Prioridad",
+                description = "Clasifica cada artículo como Alta, Media o Baja prioridad para organizar mejor.",
+                targetTag = "wishlist_priority"
+            ),
+            TutorialStep(
+                title = "Marcar como comprado",
+                description = "Cuando adquieras un artículo, márcalo como comprado desde el menú de opciones.",
+                targetTag = "wishlist_purchased"
+            )
+        )
     }
 }

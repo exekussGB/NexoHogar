@@ -51,7 +51,8 @@ fun HubScreen(
     onNavigateToRecurringBills: () -> Unit,
     onNavigateToBudget        : () -> Unit,
     onNavigateToInventory     : () -> Unit,
-    onNavigateToOptions       : () -> Unit
+    onNavigateToOptions       : () -> Unit,
+    onNavigateToWishlist      : () -> Unit
 ) {
     var showAddTypeDialog by remember { mutableStateOf(false) }
 
@@ -59,7 +60,8 @@ fun HubScreen(
     // Fila 1: Resumen / Agregar
     // Fila 2: Cuentas / Recurrentes
     // Fila 3: Presupuesto / Inventario
-    // Fila 4: Invitar / Opciones
+    // Fila 4: Lista Deseos / Invitar
+    // Fila 5: Opciones
     val actions = listOf(
         HubAction(
             title           = "Resumen",
@@ -108,6 +110,14 @@ fun HubScreen(
             backgroundColor = Color(0xFFF1F8E9),
             iconColor       = Color(0xFF33691E),
             onClick         = onNavigateToInventory
+        ),
+        HubAction(
+            title           = "Lista de Deseos",
+            subtitle        = "Compras pendientes",
+            icon            = Icons.Default.Favorite,
+            backgroundColor = Color(0xFFFCE4EC),
+            iconColor       = Color(0xFFC62828),
+            onClick         = onNavigateToWishlist
         ),
         HubAction(
             title           = "Invitar",

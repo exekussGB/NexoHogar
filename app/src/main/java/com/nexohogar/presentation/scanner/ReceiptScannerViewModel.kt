@@ -7,6 +7,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.nexohogar.data.service.ChileanReceiptParser
+import com.nexohogar.data.network.service.AiReceiptParserService
 import com.nexohogar.domain.model.ScannedReceiptItem
 import com.nexohogar.domain.repository.InventoryRepository
 import com.nexohogar.core.tenant.TenantContext
@@ -31,22 +32,22 @@ data class ReceiptScannerUiState(
     val items: List<ScannedReceiptItem> = emptyList(),
     val detectedTotal: Double? = null,
     val selectedAccountId: String? = null,
-    val selectedCategoryId: String? = null,
     val isProcessing: Boolean = false,
     val error: String? = null,
-    val importResult: Map<String, Any>? = null
+    val importResult: Map<String, Any>? = null,
+    val parsedWithAi: Boolean = false
 )
 
 class ReceiptScannerViewModel(
     private val inventoryRepository: InventoryRepository,
     private val accountsRepository: com.nexohogar.domain.repository.AccountsRepository,
-    private val tenantContext: com.nexohogar.core.tenant.TenantContext
+    private val tenantContext: com.nexohogar.core.tenant.TenantContext,
+    private val aiReceiptParserService: AiReceiptParserService? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReceiptScannerUiState())
     val uiState: StateFlow<ReceiptScannerUiState> = _uiState.asStateFlow()
 
-    // Cuentas y categorías para los dropdowns
     private val _accounts = MutableStateFlow<List<Pair<String, String>>>(emptyList())
     val accounts: StateFlow<List<Pair<String, String>>> = _accounts.asStateFlow()
 
@@ -62,7 +63,7 @@ class ReceiptScannerViewModel(
             try {
                 val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
                 val result = accountsRepository.getAccountBalances(householdId)
-                if (result is com.nexohogar.core.result.AppResult.Success) {
+                if (result is AppResult.Success) {
                     _accounts.value = result.data.map { it.accountId to it.accountName }
                 }
 
@@ -135,8 +136,35 @@ class ReceiptScannerViewModel(
         _uiState.update { it.copy(selectedAccountId = accountId) }
     }
 
-    fun setCategory(categoryId: String?) {
-        _uiState.update { it.copy(selectedCategoryId = categoryId) }
+    /**
+     * Autoasigna categoryId/category a un item basándose en el nombre de categoría
+     * que devolvió Gemini, haciendo match con las categorías existentes del hogar.
+     */
+    private fun matchCategoryForItems(items: List<ScannedReceiptItem>): List<ScannedReceiptItem> {
+        val existingCategories = _categories.value
+        if (existingCategories.isEmpty()) return items
+
+        return items.map { item ->
+            if (item.category != null && item.categoryId == null) {
+                // Intentar match exacto (case-insensitive)
+                val matched = existingCategories.find { (_, name) ->
+                    name.equals(item.category, ignoreCase = true)
+                }
+                // Si no hay exacto, intentar match parcial (la categoría contiene el nombre o viceversa)
+                    ?: existingCategories.find { (_, name) ->
+                        name.contains(item.category, ignoreCase = true) ||
+                                item.category.contains(name, ignoreCase = true)
+                    }
+
+                if (matched != null) {
+                    item.copy(categoryId = matched.first, category = matched.second)
+                } else {
+                    item
+                }
+            } else {
+                item
+            }
+        }
     }
 
     fun confirmImport() {
@@ -174,7 +202,7 @@ class ReceiptScannerViewModel(
                     householdId = householdId,
                     userId = userId,
                     accountId = accountId,
-                    categoryId = state.selectedCategoryId,
+                    categoryId = null,  // Ya no hay categoría global; cada item tiene la suya
                     store = state.store.ifBlank { null },
                     receiptDate = state.receiptDate,
                     items = selectedItems
@@ -209,15 +237,56 @@ class ReceiptScannerViewModel(
                 step = ScannerStep.CAMERA,
                 ocrText = "",
                 items = emptyList(),
-                error = null
+                error = null,
+                parsedWithAi = false
             )
         }
     }
 
-    fun processImage(bitmap: android.graphics.Bitmap) {
+    fun processImage(bitmap: Bitmap) {
         _uiState.update { it.copy(step = ScannerStep.PROCESSING, isProcessing = true) }
 
         viewModelScope.launch {
+            // ── Paso 1: Intentar con IA si está disponible ──────────────
+            if (aiReceiptParserService != null) {
+                try {
+                    AppLogger.d("ReceiptScanner", "Intentando parseo con IA...")
+
+                    // Obtener nombres de categorías existentes para que Gemini las use
+                    val categoryNames = _categories.value.map { it.second }
+
+                    val aiResult = aiReceiptParserService.parseReceipt(
+                        bitmap = bitmap,
+                        existingCategories = categoryNames
+                    )
+
+                    if (aiResult != null && aiResult.items.isNotEmpty()) {
+                        AppLogger.d("ReceiptScanner", "IA parseó ${aiResult.items.size} productos")
+
+                        // Auto-match categorías de Gemini con IDs de categorías existentes
+                        val matchedItems = matchCategoryForItems(aiResult.items)
+
+                        _uiState.update {
+                            it.copy(
+                                step = ScannerStep.REVIEW,
+                                ocrText = "(Procesado con IA)",
+                                store = aiResult.store ?: "",
+                                items = matchedItems,
+                                detectedTotal = aiResult.total,
+                                isProcessing = false,
+                                parsedWithAi = true,
+                                receiptDate = aiResult.date ?: LocalDate.now().toString()
+                            )
+                        }
+                        return@launch
+                    }
+                    AppLogger.d("ReceiptScanner", "IA no retornó resultados, cayendo a OCR local")
+                } catch (e: Exception) {
+                    AppLogger.e("ReceiptScanner", "Error con IA, cayendo a OCR local", e)
+                }
+            }
+
+            // ── Paso 2: Fallback → ML Kit OCR + ChileanReceiptParser ────
             try {
                 val image = InputImage.fromBitmap(bitmap, 0)
                 val recognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
@@ -236,6 +305,7 @@ class ReceiptScannerViewModel(
                         items = parseResult.items,
                         detectedTotal = parseResult.total,
                         isProcessing = false,
+                        parsedWithAi = false,
                         receiptDate = parseResult.date ?: LocalDate.now().toString()
                     )
                 }
@@ -254,6 +324,5 @@ class ReceiptScannerViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        // TextRecognizer se crea y cierra dentro de processImage
     }
 }

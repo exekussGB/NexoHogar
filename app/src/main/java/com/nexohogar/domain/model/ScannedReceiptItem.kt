@@ -8,5 +8,6 @@ data class ScannedReceiptItem(
     val brand: String? = null,
     val unit: String = "unidad",
     val category: String? = null,
+    val categoryId: String? = null,   // ID de categoría existente (para el dropdown)
     val isSelected: Boolean = true
 )
