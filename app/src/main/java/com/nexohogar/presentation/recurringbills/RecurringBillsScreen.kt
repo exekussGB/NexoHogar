@@ -199,8 +199,8 @@ fun RecurringBillsScreen(
             isCreating  = uiState.isCreating,
             createError = uiState.createError,
             onDismiss   = { viewModel.onDismissCreateDialog() },
-            onCreate    = { name, amount, day, notes, installments ->
-                viewModel.createBill(name, amount, day, notes, installments)
+            onCreate    = { name, amount, day, notes, installments, startInstallment ->
+                viewModel.createBill(name, amount, day, notes, installments, startInstallment)
             }
         )
     }
@@ -213,8 +213,8 @@ fun RecurringBillsScreen(
             isUpdating  = uiState.isUpdating,
             updateError = uiState.updateError,
             onDismiss   = { viewModel.onDismissEditDialog() },
-            onUpdate    = { name, amount, day, notes, installments ->
-                viewModel.updateBill(name, amount, day, notes, installments)
+            onUpdate    = { name, amount, day, notes, installments, paidInst ->
+                viewModel.updateBill(name, amount, day, notes, installments, paidInst)
             }
         )
     }
@@ -668,7 +668,7 @@ private fun EmptyBillsState(onAdd: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de creación (con soporte a cuotas)
+// Diálogo de creación (con soporte a cuotas + cuota inicial)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -676,7 +676,7 @@ private fun CreateBillDialog(
     isCreating: Boolean,
     createError: String?,
     onDismiss: () -> Unit,
-    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?) -> Unit
+    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?, paidInstallments: Int?) -> Unit
 ) {
     var name        by remember { mutableStateOf("") }
     var amountText  by remember { mutableStateOf("") }
@@ -684,8 +684,9 @@ private fun CreateBillDialog(
     var notes       by remember { mutableStateOf("") }
     var nameError   by remember { mutableStateOf(false) }
     var dayError    by remember { mutableStateOf(false) }
-    var isInstallment    by remember { mutableStateOf(false) }
-    var installmentsText by remember { mutableStateOf("") }
+    var isInstallment        by remember { mutableStateOf(false) }
+    var installmentsText     by remember { mutableStateOf("") }
+    var startInstallmentText by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -751,16 +752,43 @@ private fun CreateBillDialog(
                 }
 
                 AnimatedVisibility(visible = isInstallment) {
-                    OutlinedTextField(
-                        value = installmentsText,
-                        onValueChange = { installmentsText = it.filter { c -> c.isDigit() }.take(3) },
-                        label = { Text("Total de cuotas") },
-                        placeholder = { Text("Ej: 12") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        enabled = !isCreating
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = installmentsText,
+                                onValueChange = { installmentsText = it.filter { c -> c.isDigit() }.take(3) },
+                                label = { Text("Total cuotas") },
+                                placeholder = { Text("Ej: 12") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = !isCreating
+                            )
+                            OutlinedTextField(
+                                value = startInstallmentText,
+                                onValueChange = { startInstallmentText = it.filter { c -> c.isDigit() }.take(3) },
+                                label = { Text("Cuota inicial") },
+                                placeholder = { Text("0") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = !isCreating
+                            )
+                        }
+                        // Preview de cómo se verá
+                        val totalPreview = installmentsText.toIntOrNull()
+                        val startPreview = startInstallmentText.toIntOrNull() ?: 0
+                        if (totalPreview != null && totalPreview > 0) {
+                            Text(
+                                "Se mostrará como: $startPreview/$totalPreview cuotas",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF1565C0)
+                            )
+                        }
+                    }
                 }
 
                 if (createError != null) {
@@ -783,12 +811,14 @@ private fun CreateBillDialog(
                     dayError  = day == null || day < 1 || day > 31
                     if (!nameError && !dayError) {
                         val installments = if (isInstallment) installmentsText.toIntOrNull() else null
+                        val startInst = if (isInstallment) startInstallmentText.toIntOrNull()?.takeIf { it > 0 } else null
                         onCreate(
                             name.trim(),
                             amountText.toLongOrNull() ?: 0L,
                             day!!,
                             notes.trim().ifBlank { null },
-                            installments
+                            installments,
+                            startInst
                         )
                     }
                 },
@@ -802,7 +832,7 @@ private fun CreateBillDialog(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de edición
+// Diálogo de edición (con cuotas + ajuste de cuota actual)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -811,15 +841,16 @@ private fun EditBillDialog(
     isUpdating: Boolean,
     updateError: String?,
     onDismiss: () -> Unit,
-    onUpdate: (name: String?, amountClp: Long?, dueDayOfMonth: Int?, notes: String?, totalInstallments: Int?) -> Unit
+    onUpdate: (name: String?, amountClp: Long?, dueDayOfMonth: Int?, notes: String?, totalInstallments: Int?, paidInstallments: Int?) -> Unit
 ) {
     var name        by remember { mutableStateOf(bill.name) }
     var amountText  by remember { mutableStateOf(if (bill.amountClp > 0) bill.amountClp.toString() else "") }
     var dueDayText  by remember { mutableStateOf(bill.dueDayOfMonth.toString()) }
     var notes       by remember { mutableStateOf(bill.notes ?: "") }
     var dayError    by remember { mutableStateOf(false) }
-    var isInstallment    by remember { mutableStateOf(bill.isInstallment) }
-    var installmentsText by remember { mutableStateOf(bill.totalInstallments?.toString() ?: "") }
+    var isInstallment        by remember { mutableStateOf(bill.isInstallment) }
+    var installmentsText     by remember { mutableStateOf(bill.totalInstallments?.toString() ?: "") }
+    var paidInstallmentsText by remember { mutableStateOf(bill.paidInstallments.toString()) }
 
     AlertDialog(
         onDismissRequest = { if (!isUpdating) onDismiss() },
@@ -884,22 +915,40 @@ private fun EditBillDialog(
                 }
 
                 AnimatedVisibility(visible = isInstallment) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(
-                            value = installmentsText,
-                            onValueChange = { installmentsText = it.filter { c -> c.isDigit() }.take(3) },
-                            label = { Text("Total de cuotas") },
-                            placeholder = { Text("Ej: 12") },
-                            singleLine = true,
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            enabled = !isUpdating
-                        )
-                        if (bill.isInstallment) {
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = installmentsText,
+                                onValueChange = { installmentsText = it.filter { c -> c.isDigit() }.take(3) },
+                                label = { Text("Total cuotas") },
+                                placeholder = { Text("Ej: 12") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = !isUpdating
+                            )
+                            OutlinedTextField(
+                                value = paidInstallmentsText,
+                                onValueChange = { paidInstallmentsText = it.filter { c -> c.isDigit() }.take(3) },
+                                label = { Text("Cuota actual") },
+                                placeholder = { Text("0") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = !isUpdating
+                            )
+                        }
+                        // Preview
+                        val totalPreview = installmentsText.toIntOrNull()
+                        val paidPreview  = paidInstallmentsText.toIntOrNull() ?: 0
+                        if (totalPreview != null && totalPreview > 0) {
                             Text(
-                                "Progreso actual: ${bill.paidInstallments}/${bill.totalInstallments} cuotas pagadas",
+                                "Progreso: $paidPreview/$totalPreview cuotas",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (paidPreview >= totalPreview) Color(0xFF2E7D32) else Color(0xFF1565C0)
                             )
                         }
                     }
@@ -924,12 +973,14 @@ private fun EditBillDialog(
                     dayError = day == null || day < 1 || day > 31
                     if (!dayError) {
                         val installments = if (isInstallment) installmentsText.toIntOrNull() else null
+                        val paidInst = if (isInstallment) paidInstallmentsText.toIntOrNull() else null
                         onUpdate(
                             name.trim().ifBlank { null },
                             amountText.toLongOrNull(),
                             day,
                             notes.trim().ifBlank { null },
-                            installments
+                            installments,
+                            paidInst
                         )
                     }
                 },

@@ -38,7 +38,8 @@ data class CreateRecurringBillRequest(
     @SerializedName("due_day")             val dueDayOfMonth: Int,
     @SerializedName("notes")               val notes: String? = null,
     @SerializedName("is_active")           val isActive: Boolean = true,
-    @SerializedName("total_installments")  val totalInstallments: Int? = null
+    @SerializedName("total_installments")  val totalInstallments: Int? = null,
+    @SerializedName("paid_installments")   val paidInstallments: Int? = null
 )
 
 data class UpdateRecurringBillRequest(
@@ -47,7 +48,8 @@ data class UpdateRecurringBillRequest(
     @SerializedName("due_day")             val dueDayOfMonth: Int? = null,
     @SerializedName("notes")               val notes: String? = null,
     @SerializedName("is_active")           val isActive: Boolean? = null,
-    @SerializedName("total_installments")  val totalInstallments: Int? = null
+    @SerializedName("total_installments")  val totalInstallments: Int? = null,
+    @SerializedName("paid_installments")   val paidInstallments: Int? = null
 )
 
 data class UpdateLastPaidRequest(

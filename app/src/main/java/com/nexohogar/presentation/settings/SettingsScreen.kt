@@ -276,7 +276,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Controla ingresos, gastos, transferencias e inventario de tu hogar en un solo lugar.",
+                        text = "Controla ingresos, gastos, transferencias e inventario, añade presupuestos y tus cuentas del hogar en un solo lugar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
