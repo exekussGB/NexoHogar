@@ -1,19 +1,23 @@
+# ─── Android / Gradle ───────────────────────────────────────────────────────
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+/.idea
 .DS_Store
-/build
+/build                  # ← raíz del proyecto
+app/build               # ← artefactos compilados de la app  ← AÑADIDO (estaba commiteado)
+*/build                 # ← cualquier otro módulo
 /captures
 .externalNativeBuild
 .cxx
-local.properties
-# Firebase
-app/google-services.json
-**/service-account-key.json
+*.keystore
+!debug.keystore
 
+# ─── Kotlin / Java ──────────────────────────────────────────────────────────
+*.class
+
+# ─── Google Services / Firebase ─────────────────────────────────────────────
+google-services.json
+
+# ─── Supabase / Secretos ────────────────────────────────────────────────────
+local.properties
