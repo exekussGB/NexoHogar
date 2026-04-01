@@ -19,5 +19,14 @@ data class RecurringBillWithStatusDto(
     @SerializedName("last_payment_amount") val lastPaymentAmount: Long?,
     @SerializedName("last_payment_date")   val lastPaymentDate: String?,
     @SerializedName("is_overdue")          val isOverdue: Boolean,
-    @SerializedName("days_until_due")      val daysUntilDue: Int?
-)
+    @SerializedName("days_until_due")      val daysUntilDue: Int?,
+    @SerializedName("total_installments")  val totalInstallments: Int? = null,
+    @SerializedName("paid_installments")   val paidInstallments: Int = 0
+) {
+    /** true si esta bill es en cuotas (no servicio recurrente normal) */
+    val isInstallment: Boolean get() = totalInstallments != null
+
+    /** Texto para mostrar progreso de cuotas, ej: "Cuota 5/12" */
+    val installmentLabel: String?
+        get() = if (totalInstallments != null) "Cuota ${paidInstallments}/$totalInstallments" else null
+}

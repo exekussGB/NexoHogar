@@ -9,6 +9,7 @@ import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.data.remote.dto.ToggleActiveRequest
 import com.nexohogar.data.remote.dto.UpdateLastPaidRequest
+import com.nexohogar.data.remote.dto.UpdateRecurringBillRequest
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -25,6 +26,13 @@ interface RecurringBillsApi {
     suspend fun createRecurringBill(
         @Header("Prefer") prefer: String = "return=representation",
         @Body request: CreateRecurringBillRequest
+    ): Response<List<RecurringBillDto>>
+
+    @PATCH("rest/v1/recurring_bills")
+    suspend fun updateRecurringBill(
+        @Query("id")       idFilter: String,
+        @Header("Prefer")  prefer: String = "return=representation",
+        @Body request: UpdateRecurringBillRequest
     ): Response<List<RecurringBillDto>>
 
     @PATCH("rest/v1/recurring_bills")
@@ -46,7 +54,7 @@ interface RecurringBillsApi {
         @Query("id") idFilter: String
     ): Response<Unit>
 
-    // ── NUEVOS: endpoints RPC con integración contable ──────────────────
+    // ── Endpoints RPC con integración contable ──────────────────────────
 
     @POST("rest/v1/rpc/rpc_pay_recurring_bill")
     suspend fun payRecurringBill(

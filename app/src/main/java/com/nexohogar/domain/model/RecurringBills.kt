@@ -9,6 +9,8 @@ import java.time.temporal.ChronoUnit
  *
  * @param dueDayOfMonth día del mes en que vence (1-31)
  * @param lastPaidDate fecha del último pago en formato "YYYY-MM-DD", o null si nunca se ha pagado
+ * @param totalInstallments total de cuotas (null = cuenta fija, sin cuotas)
+ * @param paidInstallments cuotas ya pagadas
  */
 data class RecurringBill(
     val id: String,
@@ -19,21 +21,27 @@ data class RecurringBill(
     val isActive: Boolean,
     val lastPaidDate: String?,
     val notes: String?,
-    val createdAt: String
+    val createdAt: String,
+    val totalInstallments: Int? = null,
+    val paidInstallments: Int = 0
 ) {
     companion object {
         private val ZONE = ZoneId.of("America/Santiago")
     }
 
-    /**
-     * Calcula cuántos días faltan para el vencimiento este mes.
-     * Retorna [Int.MAX_VALUE] si ya fue pagado este mes.
-     * Retorna negativo si ya venció sin pagar.
-     */
+    /** true si esta cuenta es en cuotas */
+    val isInstallment: Boolean get() = totalInstallments != null && totalInstallments > 0
+
+    /** Etiqueta de cuotas, ej: "3/12 cuotas" */
+    val installmentLabel: String?
+        get() = if (isInstallment) "$paidInstallments/$totalInstallments cuotas" else null
+
+    /** true si ya se pagaron todas las cuotas */
+    val installmentsCompleted: Boolean
+        get() = isInstallment && paidInstallments >= (totalInstallments ?: 0)
+
     fun daysUntilDue(): Int {
         val today = LocalDate.now(ZONE)
-
-        // Si ya fue pagado este mes → no hay urgencia
         if (!lastPaidDate.isNullOrBlank()) {
             try {
                 val paidDate = LocalDate.parse(lastPaidDate)
@@ -42,8 +50,6 @@ data class RecurringBill(
                 }
             } catch (_: Exception) { }
         }
-
-        // Calcular fecha de vencimiento: si el día ya pasó este mes, usar el mes siguiente
         var dueDate = today.withDayOfMonth(minOf(dueDayOfMonth, today.lengthOfMonth()))
         if (dueDate.isBefore(today)) {
             val nextMonth = today.plusMonths(1)
@@ -52,26 +58,17 @@ data class RecurringBill(
         return ChronoUnit.DAYS.between(today, dueDate).toInt()
     }
 
-    /**
-     * Estado visual tipo semáforo.
-     *
-     * 🟢 GREEN  → pagado este mes O faltan > 3 días
-     * 🟡 YELLOW → faltan ≤ 3 días (y no pagado)
-     * 🔴 RED    → vencido (día actual > due_day y no pagado)
-     * ⚪ INACTIVE → cuenta pausada
-     */
     fun getStatus(): BillStatus {
         if (!isActive) return BillStatus.INACTIVE
         val days = daysUntilDue()
         return when {
-            days == Int.MAX_VALUE -> BillStatus.GREEN   // Pagado
-            days < 0              -> BillStatus.RED     // Vencido
-            days <= 3             -> BillStatus.YELLOW  // Próximo a vencer
-            else                  -> BillStatus.GREEN   // Holgado
+            days == Int.MAX_VALUE -> BillStatus.GREEN
+            days < 0              -> BillStatus.RED
+            days <= 3             -> BillStatus.YELLOW
+            else                  -> BillStatus.GREEN
         }
     }
 
-    /** Texto descriptivo del estado */
     fun statusLabel(): String {
         if (!isActive) return "PAUSADO"
         val days = daysUntilDue()
@@ -85,9 +82,6 @@ data class RecurringBill(
         }
     }
 
-    /**
-     * Estado con nombres descriptivos, usado por RecurringBillsScreen.
-     */
     fun status(): RecurringBillStatus {
         if (!isActive) return RecurringBillStatus.INACTIVE
         val days = daysUntilDue()
@@ -101,17 +95,9 @@ data class RecurringBill(
 }
 
 enum class BillStatus {
-    GREEN,    // pagado o faltan > 3 días
-    YELLOW,   // faltan ≤ 3 días
-    RED,      // vencido
-    INACTIVE  // cuenta desactivada
+    GREEN, YELLOW, RED, INACTIVE
 }
 
-/** Estado descriptivo para la UI de RecurringBillsScreen */
 enum class RecurringBillStatus {
-    PAID,      // pagado este mes
-    OK,        // al día, faltan > 3 días
-    DUE_SOON,  // faltan ≤ 3 días
-    OVERDUE,   // vencido sin pagar
-    INACTIVE   // cuenta pausada
+    PAID, OK, DUE_SOON, OVERDUE, INACTIVE
 }

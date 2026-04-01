@@ -13,13 +13,25 @@ interface RecurringBillsRepository {
         name: String,
         amountClp: Long,
         dueDayOfMonth: Int,
-        notes: String?
+        notes: String?,
+        totalInstallments: Int? = null,
+        paidInstallments: Int? = null
+    ): AppResult<RecurringBill>
+    suspend fun updateRecurringBill(
+        billId: String,
+        name: String? = null,
+        amountClp: Long? = null,
+        dueDayOfMonth: Int? = null,
+        notes: String? = null,
+        isActive: Boolean? = null,
+        totalInstallments: Int? = null,
+        paidInstallments: Int? = null
     ): AppResult<RecurringBill>
     suspend fun markAsPaid(billId: String, paidDate: String): AppResult<RecurringBill>
     suspend fun toggleActive(billId: String, isActive: Boolean): AppResult<RecurringBill>
     suspend fun deleteRecurringBill(billId: String): AppResult<Unit>
 
-    // ── NUEVOS: con integración contable ─────────────────────────────────
+    // ── Con integración contable ─────────────────────────────────────
     suspend fun payBill(
         billId: String,
         householdId: String,

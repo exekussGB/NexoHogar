@@ -17,7 +17,11 @@ data class HouseholdMembersUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val isProcessing: Boolean = false,
-    val actionMessage: String? = null
+    val actionMessage: String? = null,
+    // ── NUEVO: Para eliminar miembros ─────────────────
+    val currentUserId: String? = null,
+    val currentUserRole: String = "",
+    val memberToRemove: HouseholdMember? = null   // Diálogo de confirmación
 )
 
 class HouseholdMembersViewModel(
@@ -29,6 +33,7 @@ class HouseholdMembersViewModel(
     val uiState: StateFlow<HouseholdMembersUiState> = _uiState.asStateFlow()
 
     init {
+        _uiState.update { it.copy(currentUserId = tenantContext.getCurrentUserId()) }
         loadMembers()
     }
 
@@ -47,16 +52,22 @@ class HouseholdMembersViewModel(
 
             when (val result = householdRepository.getHouseholdMembers(householdId)) {
                 is AppResult.Success -> {
+                    val currentId = _uiState.value.currentUserId
+                    val role = result.data
+                        .firstOrNull { it.userId == currentId }
+                        ?.role ?: ""
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        members   = result.data,
-                        error     = null
+                        members = result.data,
+                        currentUserRole = role,
+                        error = null
                     )
                 }
                 is AppResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error     = result.message
+                        error = result.message
                     )
                 }
                 is AppResult.Loading -> { }
@@ -64,7 +75,7 @@ class HouseholdMembersViewModel(
         }
     }
 
-    // ── NUEVO: Aceptar miembro pendiente ────────────────────────────────
+    // ── Aceptar miembro pendiente ────────────────────────────────
 
     fun acceptMember(memberId: String) {
         viewModelScope.launch {
@@ -88,7 +99,7 @@ class HouseholdMembersViewModel(
         }
     }
 
-    // ── NUEVO: Rechazar miembro pendiente ────────────────────────────────
+    // ── Rechazar miembro pendiente ────────────────────────────────
 
     fun rejectMember(memberId: String) {
         viewModelScope.launch {
@@ -105,6 +116,44 @@ class HouseholdMembersViewModel(
                     _uiState.update { it.copy(
                         isProcessing = false,
                         error = result.message
+                    )}
+                }
+                is AppResult.Loading -> {}
+            }
+        }
+    }
+
+    // ── NUEVO: Eliminar miembro activo (solo super_user) ─────────
+
+    /** Muestra diálogo de confirmación */
+    fun requestRemoveMember(member: HouseholdMember) {
+        _uiState.update { it.copy(memberToRemove = member) }
+    }
+
+    /** Cierra diálogo sin eliminar */
+    fun cancelRemoveMember() {
+        _uiState.update { it.copy(memberToRemove = null) }
+    }
+
+    /** Confirma eliminación */
+    fun confirmRemoveMember() {
+        val member = _uiState.value.memberToRemove ?: return
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true, memberToRemove = null, actionMessage = null) }
+            when (val result = householdRepository.removeMember(householdId, member.userId)) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        actionMessage = "Miembro eliminado ✓"
+                    )}
+                    loadMembers()
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(
+                        isProcessing = false,
+                        actionMessage = result.message
                     )}
                 }
                 is AppResult.Loading -> {}

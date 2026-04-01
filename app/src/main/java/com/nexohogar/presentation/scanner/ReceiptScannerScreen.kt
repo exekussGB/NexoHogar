@@ -87,7 +87,6 @@ fun ReceiptScannerScreen(
                     onUpdateStore = viewModel::updateStore,
                     onUpdateDate = viewModel::updateDate,
                     onSetAccount = viewModel::setAccount,
-                    onSetCategory = viewModel::setCategory,
                     onConfirmImport = viewModel::confirmImport,
                     onRetakePhoto = viewModel::retakePhoto
                 )
@@ -333,7 +332,6 @@ private fun ReviewStep(
     onUpdateStore: (String) -> Unit,
     onUpdateDate: (String) -> Unit,
     onSetAccount: (String) -> Unit,
-    onSetCategory: (String?) -> Unit,
     onConfirmImport: () -> Unit,
     onRetakePhoto: () -> Unit
 ) {
@@ -501,48 +499,6 @@ private fun ReviewStep(
                 }
             }
 
-            // Category selector (optional)
-            item {
-                var categoryExpanded by remember { mutableStateOf(false) }
-                val selectedCategoryName = categories.find { it.first == uiState.selectedCategoryId }?.second ?: "Sin categoría"
-
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategoryName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Categoría financiera (opcional)") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) }
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Sin categoría") },
-                            onClick = {
-                                onSetCategory(null)
-                                categoryExpanded = false
-                            }
-                        )
-                        categories.forEach { (id, name) ->
-                            DropdownMenuItem(
-                                text = { Text(name) },
-                                onClick = {
-                                    onSetCategory(id)
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
             // Items header
             item {
                 Row(
@@ -563,10 +519,11 @@ private fun ReviewStep(
                 }
             }
 
-            // Item cards
+            // Item cards — ahora cada uno recibe la lista de categorías
             itemsIndexed(uiState.items) { index, item ->
                 ReceiptItemCard(
                     item = item,
+                    categories = categories,
                     onToggle = { onToggleItem(index) },
                     onUpdate = { updated -> onUpdateItem(index, updated) },
                     onRemove = { onRemoveItem(index) }
@@ -581,9 +538,11 @@ private fun ReviewStep(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReceiptItemCard(
     item: ScannedReceiptItem,
+    categories: List<Pair<String, String>>,
     onToggle: () -> Unit,
     onUpdate: (ScannedReceiptItem) -> Unit,
     onRemove: () -> Unit
@@ -617,13 +576,23 @@ private fun ReceiptItemCard(
                     )
                     Text(
                         text = buildString {
-                            append("${item.quantity} ${item.unit}")
+                            val qtyDisplay = if (item.quantity == item.quantity.toInt().toDouble())
+                                item.quantity.toInt().toString() else item.quantity.toString()
+                            append("$qtyDisplay ${item.unit}")
                             item.pricePerUnit?.let { append(" × $${it.toInt()}") }
                             item.priceTotal?.let { append(" = $${it.toInt()}") }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Mostrar categoría asignada en vista colapsada
+                    if (!isExpanded && item.category != null) {
+                        Text(
+                            text = "📁 ${item.category}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 IconButton(onClick = { isExpanded = !isExpanded }) {
@@ -657,13 +626,34 @@ private fun ReceiptItemCard(
                 )
                 Spacer(Modifier.height(8.dp))
 
+                // ─── Estado local para permitir edición libre ───────────
+                var qtyText by remember(item.quantity) {
+                    mutableStateOf(
+                        if (item.quantity == item.quantity.toInt().toDouble())
+                            item.quantity.toInt().toString()
+                        else item.quantity.toString()
+                    )
+                }
+                var unitPriceText by remember(item.pricePerUnit) {
+                    mutableStateOf(item.pricePerUnit?.toInt()?.toString() ?: "")
+                }
+                var totalPriceText by remember(item.priceTotal) {
+                    mutableStateOf(item.priceTotal?.toInt()?.toString() ?: "")
+                }
+
+                // ─── Fila 1: Cantidad + Unidad ─────────────────────────
+                val unitOptions = listOf("un", "kg", "g", "ml", "L", "cc", "mt")
+                var unitExpanded by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = item.quantity.toString(),
+                        value = qtyText,
                         onValueChange = { value ->
+                            qtyText = value
                             val qty = value.toDoubleOrNull()
                             if (qty != null && qty > 0) {
                                 val newTotal = item.pricePerUnit?.let { it * qty }
@@ -676,12 +666,53 @@ private fun ReceiptItemCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
 
+                    ExposedDropdownMenuBox(
+                        expanded = unitExpanded,
+                        onExpandedChange = { unitExpanded = it },
+                        modifier = Modifier.weight(0.8f)
+                    ) {
+                        OutlinedTextField(
+                            value = item.unit,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Unidad") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            singleLine = true
+                        )
+                        ExposedDropdownMenu(
+                            expanded = unitExpanded,
+                            onDismissRequest = { unitExpanded = false }
+                        ) {
+                            unitOptions.forEach { unit ->
+                                DropdownMenuItem(
+                                    text = { Text(unit) },
+                                    onClick = {
+                                        onUpdate(item.copy(unit = unit))
+                                        unitExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // ─── Fila 2: P. Unitario + P. Total ────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     OutlinedTextField(
-                        value = item.pricePerUnit?.toInt()?.toString() ?: "",
+                        value = unitPriceText,
                         onValueChange = { value ->
+                            unitPriceText = value
                             val price = value.toDoubleOrNull()
-                            val newTotal = price?.let { it * item.quantity }
-                            onUpdate(item.copy(pricePerUnit = price, priceTotal = newTotal ?: item.priceTotal))
+                            if (price != null) {
+                                val newTotal = price * item.quantity
+                                onUpdate(item.copy(pricePerUnit = price, priceTotal = newTotal))
+                            }
                         },
                         label = { Text("P. Unitario") },
                         modifier = Modifier.weight(1f),
@@ -690,17 +721,68 @@ private fun ReceiptItemCard(
                     )
 
                     OutlinedTextField(
-                        value = item.priceTotal?.toInt()?.toString() ?: "",
+                        value = totalPriceText,
                         onValueChange = { value ->
+                            totalPriceText = value
                             val total = value.toDoubleOrNull()
-                            val newUnit = if (total != null && item.quantity > 0) total / item.quantity else item.pricePerUnit
-                            onUpdate(item.copy(priceTotal = total, pricePerUnit = newUnit ?: item.pricePerUnit))
+                            if (total != null) {
+                                val newUnit = if (item.quantity > 0) total / item.quantity else item.pricePerUnit
+                                onUpdate(item.copy(priceTotal = total, pricePerUnit = newUnit ?: item.pricePerUnit))
+                            }
                         },
                         label = { Text("P. Total") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ─── Categoría por producto ─────────────────────────────
+                var categoryExpanded by remember { mutableStateOf(false) }
+                val selectedCategoryName = if (item.categoryId != null) {
+                    categories.find { it.first == item.categoryId }?.second ?: item.category ?: "Sin categoría"
+                } else {
+                    item.category ?: "Sin categoría"
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCategoryName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        // Opción "Sin categoría"
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = {
+                                onUpdate(item.copy(categoryId = null, category = null))
+                                categoryExpanded = false
+                            }
+                        )
+                        // Categorías existentes del hogar
+                        categories.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    onUpdate(item.copy(categoryId = id, category = name))
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
