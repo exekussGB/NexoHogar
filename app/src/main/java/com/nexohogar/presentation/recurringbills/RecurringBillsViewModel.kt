@@ -88,7 +88,6 @@ class RecurringBillsViewModel(
                     is AppResult.Loading -> Unit
                 }
             }
-            // También cargar bills originales para crear/editar
             val legacyJob = launch {
                 when (val result = repository.getRecurringBills(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(bills = result.data) }
@@ -118,11 +117,21 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(showCreateDialog = false, createError = null) }
     }
 
-    fun createBill(name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int? = null) {
+    fun createBill(
+        name: String,
+        amountClp: Long,
+        dueDayOfMonth: Int,
+        notes: String?,
+        totalInstallments: Int? = null,
+        paidInstallments: Int? = null
+    ) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = repository.createRecurringBill(householdId, name, amountClp, dueDayOfMonth, notes, totalInstallments)) {
+            when (val result = repository.createRecurringBill(
+                householdId, name, amountClp, dueDayOfMonth, notes,
+                totalInstallments, paidInstallments
+            )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
                         isCreating       = false,
@@ -154,7 +163,8 @@ class RecurringBillsViewModel(
         amountClp: Long?,
         dueDayOfMonth: Int?,
         notes: String?,
-        totalInstallments: Int?
+        totalInstallments: Int?,
+        paidInstallments: Int? = null
     ) {
         val bill = _uiState.value.billToEdit ?: return
         viewModelScope.launch {
@@ -165,7 +175,8 @@ class RecurringBillsViewModel(
                 amountClp         = amountClp,
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
-                totalInstallments = totalInstallments
+                totalInstallments = totalInstallments,
+                paidInstallments  = paidInstallments
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(billToEdit = null, isUpdating = false) }
@@ -190,10 +201,6 @@ class RecurringBillsViewModel(
         _uiState.update { it.copy(billToPay = null) }
     }
 
-    /**
-     * Paga una bill con el monto confirmado/editado por el usuario.
-     * Crea la transacción contable automáticamente en la DB.
-     */
     fun payBill(amountClp: Long, accountId: String?, notes: String?) {
         val bill = _uiState.value.billToPay ?: return
         val householdId = tenantContext.getCurrentHouseholdId() ?: return

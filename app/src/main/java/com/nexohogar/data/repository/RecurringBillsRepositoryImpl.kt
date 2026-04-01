@@ -36,7 +36,8 @@ class RecurringBillsRepositoryImpl(
         amountClp: Long,
         dueDayOfMonth: Int,
         notes: String?,
-        totalInstallments: Int?
+        totalInstallments: Int?,
+        paidInstallments: Int?
     ): AppResult<RecurringBill> {
         return try {
             val request = CreateRecurringBillRequest(
@@ -45,7 +46,8 @@ class RecurringBillsRepositoryImpl(
                 amountClp         = amountClp,
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
-                totalInstallments = totalInstallments
+                totalInstallments = totalInstallments,
+                paidInstallments  = paidInstallments
             )
             val response = api.createRecurringBill(request = request)
             if (response.isSuccessful) {
@@ -67,7 +69,8 @@ class RecurringBillsRepositoryImpl(
         dueDayOfMonth: Int?,
         notes: String?,
         isActive: Boolean?,
-        totalInstallments: Int?
+        totalInstallments: Int?,
+        paidInstallments: Int?
     ): AppResult<RecurringBill> {
         return try {
             val request = UpdateRecurringBillRequest(
@@ -76,7 +79,8 @@ class RecurringBillsRepositoryImpl(
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
                 isActive          = isActive,
-                totalInstallments = totalInstallments
+                totalInstallments = totalInstallments,
+                paidInstallments  = paidInstallments
             )
             val response = api.updateRecurringBill(
                 idFilter = "eq.$billId",
@@ -142,8 +146,6 @@ class RecurringBillsRepositoryImpl(
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
-
-    // ── Pagar con integración contable ───────────────────────────────
 
     override suspend fun payBill(
         billId: String,
