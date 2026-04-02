@@ -15,20 +15,39 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 
 /**
  * Interceptor encargado de:
- *   1. Inyectar los headers de Supabase y el JWT en cada petición.
- *   2. Verificar PROACTIVAMENTE si el token está por expirar y refrescarlo
- *      ANTES de enviar la request (evita el primer fallo tras 1 hora).
- *   3. Si la respuesta es 401, refrescar el token y reintentar (fallback).
- *   4. Si el refresh falla, limpiar la sesión para forzar re-login.
+ * 1. Inyectar los headers de Supabase y el JWT en cada petición.
+ * 2. Verificar PROACTIVAMENTE si el token está por expirar y refrescarlo
+ *    ANTES de enviar la request (evita el primer fallo tras 1 hora).
+ * 3. Si la respuesta es 401, refrescar el token y reintentar (fallback).
+ * 4. Si el refresh falla POR EL SERVIDOR (token revocado/expirado), limpiar
+ *    la sesión para forzar re-login.
  *
  * Bug corregido (race condition):
- *   ANTES: sin sincronización. Si N screens hacían requests simultáneamente
- *   al expirar el token, todas obtenían 401 y todas intentaban refrescar.
- *   La primera tenía éxito; las demás usaban el refresh_token ya rotado
- *   (Supabase rotation → token invalidado) → fallo → clearSession() → login forzado.
+ * ANTES: sin sincronización. Si N screens hacían requests simultáneamente
+ * al expirar el token, todas obtenían 401 y todas intentaban refrescar.
+ * La primera tenía éxito; las demás usaban el refresh_token ya rotado
+ * (Supabase rotation → token invalidado) → fallo → clearSession() → login forzado.
  *
- *   AHORA: [refreshLock] garantiza que solo UNO refresca a la vez.
- *   Los demás threads esperan y luego usan el token ya renovado.
+ * AHORA: [refreshLock] garantiza que solo UNO refresca a la vez.
+ * Los demás threads esperan y luego usan el token ya renovado.
+ *
+ * Bug corregido (401 reactivo incorrecto):
+ * ANTES: en el path reactivo se comparaba con isTokenExpired() local.
+ * Si el servidor decía 401 pero localmente el token "no estaba expirado"
+ * (clock drift o token revocado), se reintentaba con el MISMO token → loop.
+ *
+ * AHORA: se guarda el token usado en la request y se compara con el token
+ * actual. Si otro hilo ya lo refrescó, usamos el nuevo. Si no cambió,
+ * intentamos refresh explícitamente.
+ *
+ * Bug corregido (clearSession en error de red):
+ * ANTES: cualquier excepción en tryRefreshToken() devolvía null → clearSession().
+ * Si el dispositivo volvía de estar dormido con WiFi reconectando, la sesión
+ * se destruía aunque el refresh_token siguiera siendo válido.
+ *
+ * AHORA: las excepciones de red devuelven el token actual (no null),
+ * así el ViewModel muestra error de red y el usuario puede reintentar.
+ * Solo se limpia la sesión cuando el SERVIDOR rechaza el refresh (4xx).
  */
 class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor {
 
@@ -61,18 +80,23 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
         }
 
         // ── 2. Enviar request con el token actual ─────────────────────────────
-        val response = chain.proceed(originalRequest.withAuthHeaders(sessionManager.fetchAuthToken()))
+        // Guardamos el token exacto que usamos para poder compararlo luego.
+        val tokenUsedForRequest = sessionManager.fetchAuthToken()
+        val response = chain.proceed(originalRequest.withAuthHeaders(tokenUsedForRequest))
 
         // ── 3. Reactive refresh en caso de 401 inerante (p.ej. token revocado) ─
         if (response.code == 401) {
             response.close()
 
             val newToken = synchronized(refreshLock) {
-                // Si alguien ya refrescó mientras esperábamos, el token ya no está
-                // expirado y simplemente devolvemos el nuevo token sin hacer nada.
-                if (!sessionManager.isTokenExpired()) {
-                    sessionManager.fetchAuthToken()
+                val currentToken = sessionManager.fetchAuthToken()
+                if (currentToken != tokenUsedForRequest) {
+                    // Otro hilo ya refrescó el token mientras esperábamos el lock.
+                    // Usamos el nuevo token sin hacer nada.
+                    currentToken
                 } else {
+                    // El token no cambió desde que enviamos la request fallida:
+                    // el servidor nos rechazó este token específico → intentar refresh.
                     tryRefreshToken()
                 }
             }
@@ -81,7 +105,7 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                 return chain.proceed(originalRequest.withAuthHeaders(newToken))
             }
 
-            // Refresh falló definitivamente → limpiar sesión.
+            // Refresh falló definitivamente (servidor rechazó el refresh_token).
             // El ViewModel recibirá 401 y redirigirá a login.
             sessionManager.clearSession()
             return syntheticUnauthorizedResponse(originalRequest)
@@ -109,7 +133,9 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
      * Intenta renovar la sesión usando el refresh_token almacenado.
      * Usa [refreshClient] (sin el AuthInterceptor) para evitar bucles.
      *
-     * @return el nuevo access_token si el refresh fue exitoso, null si falló.
+     * @return el nuevo access_token si el refresh fue exitoso,
+     *         el token actual si hubo error de RED (para no destruir la sesión),
+     *         null solo si el SERVIDOR rechazó el refresh_token (sesión inválida).
      */
     private fun tryRefreshToken(): String? {
         val refreshToken = sessionManager.fetchRefreshToken() ?: return null
@@ -134,10 +160,16 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                 sessionManager.saveSession(newSession)
                 newSession.accessToken
             } else {
+                // El servidor rechazó el refresh_token (expirado/revocado).
+                // Devolvemos null para que el caller limpie la sesión.
                 null
             }
         } catch (e: Exception) {
-            null
+            // Error de RED temporal (WiFi reconectando, timeout, etc.).
+            // NO limpiar la sesión — el refresh_token sigue siendo válido.
+            // Devolvemos el token actual para que el ViewModel muestre
+            // error de red y el usuario pueda reintentar más tarde.
+            sessionManager.fetchAuthToken()
         }
     }
 
