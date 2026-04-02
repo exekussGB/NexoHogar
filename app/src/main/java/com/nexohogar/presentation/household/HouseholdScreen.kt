@@ -23,7 +23,8 @@ import com.nexohogar.presentation.components.LoadingOverlay
 @Composable
 fun HouseholdScreen(
     viewModel: HouseholdViewModel,
-    onHouseholdSelected: (String) -> Unit
+    onHouseholdSelected: (String) -> Unit,
+    onSessionExpired: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -39,12 +40,20 @@ fun HouseholdScreen(
         }
     }
 
+    // Redirigir al login cuando la sesión expira definitivamente
+    LaunchedEffect(uiState.sessionExpired) {
+        if (uiState.sessionExpired) {
+            viewModel.clearSessionExpired()
+            onSessionExpired()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Mis Hogares") },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor    = MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
@@ -56,9 +65,9 @@ fun HouseholdScreen(
             ) {
                 // FAB secundario: unirse con código
                 SmallFloatingActionButton(
-                    onClick           = { viewModel.onShowJoinDialog() },
-                    containerColor    = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor      = MaterialTheme.colorScheme.onSecondaryContainer
+                    onClick = { viewModel.onShowJoinDialog() },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ) {
                     Icon(Icons.Default.VpnKey, contentDescription = "Unirse con código")
                 }
@@ -87,13 +96,13 @@ fun HouseholdScreen(
                 uiState.households.isEmpty() -> {
                     EmptyHouseholdState(
                         onCreateClick = { showCreateDialog = true },
-                        onJoinClick   = { viewModel.onShowJoinDialog() }
+                        onJoinClick = { viewModel.onShowJoinDialog() }
                     )
                 }
 
                 else -> {
                     HouseholdList(
-                        households       = uiState.households,
+                        households = uiState.households,
                         onHouseholdClick = { onHouseholdSelected(it.id) }
                     )
                 }
@@ -104,12 +113,12 @@ fun HouseholdScreen(
     // ── Diálogo de creación ──────────────────────────────────────────────────
     if (showCreateDialog) {
         CreateHouseholdDialog(
-            isCreating   = uiState.isCreating,
+            isCreating = uiState.isCreating,
             errorMessage = uiState.createError,
-            onConfirm    = { name ->
+            onConfirm = { name ->
                 viewModel.createHousehold(name)
             },
-            onDismiss    = {
+            onDismiss = {
                 showCreateDialog = false
                 viewModel.clearCreateError()
             }
@@ -119,12 +128,12 @@ fun HouseholdScreen(
     // ── Diálogo de unión con código ──────────────────────────────────────────
     if (uiState.showJoinDialog) {
         JoinHouseholdDialog(
-            code       = uiState.joinCode,
-            isJoining  = uiState.isJoining,
+            code = uiState.joinCode,
+            isJoining = uiState.isJoining,
             errorMessage = uiState.joinError,
             onCodeChange = { viewModel.onJoinCodeChange(it) },
-            onConfirm    = { viewModel.joinHousehold() },
-            onDismiss    = { viewModel.onDismissJoinDialog() }
+            onConfirm = { viewModel.joinHousehold() },
+            onDismiss = { viewModel.onDismissJoinDialog() }
         )
     }
 }
@@ -139,8 +148,8 @@ fun HouseholdList(
     onHouseholdClick: (Household) -> Unit
 ) {
     LazyColumn(
-        modifier            = Modifier.fillMaxSize(),
-        contentPadding      = PaddingValues(16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(households) { household ->
@@ -155,32 +164,32 @@ fun HouseholdItem(
     onClick: (Household) -> Unit
 ) {
     Card(
-        modifier  = Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick(household) },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier          = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector        = Icons.Default.Home,
+                imageVector = Icons.Default.Home,
                 contentDescription = null,
-                tint               = MaterialTheme.colorScheme.primary,
-                modifier           = Modifier.size(32.dp)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text       = household.name,
-                    style      = MaterialTheme.typography.titleMedium,
+                    text = household.name,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 household.description?.let { desc ->
                     if (desc.isNotBlank()) {
                         Text(
-                            text  = desc,
+                            text = desc,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -201,33 +210,33 @@ fun EmptyHouseholdState(
     onJoinClick: () -> Unit
 ) {
     Column(
-        modifier              = Modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(32.dp),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector        = Icons.Default.Home,
+            imageVector = Icons.Default.Home,
             contentDescription = null,
-            modifier           = Modifier.size(72.dp),
-            tint               = MaterialTheme.colorScheme.onSurfaceVariant
+            modifier = Modifier.size(72.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text  = "No tienes hogares aún",
+            text = "No tienes hogares aún",
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text  = "Crea un nuevo hogar o únete a uno existente con un código de invitación",
+            text = "Crea un nuevo hogar o únete a uno existente con un código de invitación",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick  = onCreateClick,
+            onClick = onCreateClick,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
@@ -236,7 +245,7 @@ fun EmptyHouseholdState(
         }
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(
-            onClick  = onJoinClick,
+            onClick = onJoinClick,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.VpnKey, contentDescription = null)
@@ -261,21 +270,21 @@ fun CreateHouseholdDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
-        title   = { Text("Nuevo Hogar") },
-        text    = {
+        title = { Text("Nuevo Hogar") },
+        text = {
             Column {
                 OutlinedTextField(
-                    value         = householdName,
+                    value = householdName,
                     onValueChange = { householdName = it },
-                    label         = { Text("Nombre del hogar") },
-                    singleLine    = true,
-                    enabled       = !isCreating,
-                    modifier      = Modifier.fillMaxWidth()
+                    label = { Text("Nombre del hogar") },
+                    singleLine = true,
+                    enabled = !isCreating,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text  = errorMessage,
+                        text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -284,12 +293,12 @@ fun CreateHouseholdDialog(
         },
         confirmButton = {
             Button(
-                onClick  = { onConfirm(householdName) },
-                enabled  = !isCreating && householdName.isNotBlank()
+                onClick = { onConfirm(householdName) },
+                enabled = !isCreating && householdName.isNotBlank()
             ) {
                 if (isCreating) {
                     CircularProgressIndicator(
-                        modifier    = Modifier.size(16.dp),
+                        modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
@@ -319,31 +328,31 @@ fun JoinHouseholdDialog(
 ) {
     AlertDialog(
         onDismissRequest = { if (!isJoining) onDismiss() },
-        title   = { Text("Unirse a un hogar") },
-        text    = {
+        title = { Text("Unirse a un hogar") },
+        text = {
             Column {
                 Text(
-                    text  = "Ingresa el código de invitación que te compartieron",
+                    text = "Ingresa el código de invitación que te compartieron",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
-                    value         = code,
+                    value = code,
                     onValueChange = { onCodeChange(it.uppercase()) },
-                    label         = { Text("Código de invitación") },
-                    singleLine    = true,
-                    enabled       = !isJoining,
-                    modifier      = Modifier.fillMaxWidth(),
+                    label = { Text("Código de invitación") },
+                    singleLine = true,
+                    enabled = !isJoining,
+                    modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Characters
                     ),
-                    placeholder   = { Text("Ej: ABC12345") }
+                    placeholder = { Text("Ej: ABC12345") }
                 )
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text  = errorMessage,
+                        text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -352,12 +361,12 @@ fun JoinHouseholdDialog(
         },
         confirmButton = {
             Button(
-                onClick  = onConfirm,
-                enabled  = !isJoining && code.isNotBlank()
+                onClick = onConfirm,
+                enabled = !isJoining && code.isNotBlank()
             ) {
                 if (isJoining) {
                     CircularProgressIndicator(
-                        modifier    = Modifier.size(16.dp),
+                        modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
@@ -379,9 +388,9 @@ fun JoinHouseholdDialog(
 @Composable
 fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
-        modifier              = Modifier.fillMaxSize(),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment   = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = message, color = MaterialTheme.colorScheme.error)
         Spacer(modifier = Modifier.height(16.dp))

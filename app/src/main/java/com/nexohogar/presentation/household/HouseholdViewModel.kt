@@ -13,22 +13,26 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class HouseholdUiState(
-    val isLoading: Boolean           = false,
-    val households: List<Household>  = emptyList(),
-    val error: String?               = null,
+    val isLoading: Boolean = false,
+    val households: List<Household> = emptyList(),
+    val error: String? = null,
+
+    // Sesión expirada — se activa cuando el servidor devuelve 401
+    // y el refresh también falla. La UI debe redirigir al login.
+    val sessionExpired: Boolean = false,
 
     // Crear hogar
-    val isCreating: Boolean          = false,
-    val createError: String?         = null,
-    val createSuccess: Boolean       = false,
+    val isCreating: Boolean = false,
+    val createError: String? = null,
+    val createSuccess: Boolean = false,
 
     // Unirse a hogar con código
-    val showJoinDialog: Boolean      = false,
-    val joinCode: String             = "",
-    val isJoining: Boolean           = false,
-    val joinError: String?           = null,
-    val joinSuccess: Boolean         = false,
-    val joinMessage: String?         = null
+    val showJoinDialog: Boolean = false,
+    val joinCode: String = "",
+    val isJoining: Boolean = false,
+    val joinError: String? = null,
+    val joinSuccess: Boolean = false,
+    val joinMessage: String? = null
 )
 
 class HouseholdViewModel(
@@ -50,12 +54,28 @@ class HouseholdViewModel(
                 is AppResult.Success -> _uiState.update {
                     it.copy(isLoading = false, households = result.data)
                 }
-                is AppResult.Error   -> _uiState.update {
-                    it.copy(isLoading = false, error = result.message)
+                is AppResult.Error -> {
+                    // Detectar si el error es por sesión expirada (401).
+                    // El AuthInterceptor ya intentó el refresh antes de llegar aquí;
+                    // si aun así llegamos un 401, la sesión es irrecuperable.
+                    val isAuthError = result.message?.contains("401") == true
+                        || result.message?.contains("Unauthorized") == true
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = if (isAuthError) null else result.message,
+                            sessionExpired = isAuthError
+                        )
+                    }
                 }
                 else -> _uiState.update { it.copy(isLoading = false) }
             }
         }
+    }
+
+    /** Llamar desde la UI después de haber navegado al login. */
+    fun clearSessionExpired() {
+        _uiState.update { it.copy(sessionExpired = false) }
     }
 
     fun createHousehold(name: String) {
@@ -69,9 +89,9 @@ class HouseholdViewModel(
                 is AppResult.Success -> {
                     _uiState.update {
                         it.copy(
-                            isCreating    = false,
+                            isCreating = false,
                             createSuccess = true,
-                            households    = it.households + result.data
+                            households = it.households + result.data
                         )
                     }
                 }
@@ -83,12 +103,12 @@ class HouseholdViewModel(
         }
     }
 
-    fun clearCreateError()   { _uiState.update { it.copy(createError = null) } }
+    fun clearCreateError() { _uiState.update { it.copy(createError = null) } }
     fun clearCreateSuccess() { _uiState.update { it.copy(createSuccess = false) } }
 
     // ── Unirse a hogar con código de invitación ──────────────────────────────
 
-    fun onShowJoinDialog()  { _uiState.update { it.copy(showJoinDialog = true, joinCode = "", joinError = null) } }
+    fun onShowJoinDialog() { _uiState.update { it.copy(showJoinDialog = true, joinCode = "", joinError = null) } }
     fun onDismissJoinDialog() { _uiState.update { it.copy(showJoinDialog = false, joinCode = "", joinError = null) } }
     fun onJoinCodeChange(code: String) { _uiState.update { it.copy(joinCode = code) } }
 
@@ -104,10 +124,10 @@ class HouseholdViewModel(
                 is AppResult.Success -> {
                     _uiState.update {
                         it.copy(
-                            isJoining      = false,
+                            isJoining = false,
                             showJoinDialog = false,
-                            joinSuccess    = true,
-                            joinMessage    = if (result.data) "¡Te uniste exitosamente!" else "Solicitud enviada, espera aprobación"
+                            joinSuccess = true,
+                            joinMessage = if (result.data) "¡Te uniste exitosamente!" else "Solicitud enviada, espera aprobación"
                         )
                     }
                     // Recargar hogares por si fue aceptado automáticamente
