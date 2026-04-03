@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.mapper.toDomain
 import com.nexohogar.data.remote.dto.LoginResponse
+import com.nexohogar.domain.model.UserSession
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -162,7 +163,26 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                     return null
                 }
                 val loginResponse = gson.fromJson(responseBody, LoginResponse::class.java)
-                val newSession = loginResponse.toDomain()
+                var newSession = loginResponse.toDomain()
+
+                // Fallback: si toDomain() falla (user object ausente en la respuesta de refresh),
+                // reconstruimos la sesión con los tokens nuevos + userId/email almacenados.
+                // Esto ocurre cuando Supabase no incluye el objeto `user` en el refresh response.
+                if (newSession == null && loginResponse.accessToken != null && loginResponse.refreshToken != null) {
+                    val stored = sessionManager.fetchSession()
+                    if (stored != null) {
+                        val expSec = loginResponse.expiresIn ?: 3600L
+                        newSession = UserSession(
+                            accessToken  = loginResponse.accessToken,
+                            refreshToken = loginResponse.refreshToken,
+                            userId       = loginResponse.user?.id   ?: stored.userId,
+                            email        = loginResponse.user?.email ?: stored.email,
+                            expiresAt    = System.currentTimeMillis() + (expSec * 1000L)
+                        )
+                        Log.d(TAG, "🔄 Refresh: toDomain() usó fallback con userId/email de sesión almacenada")
+                    }
+                }
+
                 if (newSession == null) {
                     Log.d(TAG, "❌ toDomain() retornó null — accessToken=${loginResponse.accessToken != null}, refreshToken=${loginResponse.refreshToken != null}, user=${loginResponse.user != null}, userId=${loginResponse.user?.id != null}, email=${loginResponse.user?.email != null}")
                     return null
