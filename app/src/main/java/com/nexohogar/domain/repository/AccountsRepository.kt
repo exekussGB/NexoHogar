@@ -13,7 +13,8 @@ interface AccountsRepository {
         accountType: String,
         accountSubtype: String = "other",
         isShared: Boolean = true,
-        ownerUserId: String? = null
+        ownerUserId: String? = null,
+        initialBalanceCLP: Double? = null
     ): AppResult<Account>
     suspend fun deleteAccount(accountId: String): AppResult<Unit>
     suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean>

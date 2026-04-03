@@ -9,5 +9,6 @@ data class CreateAccountRequest(
     @SerializedName("currency_code") val currencyCode: String = "CLP",
     @SerializedName("account_subtype") val accountSubtype: String? = null,
     @SerializedName("is_shared") val isShared: Boolean = true,
-    @SerializedName("owner_user_id") val ownerUserId: String? = null
+    @SerializedName("owner_user_id") val ownerUserId: String? = null,
+    @SerializedName("initial_balance_clp") val initialBalanceCLP: Double? = null
 )
