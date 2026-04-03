@@ -282,9 +282,9 @@ private fun ProductsTab(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 item(span = { GridItemSpan(2) }) {
                     // Botón para agregar producto
@@ -330,19 +330,19 @@ private fun ProductGridCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(10.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             // Nombre del producto
             Text(
                 product.name,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 color = Color(0xFF212121),
                 maxLines = 2
             )
@@ -355,17 +355,17 @@ private fun ProductGridCard(
                 Text(
                     text = stockLabel,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 24.sp,
+                    fontSize = 19.sp,
                     color = stockColor,
-                    lineHeight = 26.sp
+                    lineHeight = 21.sp
                 )
                 if (product.currentStock > 0) {
                     Text(
                         text = product.unit,
                         fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         color = stockColor.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(bottom = 3.dp)
+                        modifier = Modifier.padding(bottom = 2.dp)
                     )
                 }
             }

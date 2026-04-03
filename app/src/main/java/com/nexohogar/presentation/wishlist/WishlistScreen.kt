@@ -1,8 +1,12 @@
 package com.nexohogar.presentation.wishlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,11 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.domain.model.WishlistItem
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import com.nexohogar.presentation.tutorial.TutorialStep
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -32,6 +39,32 @@ fun WishlistScreen(
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.WISHLIST))
+    }
+
+    val wishlistTutorialSteps = remember {
+        listOf(
+            TutorialStep(
+                title = "Lista de Deseos",
+                description = "Registra artículos que quieres comprar para tu hogar. Toca + para agregar uno.",
+                icon = Icons.Default.Favorite,
+                iconColor = Color(0xFFD32F2F),
+                iconBgColor = Color(0xFFFFEBEE)
+            ),
+            TutorialStep(
+                title = "Organizado por prioridad",
+                description = "Los artículos se agrupan en Alta, Media y Baja prioridad para que compres primero lo más importante.",
+                icon = Icons.Default.Star,
+                iconColor = Color(0xFFF57F17),
+                iconBgColor = Color(0xFFFFF3E0)
+            ),
+            TutorialStep(
+                title = "Acciones rápidas",
+                description = "Toca los 3 puntos de cualquier artículo para editarlo, marcarlo como comprado o eliminarlo.",
+                icon = Icons.Default.MoreVert,
+                iconColor = Color(0xFF1565C0),
+                iconBgColor = Color(0xFFE3F2FD)
+            )
+        )
     }
 
     Scaffold(
@@ -51,9 +84,7 @@ fun WishlistScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.onShowCreateDialog() }
-            ) {
+            FloatingActionButton(onClick = { viewModel.onShowCreateDialog() }) {
                 Icon(Icons.Default.Add, contentDescription = "Agregar deseo")
             }
         }
@@ -101,45 +132,72 @@ fun WishlistScreen(
                     val pending   = uiState.items.filter { !it.isPurchased }
                     val purchased = uiState.items.filter {  it.isPurchased }
 
-                    LazyColumn(
-                        modifier            = Modifier.fillMaxSize(),
-                        contentPadding      = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    val highItems   = pending.filter { it.priority == "HIGH" }
+                    val mediumItems = pending.filter { it.priority == "MEDIUM" }
+                    val lowItems    = pending.filter { it.priority != "HIGH" && it.priority != "MEDIUM" }
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement   = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (pending.isNotEmpty()) {
-                            item {
-                                Text(
-                                    "Pendientes",
-                                    style      = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color      = MaterialTheme.colorScheme.primary,
-                                    modifier   = Modifier.padding(bottom = 4.dp)
-                                )
+                        // ── Alta Prioridad ───────────────────────────────────
+                        if (highItems.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                PriorityHeader(label = "🔴  Alta Prioridad", color = Color(0xFFD32F2F))
                             }
-                            items(pending) { item ->
-                                WishlistItemCard(
-                                    item          = item,
-                                    format        = clpFormat,
-                                    onEdit        = { viewModel.onShowEditDialog(item) },
-                                    onMarkBought  = { viewModel.markAsPurchased(item) },
-                                    onDelete      = { viewModel.deleteItem(item) }
+                            items(highItems) { item ->
+                                WishlistSquareCard(
+                                    item         = item,
+                                    format       = clpFormat,
+                                    onEdit       = { viewModel.onShowEditDialog(item) },
+                                    onMarkBought = { viewModel.markAsPurchased(item) },
+                                    onDelete     = { viewModel.deleteItem(item) }
                                 )
                             }
                         }
 
-                        if (purchased.isNotEmpty()) {
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    "Comprados",
-                                    style      = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier   = Modifier.padding(bottom = 4.dp)
+                        // ── Media Prioridad ──────────────────────────────────
+                        if (mediumItems.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                PriorityHeader(label = "🟠  Media Prioridad", color = Color(0xFFF57F17))
+                            }
+                            items(mediumItems) { item ->
+                                WishlistSquareCard(
+                                    item         = item,
+                                    format       = clpFormat,
+                                    onEdit       = { viewModel.onShowEditDialog(item) },
+                                    onMarkBought = { viewModel.markAsPurchased(item) },
+                                    onDelete     = { viewModel.deleteItem(item) }
                                 )
                             }
+                        }
+
+                        // ── Baja Prioridad ───────────────────────────────────
+                        if (lowItems.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                PriorityHeader(label = "🟢  Baja Prioridad", color = Color(0xFF388E3C))
+                            }
+                            items(lowItems) { item ->
+                                WishlistSquareCard(
+                                    item         = item,
+                                    format       = clpFormat,
+                                    onEdit       = { viewModel.onShowEditDialog(item) },
+                                    onMarkBought = { viewModel.markAsPurchased(item) },
+                                    onDelete     = { viewModel.deleteItem(item) }
+                                )
+                            }
+                        }
+
+                        // ── Comprados ────────────────────────────────────────
+                        if (purchased.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                PriorityHeader(label = "✓  Comprados", color = Color(0xFF757575))
+                            }
                             items(purchased) { item ->
-                                WishlistItemCard(
+                                WishlistSquareCard(
                                     item         = item,
                                     format       = clpFormat,
                                     onEdit       = {},
@@ -149,7 +207,9 @@ fun WishlistScreen(
                             }
                         }
 
-                        item { Spacer(modifier = Modifier.height(80.dp)) }
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
                     }
                 }
             }
@@ -159,17 +219,17 @@ fun WishlistScreen(
     // ── Diálogo de creación ──────────────────────────────────────────────────
     if (uiState.showCreateDialog) {
         WishlistItemDialog(
-            title       = "Agregar deseo",
-            isLoading   = uiState.isCreating,
-            error       = uiState.createError,
-            onDismiss   = { viewModel.onDismissCreateDialog() },
-            onConfirm   = { name, price, description, priority ->
+            title     = "Agregar deseo",
+            isLoading = uiState.isCreating,
+            error     = uiState.createError,
+            onDismiss = { viewModel.onDismissCreateDialog() },
+            onConfirm = { name, price, description, priority ->
                 viewModel.createItem(name, price, description, priority)
             }
         )
     }
 
-    // ── Diálogo de edición ──────────────────────────────────────────────────
+    // ── Diálogo de edición ───────────────────────────────────────────────────
     val itemToEdit = uiState.itemToEdit
     if (itemToEdit != null) {
         WishlistItemDialog(
@@ -190,8 +250,8 @@ fun WishlistScreen(
     // ── Tutorial ─────────────────────────────────────────────────────────────
     if (showTutorial) {
         TutorialOverlay(
-            module    = TutorialModule.WISHLIST,
-            onFinish  = {
+            steps     = wishlistTutorialSteps,
+            onDismiss = {
                 tutorialManager.markTutorialCompleted(TutorialModule.WISHLIST)
                 showTutorial = false
             }
@@ -200,119 +260,164 @@ fun WishlistScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WishlistItemCard
+// Encabezado de sección por prioridad
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun WishlistItemCard(
+private fun PriorityHeader(label: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(18.dp)
+                .background(color, RoundedCornerShape(2.dp))
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text       = label,
+            fontSize   = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color      = color
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card cuadrada pequeña para cada deseo
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun WishlistSquareCard(
     item        : WishlistItem,
     format      : NumberFormat,
     onEdit      : () -> Unit,
     onMarkBought: () -> Unit,
     onDelete    : () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
     val priorityColor = when (item.priority) {
-        "HIGH"   -> Color(0xFFD32F2F) // rojo alta
-        "MEDIUM" -> Color(0xFFF57F17) // naranja media
-        else     -> Color(0xFF388E3C) // verde baja
+        "HIGH"   -> Color(0xFFD32F2F)
+        "MEDIUM" -> Color(0xFFF57F17)
+        else     -> Color(0xFF388E3C)
     }
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
-        modifier  = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier  = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f),
+        shape     = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(
+            containerColor = if (item.isPurchased)
+                Color(0xFFF5F5F5)
+            else
+                Color.White
+        )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Indicador de prioridad
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = priorityColor.copy(alpha = 0.1f),
-                modifier = Modifier.padding(end = 12.dp)
-            ) {
-                Text(
-                    text     = item.priorityLabel,
-                    style    = MaterialTheme.typography.labelSmall,
-                    color    = priorityColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize()) {
 
-            Column(modifier = Modifier.weight(1f)) {
+            // ── Barra de prioridad (top) ─────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        if (item.isPurchased) Color(0xFFBDBDBD) else priorityColor,
+                        RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                    )
+                    .align(Alignment.TopCenter)
+            )
+
+            // ── Contenido ────────────────────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 9.dp, end = 9.dp, top = 11.dp, bottom = 9.dp)
+            ) {
+                // Espacio para la barra de color
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text  = item.name,
-                    style = MaterialTheme.typography.bodyLarge.let {
-                        if (item.isPurchased) it.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else it
-                    },
-                    fontWeight = FontWeight.Medium
+                    text     = item.name,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    color    = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
+                    modifier = Modifier.weight(1f)
                 )
+
                 val price = item.price
                 if (price != null && price > 0) {
                     Text(
                         text  = format.format(price.toLong()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                if (!item.description.isNullOrBlank()) {
-                    Text(
-                        text  = item.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (item.isPurchased)
+                            Color(0xFF9E9E9E)
+                        else
+                            MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            if (!item.isPurchased) {
-                Box {
-                    IconButton(onClick = { expanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
+            // ── Menú de opciones / ícono comprado ────────────────────────────
+            if (item.isPurchased) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Comprado",
+                    tint     = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(14.dp)
+                )
+            } else {
+                Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                    IconButton(
+                        onClick  = { expanded = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Opciones",
+                            modifier = Modifier.size(14.dp),
+                            tint     = Color(0xFF757575)
+                        )
                     }
                     DropdownMenu(
                         expanded         = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
                         DropdownMenuItem(
-                            text        = { Text("Editar") },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                            text        = { Text("Editar", fontSize = 13.sp) },
+                            leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) },
                             onClick     = { expanded = false; onEdit() }
                         )
                         DropdownMenuItem(
-                            text        = { Text("Marcar como comprado") },
-                            leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                            text        = { Text("Marcar comprado", fontSize = 13.sp) },
+                            leadingIcon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp)) },
                             onClick     = { expanded = false; onMarkBought() }
                         )
                         DropdownMenuItem(
-                            text        = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            },
+                            text        = { Text("Eliminar", fontSize = 13.sp, color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) },
                             onClick     = { expanded = false; onDelete() }
                         )
                     }
                 }
-            } else {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "Comprado",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
             }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WishlistItemDialog (Create / Edit)
+// Diálogo de creación / edición
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WishlistItemDialog(
@@ -348,12 +453,12 @@ private fun WishlistItemDialog(
                     modifier      = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value         = priceText,
-                    onValueChange = { priceText = it.filter { c -> c.isDigit() } },
-                    label         = { Text("Costo estimado (CLP)") },
+                    value           = priceText,
+                    onValueChange   = { priceText = it.filter { c -> c.isDigit() } },
+                    label           = { Text("Costo estimado (CLP)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth()
+                    singleLine      = true,
+                    modifier        = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value         = desc,
@@ -375,7 +480,11 @@ private fun WishlistItemDialog(
                 }
 
                 if (error != null) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         },
