@@ -42,14 +42,14 @@ import com.nexohogar.presentation.tutorial.TutorialOverlay
 // ─────────────────────────────────────────────────────────────────────────────
 // Formateador de fecha para Chile (America/Santiago)
 // ─────────────────────────────────────────────────────────────────────────────
-private val chileZone      = ZoneId.of("America/Santiago")
-private val dateFormatter  = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-private val dtFormatter    = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+private val chileZone = ZoneId.of("America/Santiago")
+private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val dtFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
 internal fun formatChileDate(isoString: String): String {
     return try {
         val instant = Instant.parse(isoString)
-        val zoned   = instant.atZone(chileZone)
+        val zoned = instant.atZone(chileZone)
         if (isoString.length > 10) zoned.format(dtFormatter) else zoned.format(dateFormatter)
     } catch (_: Exception) {
         try {
@@ -95,7 +95,7 @@ fun DashboardScreen(
         if (uiState.isLoading) LoadingOverlay()
 
         LazyColumn(
-            modifier            = Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -103,24 +103,24 @@ fun DashboardScreen(
             // ── Título + botón Mis Cuentas ─────────────────────────────────
             item {
                 Row(
-                    modifier              = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment     = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         "Resumen Financiero",
-                        style      = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
                     if (onNavigateToPersonal != null) {
                         OutlinedButton(
-                            onClick        = onNavigateToPersonal,
+                            onClick = onNavigateToPersonal,
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Icon(
-                                imageVector        = Icons.Default.Person,
+                                imageVector = Icons.Default.Person,
                                 contentDescription = null,
-                                modifier           = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Mis Cuentas", style = MaterialTheme.typography.labelMedium)
@@ -151,10 +151,10 @@ fun DashboardScreen(
             item {
                 Box(modifier = Modifier.testTag("dashboard_recent")) {
                     RecentTransactionsList(
-                        transactions       = uiState.recentTransactions,
-                        format             = clpFormat,
+                        transactions = uiState.recentTransactions,
+                        format = clpFormat,
                         onTransactionClick = onTransactionClick,
-                        onSeeAllClick      = onSeeAllClick
+                        onSeeAllClick = onSeeAllClick
                     )
                 }
             }
@@ -183,30 +183,30 @@ fun DashboardScreen(
 @Composable
 fun CategoryExpensesButton(onClick: () -> Unit) {
     Card(
-        modifier  = Modifier
+        modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier              = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment     = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector        = Icons.Default.PieChart,
+                    imageVector = Icons.Default.PieChart,
                     contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.primary,
-                    modifier           = Modifier.size(22.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         "Gastos por Categoría",
-                        style      = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
@@ -217,9 +217,9 @@ fun CategoryExpensesButton(onClick: () -> Unit) {
                 }
             }
             Icon(
-                imageVector        = Icons.Default.ChevronRight,
+                imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -232,33 +232,33 @@ fun CategoryExpensesButton(onClick: () -> Unit) {
 fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier            = Modifier.padding(20.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Saldo Total", style = MaterialTheme.typography.labelMedium)
             Text(
-                text       = format.format(summary.totalBalance),
-                style      = MaterialTheme.typography.headlineLarge,
+                text = format.format(summary.totalBalance),
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
-                modifier              = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                SummaryInfo("Ingresos", summary.totalIncome,  Color(0xFF4CAF50), format)
+                SummaryInfo("Ingresos", summary.totalIncome, Color(0xFF4CAF50), format)
                 VerticalDivider(
-                    modifier  = Modifier.height(40.dp),
-                    color     = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                    modifier = Modifier.height(40.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                 )
-                SummaryInfo("Gastos",   summary.totalExpense, Color(0xFFF44336), format)
+                SummaryInfo("Gastos", summary.totalExpense, Color(0xFFF44336), format)
             }
         }
     }
@@ -269,43 +269,43 @@ private fun SummaryInfo(label: String, amount: Double, color: Color, format: Num
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelSmall)
         Text(
-            text       = format.format(amount),
-            style      = MaterialTheme.typography.titleMedium,
+            text = format.format(amount),
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color      = color
+            color = color
         )
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MonthlyChart — con tooltip al tocar una barra
+// MonthlyChart — CORREGIDO: barras con altura mínima visible
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
     val monthNames = listOf("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
-    val clpFormat  = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
+    val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     Card(
-        modifier  = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
             Row(
-                modifier              = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text       = "Tendencia Mensual",
-                    style      = MaterialTheme.typography.titleSmall,
+                    text = "Tendencia Mensual",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
                 if (selectedIndex != null) {
                     TextButton(
-                        onClick        = { selectedIndex = null },
+                        onClick = { selectedIndex = null },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
                         Text("✕ cerrar", style = MaterialTheme.typography.labelSmall)
@@ -320,45 +320,45 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                 val item = monthlyData.getOrNull(selIdx)
                 if (item != null) {
                     val monthName = monthNames.getOrElse(item.monthNum - 1) { "?" }
-                    val netColor  = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+                    val netColor = if (item.net >= 0) Color(0xFF43A047) else Color(0xFFE53935)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp),
-                        shape  = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.inverseSurface
                         )
                     ) {
                         Row(
-                            modifier              = Modifier
+                            modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 10.dp)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment     = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
                                 Text(
-                                    text  = "$monthName ${item.yearNum}",
+                                    text = "$monthName ${item.yearNum}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.inverseOnSurface
                                 )
                                 Text(
-                                    text  = "Ingresos: ${clpFormat.format(item.income)}",
+                                    text = "Ingresos: ${clpFormat.format(item.income)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
                                 )
                                 Text(
-                                    text  = "Gastos: ${clpFormat.format(item.expense)}",
+                                    text = "Gastos: ${clpFormat.format(item.expense)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
                                 )
                             }
                             Text(
-                                text       = clpFormat.format(item.net),
-                                style      = MaterialTheme.typography.titleMedium,
+                                text = clpFormat.format(item.net),
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color      = netColor
+                                color = netColor
                             )
                         }
                     }
@@ -368,17 +368,17 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val hasData = monthlyData.any { it.net != 0L }
             if (!hasData) {
                 Box(
-                    modifier         = Modifier
+                    modifier = Modifier
                         .fillMaxWidth()
                         .height(130.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector        = Icons.Default.BarChart,
+                            imageVector = Icons.Default.BarChart,
                             contentDescription = null,
-                            modifier           = Modifier.size(40.dp),
-                            tint               = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                         )
                         Text(
                             "Sin movimientos aún",
@@ -393,8 +393,15 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val positiveColor = Color(0xFF4CAF50)
             val negativeColor = Color(0xFFF44336)
             val selectedColor = Color(0xFF1565C0)
-            val labelColor    = Color(0xFF757575)
-            val maxAbs        = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
+            val labelColor = Color(0xFF757575)
+            val maxAbs = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
+
+            // ── FIX: Altura mínima para barras con datos ──────────────────
+            // Cuando un mes tiene movimientos pero su valor neto es muy pequeño
+            // en comparación con el máximo, la barra era invisible (ej. $1.410
+            // vs $716.361 → 0.2% de altura). Ahora garantizamos una altura
+            // mínima de 8px para que siempre sea visible y clickeable.
+            val MIN_BAR_HEIGHT = 8f
 
             Canvas(
                 modifier = Modifier
@@ -402,63 +409,84 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                     .height(130.dp)
                     .pointerInput(monthlyData) {
                         detectTapGestures { offset ->
-                            val count  = monthlyData.size
+                            val count = monthlyData.size
                             if (count == 0) return@detectTapGestures
-                            val slotW  = size.width / count.toFloat()
+                            val slotW = size.width / count.toFloat()
                             val tapped = (offset.x / slotW).toInt().coerceIn(0, count - 1)
                             selectedIndex = if (selectedIndex == tapped) null else tapped
                         }
                     }
             ) {
-                val count      = monthlyData.size
-                val slotWidth  = size.width / count
-                val barWidth   = slotWidth * 0.5f
-                val barAreaH   = size.height * 0.72f
-                val baselineY  = size.height * 0.72f
-                val labelY     = size.height - 4f
+                val count = monthlyData.size
+                val slotWidth = size.width / count
+                val barWidth = slotWidth * 0.5f
+                val barAreaH = size.height * 0.72f
+                val baselineY = size.height * 0.72f
+                val labelY = size.height - 4f
 
                 drawLine(
-                    color       = Color(0xFFBDBDBD),
-                    start       = Offset(0f, baselineY),
-                    end         = Offset(size.width, baselineY),
+                    color = Color(0xFFBDBDBD),
+                    start = Offset(0f, baselineY),
+                    end = Offset(size.width, baselineY),
                     strokeWidth = 1.5f
                 )
 
                 monthlyData.forEachIndexed { i, item ->
                     val isSelected = (selectedIndex == i)
-                    val centerX    = slotWidth * i + slotWidth / 2f
-                    val barLeft    = centerX - barWidth / 2f
-                    val fraction   = item.net.toFloat() / maxAbs.toFloat()
-                    val barH       = kotlin.math.abs(fraction) * barAreaH * 0.85f
-                    val topY       = if (item.net >= 0) baselineY - barH else baselineY
+                    val centerX = slotWidth * i + slotWidth / 2f
+                    val barLeft = centerX - barWidth / 2f
+                    val fraction = item.net.toFloat() / maxAbs.toFloat()
+                    val computedBarH = kotlin.math.abs(fraction) * barAreaH * 0.85f
+
+                    // ── FIX: Si el mes tiene datos (net != 0), asegurar
+                    // una altura mínima visible ─────────────────────────
+                    val barH = if (item.net != 0L) {
+                        maxOf(computedBarH, MIN_BAR_HEIGHT)
+                    } else {
+                        computedBarH
+                    }
+
+                    val topY = if (item.net >= 0) baselineY - barH else baselineY
 
                     val barColor = when {
-                        isSelected  -> selectedColor
+                        isSelected -> selectedColor
                         item.net >= 0 -> positiveColor
-                        else        -> negativeColor
+                        else -> negativeColor
                     }
                     val alpha = when {
-                        isSelected         -> 1f
+                        isSelected -> 1f
                         selectedIndex != null -> 0.35f
-                        i == count - 1     -> 1f
-                        else               -> 0.75f
+                        i == count - 1 -> 1f
+                        else -> 0.75f
                     }
 
                     drawRect(
-                        color    = barColor,
-                        topLeft  = Offset(barLeft, topY),
-                        size     = Size(barWidth, barH),
-                        alpha    = alpha
+                        color = barColor,
+                        topLeft = Offset(barLeft, topY),
+                        size = Size(barWidth, barH),
+                        alpha = alpha
                     )
+
+                    // ── Indicador de valor pequeño: un punto encima de la barra
+                    // cuando la barra real sería < 3px pero tiene datos ──────
+                    if (item.net != 0L && computedBarH < 3f) {
+                        val dotY = if (item.net >= 0) topY - 6f else topY + barH + 6f
+                        drawCircle(
+                            color = barColor,
+                            radius = 3f,
+                            center = Offset(centerX, dotY),
+                            alpha = alpha
+                        )
+                    }
 
                     val label = monthNames[(item.monthNum - 1).coerceIn(0, 11)]
                     drawContext.canvas.nativeCanvas.drawText(
                         label, centerX, labelY,
                         android.graphics.Paint().apply {
-                            color      = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
+                            color = if (isSelected) android.graphics.Color.rgb(21, 101, 192)
                             else labelColor.toArgb()
-                            textSize   = 28f
-                            textAlign  = android.graphics.Paint.Align.CENTER
+                            textSize = 28f
+                            textAlign = android.graphics.Paint.Align.CENTER
                             isAntiAlias = true
                         }
                     )
@@ -473,20 +501,20 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun RecentTransactionsList(
-    transactions      : List<Transaction>,
-    format            : NumberFormat,
+    transactions : List<Transaction>,
+    format : NumberFormat,
     onTransactionClick: (String) -> Unit,
-    onSeeAllClick     : () -> Unit
+    onSeeAllClick : () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
-            modifier              = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "Últimos Movimientos",
-                style      = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             TextButton(onClick = onSeeAllClick) { Text("Ver todos") }
@@ -494,13 +522,13 @@ fun RecentTransactionsList(
 
         if (transactions.isEmpty()) {
             Text(
-                text      = "No hay movimientos recientes.",
-                style     = MaterialTheme.typography.bodyMedium,
-                modifier  = Modifier
+                text = "No hay movimientos recientes.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 textAlign = TextAlign.Center,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             transactions.forEach { TransactionRowItem(it, format, onTransactionClick) }
@@ -511,59 +539,59 @@ fun RecentTransactionsList(
 @Composable
 private fun TransactionRowItem(
     transaction: Transaction,
-    format     : NumberFormat,
-    onClick    : (String) -> Unit
+    format : NumberFormat,
+    onClick : (String) -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick(transaction.id) },
-        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             val (icon, iconColor) = when (transaction.type) {
-                "income"   -> Icons.Default.ArrowDownward to Color(0xFF4CAF50)
-                "expense"  -> Icons.Default.ArrowUpward   to Color(0xFFF44336)
-                "transfer" -> Icons.Default.SwapHoriz     to Color(0xFF2196F3)
-                else       -> Icons.Default.AttachMoney   to Color(0xFF9E9E9E)
+                "income" -> Icons.Default.ArrowDownward to Color(0xFF4CAF50)
+                "expense" -> Icons.Default.ArrowUpward to Color(0xFFF44336)
+                "transfer" -> Icons.Default.SwapHoriz to Color(0xFF2196F3)
+                else -> Icons.Default.AttachMoney to Color(0xFF9E9E9E)
             }
             Surface(
-                shape    = MaterialTheme.shapes.small,
-                color    = iconColor.copy(alpha = 0.1f),
+                shape = MaterialTheme.shapes.small,
+                color = iconColor.copy(alpha = 0.1f),
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector        = icon,
+                    imageVector = icon,
                     contentDescription = null,
-                    tint               = iconColor,
-                    modifier           = Modifier.padding(8.dp)
+                    tint = iconColor,
+                    modifier = Modifier.padding(8.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text       = transaction.description ?: "Sin descripción",
-                    style      = MaterialTheme.typography.bodyLarge,
+                    text = transaction.description ?: "Sin descripción",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 // ── Fecha formateada para Chile ────────────────────────────
                 Text(
-                    text  = formatChileDate(transaction.createdAt),
+                    text = formatChileDate(transaction.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             val amountColor = when (transaction.type) {
-                "income"   -> Color(0xFF4CAF50)
-                "expense"  -> Color(0xFFF44336)
+                "income" -> Color(0xFF4CAF50)
+                "expense" -> Color(0xFFF44336)
                 "transfer" -> Color(0xFF2196F3)
-                else       -> MaterialTheme.colorScheme.onSurface
+                else -> MaterialTheme.colorScheme.onSurface
             }
             Text(
-                text       = format.format(transaction.amount),
-                style      = MaterialTheme.typography.titleMedium,
+                text = format.format(transaction.amount),
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color      = amountColor
+                color = amountColor
             )
         }
     }
