@@ -2,6 +2,8 @@ package com.nexohogar.presentation.accounts
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,9 +92,13 @@ fun AccountsScreen(
             isShared    = uiState.newAccountIsShared,
             isCreating  = uiState.isCreating,
             error       = uiState.error,
+            hasInitialBalance = uiState.newAccountHasInitialBalance,
+            initialBalance    = uiState.newAccountInitialBalance,
             onNameChange    = { viewModel.onNameChange(it) },
             onSubtypeChange = { viewModel.onSubtypeChange(it) },
             onIsSharedChange = { viewModel.onIsSharedChange(it) },
+            onHasInitialBalanceChange = { viewModel.onHasInitialBalanceChange(it) },
+            onInitialBalanceChange    = { viewModel.onInitialBalanceChange(it) },
             onDismiss   = { viewModel.dismissCreateDialog() },
             onCreate    = { viewModel.createAccount() }
         )
@@ -375,9 +381,13 @@ fun CreateAccountDialog(
     isShared        : Boolean,
     isCreating      : Boolean,
     error           : String?,
+    hasInitialBalance: Boolean = false,
+    initialBalance  : String = "",
     onNameChange    : (String) -> Unit,
     onSubtypeChange : (String) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
+    onHasInitialBalanceChange: (Boolean) -> Unit = {},
+    onInitialBalanceChange   : (String) -> Unit = {},
     onDismiss       : () -> Unit,
     onCreate        : () -> Unit
 ) {
@@ -445,6 +455,36 @@ fun CreateAccountDialog(
                         checked         = isShared,
                         onCheckedChange = onIsSharedChange,
                         enabled         = !isCreating
+                    )
+                }
+
+                // ── Saldo inicial ─────────────────────────────────────────
+                HorizontalDivider()
+                Row(
+                    modifier          = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked         = hasInitialBalance,
+                        onCheckedChange = onHasInitialBalanceChange,
+                        enabled         = !isCreating
+                    )
+                    Text(
+                        text     = "Agregar saldo inicial",
+                        modifier = Modifier.weight(1f),
+                        style    = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (hasInitialBalance) {
+                    OutlinedTextField(
+                        value         = initialBalance,
+                        onValueChange = onInitialBalanceChange,
+                        label         = { Text("Saldo inicial (CLP)") },
+                        singleLine    = true,
+                        modifier      = Modifier.fillMaxWidth(),
+                        enabled       = !isCreating,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        prefix        = { Text("$") }
                     )
                 }
 

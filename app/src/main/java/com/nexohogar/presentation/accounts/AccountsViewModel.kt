@@ -24,6 +24,8 @@ data class AccountsUiState(
     val newAccountSubtype: String = "cash",
     val newAccountIsShared: Boolean = true,
     val isCreating: Boolean = false,
+    val newAccountHasInitialBalance: Boolean = false,
+    val newAccountInitialBalance: String = "",
     val showDeleteConfirm: String? = null, // accountId to delete
     val currentUserId: String? = null,
     val selectedAccount: AccountBalance? = null,
@@ -122,11 +124,13 @@ class AccountsViewModel(
     }
 
     // ── Create Dialog ────────────────────────────────────────────────────────
-    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true) } }
+    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountHasInitialBalance = false, newAccountInitialBalance = "") } }
     fun dismissCreateDialog() { _uiState.update { it.copy(showCreateDialog = false) } }
     fun onNameChange(name: String) { _uiState.update { it.copy(newAccountName = name) } }
     fun onSubtypeChange(subtype: String) { _uiState.update { it.copy(newAccountSubtype = subtype) } }
     fun onIsSharedChange(shared: Boolean) { _uiState.update { it.copy(newAccountIsShared = shared) } }
+    fun onHasInitialBalanceChange(has: Boolean) { _uiState.update { it.copy(newAccountHasInitialBalance = has, newAccountInitialBalance = if (!has) "" else it.newAccountInitialBalance) } }
+    fun onInitialBalanceChange(amount: String) { _uiState.update { it.copy(newAccountInitialBalance = amount) } }
 
     fun createAccount() {
         val state = _uiState.value
@@ -150,7 +154,8 @@ class AccountsViewModel(
                 accountType    = accountType,
                 accountSubtype = state.newAccountSubtype,
                 isShared       = state.newAccountIsShared,
-                ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null
+                ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null,
+                initialBalanceCLP = if (state.newAccountHasInitialBalance) state.newAccountInitialBalance.toDoubleOrNull() else null
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }

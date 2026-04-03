@@ -120,7 +120,8 @@ class AccountsRepositoryImpl(
         accountType   : String,
         accountSubtype: String,
         isShared      : Boolean,
-        ownerUserId   : String?
+        ownerUserId   : String?,
+        initialBalanceCLP: Double?
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
@@ -130,7 +131,8 @@ class AccountsRepositoryImpl(
                 currencyCode  = "CLP",
                 accountSubtype = accountSubtype,
                 isShared      = isShared,
-                ownerUserId   = ownerUserId
+                ownerUserId   = ownerUserId,
+                initialBalanceCLP = initialBalanceCLP
             )
             val response = accountsApi.createAccount(request)
             val created  = response.firstOrNull()

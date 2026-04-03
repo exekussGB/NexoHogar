@@ -13,6 +13,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import com.nexohogar.R
 import com.nexohogar.presentation.components.LoadingOverlay
 
 @Composable
@@ -60,7 +64,14 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "NexoHogar", style = MaterialTheme.typography.headlineLarge)
+            Image(
+                painter = painterResource(id = R.drawable.logo_app),
+                contentDescription = "NexoHogar",
+                modifier = Modifier
+                    .width(310.dp)
+                    .height(180.dp),
+                contentScale = ContentScale.Fit
+            )
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
