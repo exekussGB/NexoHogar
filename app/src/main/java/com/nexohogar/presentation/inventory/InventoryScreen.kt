@@ -281,10 +281,10 @@ private fun ProductsTab(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                columns = GridCells.Adaptive(minSize = 100.dp),
+                contentPadding = PaddingValues(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 item(span = { GridItemSpan(2) }) {
                     // Botón para agregar producto
@@ -330,19 +330,19 @@ private fun ProductGridCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             // Nombre del producto
             Text(
                 product.name,
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
+                fontSize = 8.sp,
                 color = Color(0xFF212121),
                 maxLines = 2
             )
@@ -355,15 +355,15 @@ private fun ProductGridCard(
                 Text(
                     text = stockLabel,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 19.sp,
+                    fontSize = 12.sp,
                     color = stockColor,
-                    lineHeight = 21.sp
+                    lineHeight = 14.sp
                 )
                 if (product.currentStock > 0) {
                     Text(
                         text = product.unit,
                         fontWeight = FontWeight.Medium,
-                        fontSize = 10.sp,
+                        fontSize = 8.sp,
                         color = stockColor.copy(alpha = 0.8f),
                         modifier = Modifier.padding(bottom = 2.dp)
                     )
@@ -378,7 +378,7 @@ private fun ProductGridCard(
                 ) {
                     Text(
                         product.category,
-                        fontSize = 10.sp,
+                        fontSize = 8.sp,
                         color = PrimaryBlue,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
@@ -438,7 +438,7 @@ private fun ProductActionPopup(
                 if (!product.brand.isNullOrBlank()) {
                     Text(
                         "Marca: ${product.brand}",
-                        fontSize = 12.sp,
+                        fontSize = 8.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 2.dp)
                     )
@@ -455,7 +455,7 @@ private fun ProductActionPopup(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -470,7 +470,7 @@ private fun ProductActionPopup(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = RedOut),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     enabled = product.currentStock > 0
                 ) {
                     Icon(Icons.Default.RemoveCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -592,7 +592,7 @@ private fun RegisterTab(
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null,
                         tint = if (isCompra) Color.White else GreenIn, modifier = Modifier.size(32.dp))
-                    Text("Compra", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    Text("Compra", fontWeight = FontWeight.Bold, fontSize = 12.sp,
                         color = if (isCompra) Color.White else GreenIn)
                     Text("Agregar stock", fontSize = 11.sp,
                         color = if (isCompra) Color.White.copy(alpha = 0.8f) else Color.Gray)
@@ -610,7 +610,7 @@ private fun RegisterTab(
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Default.RemoveShoppingCart, contentDescription = null,
                         tint = if (isConsumo) Color.White else RedOut, modifier = Modifier.size(32.dp))
-                    Text("Consumo", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    Text("Consumo", fontWeight = FontWeight.Bold, fontSize = 12.sp,
                         color = if (isConsumo) Color.White else RedOut)
                     Text("Descontar stock", fontSize = 11.sp,
                         color = if (isConsumo) Color.White.copy(alpha = 0.8f) else Color.Gray)
@@ -725,7 +725,7 @@ private fun RegisterTab(
             // Detalles de compra (solo en "in")
             if (movementType == "in") {
                 HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-                Text("Detalles de la compra (opcional)", fontSize = 12.sp, color = Color.Gray)
+                Text("Detalles de la compra (opcional)", fontSize = 8.sp, color = Color.Gray)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -912,7 +912,7 @@ private fun RegisterTab(
 
             // ── Stock inicial ───
             HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-            Text("Stock inicial (opcional)", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
+            Text("Stock inicial (opcional)", fontSize = 8.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
             Text("¿Tienes este producto en casa? Ingresa la cantidad actual.", fontSize = 11.sp, color = Color.Gray)
 
             OutlinedTextField(
@@ -951,7 +951,7 @@ private fun RegisterTab(
             // ── Detalles de compra — solo visible si registerAsPurchase y hay cantidad ───
             if (hasQuantity && prodForm.registerAsPurchase) {
                 HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
-                Text("Detalles de la compra", fontSize = 12.sp, color = GreenIn, fontWeight = FontWeight.SemiBold)
+                Text("Detalles de la compra", fontSize = 8.sp, color = GreenIn, fontWeight = FontWeight.SemiBold)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -1127,7 +1127,7 @@ private fun CategoriesTab(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("Nueva categoría", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = PrimaryBlue)
+                    Text("Nueva categoría", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = PrimaryBlue)
 
                     OutlinedTextField(
                         value = categoryForm.name,
@@ -1154,7 +1154,7 @@ private fun CategoriesTab(
                         enabled = !categoryForm.isSubmitting,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         if (categoryForm.isSubmitting) {
                             CircularProgressIndicator(Modifier.size(18.dp), color = Color.White)
@@ -1181,7 +1181,7 @@ private fun CategoriesTab(
                         Spacer(Modifier.height(8.dp))
                         Text("Sin categorías aún", color = Color.Gray, fontSize = 14.sp)
                         Text("Crea una categoría arriba para organizar tus productos",
-                            color = Color.Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                            color = Color.Gray, fontSize = 8.sp, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -1194,7 +1194,7 @@ private fun CategoriesTab(
             items(categories, key = { it.id }) { category ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
@@ -1209,7 +1209,7 @@ private fun CategoriesTab(
                         Text(
                             category.name,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp,
+                            fontSize = 12.sp,
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(
@@ -1242,7 +1242,7 @@ private fun CategoriesTab(
                         Text("$${String.format("%,.0f", totalSpent)}", color = Color.White,
                             fontWeight = FontWeight.Bold, fontSize = 24.sp)
                         Text("${stats.size} ${if (stats.size == 1) "categoría" else "categorías"}",
-                            color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                            color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
                     }
                 }
             }
@@ -1264,7 +1264,7 @@ private fun CategoriesTab(
                         Spacer(Modifier.height(8.dp))
                         Text("Sin estadísticas aún", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Text("Registra compras con precio para ver cuánto gastas por categoría.",
-                            fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                            fontSize = 8.sp, color = Color.Gray, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -1306,13 +1306,13 @@ private fun CategoryStatCard(stat: CategoryStat, totalSpent: Double) {
                     Column {
                         Text(stat.category, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Text("${stat.productCount} ${if (stat.productCount == 1) "producto" else "productos"}",
-                            fontSize = 12.sp, color = Color.Gray)
+                            fontSize = 8.sp, color = Color.Gray)
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("$${String.format("%,.0f", stat.totalSpent)}", fontWeight = FontWeight.Bold,
                         color = PrimaryBlue, fontSize = 16.sp)
-                    Text("${String.format("%.1f", percentage)}%", fontSize = 12.sp, color = Color.Gray)
+                    Text("${String.format("%.1f", percentage)}%", fontSize = 8.sp, color = Color.Gray)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -1379,7 +1379,7 @@ private fun SuggestionCard(suggestion: PurchaseSuggestion) {
                     fontSize = 13.sp, color = Color(0xFF2E7D32))
             }
             Spacer(Modifier.height(4.dp))
-            Text(suggestion.reason, fontSize = 12.sp, color = Color.Gray)
+            Text(suggestion.reason, fontSize = 8.sp, color = Color.Gray)
         }
     }
 }
@@ -1402,7 +1402,7 @@ private fun ProductHistorySheet(
                     fontSize = 14.sp, color = Color.Gray)
                 if (!product.category.isNullOrBlank()) {
                     Surface(color = PrimaryBlue.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                        Text(product.category, fontSize = 10.sp, color = PrimaryBlue,
+                        Text(product.category, fontSize = 8.sp, color = PrimaryBlue,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
