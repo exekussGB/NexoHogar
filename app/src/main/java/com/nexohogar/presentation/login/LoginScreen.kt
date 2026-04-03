@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.nexohogar.R
 import com.nexohogar.presentation.components.LoadingOverlay
 
@@ -65,14 +67,25 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo_app),
+                painter = painterResource(id = R.drawable.logo_nexohogar),
                 contentDescription = "NexoHogar",
                 modifier = Modifier
-                    .width(310.dp)
+                    .width(320.dp)
                     .height(180.dp),
                 contentScale = ContentScale.Fit
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Nexo Hogar",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp
+                ),
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
 
             OutlinedTextField(
                 value = email,
