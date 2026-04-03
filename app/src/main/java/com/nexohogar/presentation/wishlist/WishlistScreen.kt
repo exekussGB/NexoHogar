@@ -137,11 +137,11 @@ fun WishlistScreen(
                     val lowItems    = pending.filter { it.priority != "HIGH" && it.priority != "MEDIUM" }
 
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Adaptive(minSize = 80.dp),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement   = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement   = Arrangement.spacedBy(4.dp)
                     ) {
                         // ── Alta Prioridad ───────────────────────────────────
                         if (highItems.isNotEmpty()) {
@@ -279,7 +279,7 @@ private fun PriorityHeader(label: String, color: Color) {
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text       = label,
-            fontSize   = 13.sp,
+            fontSize   = 11.sp,
             fontWeight = FontWeight.Bold,
             color      = color
         )
@@ -306,9 +306,8 @@ private fun WishlistSquareCard(
 
     Card(
         modifier  = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f),
-        shape     = RoundedCornerShape(12.dp),
+            .fillMaxWidth(),
+        shape     = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors    = CardDefaults.cardColors(
             containerColor = if (item.isPurchased)
@@ -317,13 +316,13 @@ private fun WishlistSquareCard(
                 Color.White
         )
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
 
             // ── Barra de prioridad (top) ─────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(3.dp)
+                    .height(2.dp)
                     .background(
                         if (item.isPurchased) Color(0xFFBDBDBD) else priorityColor,
                         RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
@@ -333,28 +332,28 @@ private fun WishlistSquareCard(
 
             // ── Contenido ────────────────────────────────────────────────────
             Column(
+                verticalArrangement = Arrangement.spacedBy(3.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 9.dp, end = 9.dp, top = 11.dp, bottom = 9.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 5.dp, vertical = 4.dp)
             ) {
                 // Espacio para la barra de color
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text     = item.name,
-                    fontSize = 12.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color    = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
-                    modifier = Modifier.weight(1f)
                 )
 
                 val price = item.price
                 if (price != null && price > 0) {
                     Text(
                         text  = format.format(price.toLong()),
-                        fontSize = 10.sp,
+                        fontSize = 7.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (item.isPurchased)
                             Color(0xFF9E9E9E)
@@ -374,19 +373,19 @@ private fun WishlistSquareCard(
                     tint     = Color(0xFF4CAF50).copy(alpha = 0.6f),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(14.dp)
+                        .padding(3.dp)
+                        .size(9.dp)
                 )
             } else {
                 Box(modifier = Modifier.align(Alignment.TopEnd)) {
                     IconButton(
                         onClick  = { expanded = true },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(18.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Opciones",
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(9.dp),
                             tint     = Color(0xFF757575)
                         )
                     }
@@ -395,17 +394,17 @@ private fun WishlistSquareCard(
                         onDismissRequest = { expanded = false }
                     ) {
                         DropdownMenuItem(
-                            text        = { Text("Editar", fontSize = 13.sp) },
+                            text        = { Text("Editar", fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) },
                             onClick     = { expanded = false; onEdit() }
                         )
                         DropdownMenuItem(
-                            text        = { Text("Marcar comprado", fontSize = 13.sp) },
+                            text        = { Text("Marcar comprado", fontSize = 11.sp) },
                             leadingIcon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp)) },
                             onClick     = { expanded = false; onMarkBought() }
                         )
                         DropdownMenuItem(
-                            text        = { Text("Eliminar", fontSize = 13.sp, color = MaterialTheme.colorScheme.error) },
+                            text        = { Text("Eliminar", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) },
                             leadingIcon = { Icon(Icons.Default.Delete, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) },
                             onClick     = { expanded = false; onDelete() }
                         )
