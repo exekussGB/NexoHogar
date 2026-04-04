@@ -55,11 +55,10 @@ class HouseholdViewModel(
                     it.copy(isLoading = false, households = result.data)
                 }
                 is AppResult.Error -> {
-                    // Detectar si el error es por sesión expirada (401).
-                    // El AuthInterceptor ya intentó el refresh antes de llegar aquí;
-                    // si aun así llegamos un 401, la sesión es irrecuperable.
-                    val isAuthError = result.message?.contains("401") == true
-                        || result.message?.contains("Unauthorized") == true
+                    // Only match the SPECIFIC synthetic message from AuthInterceptor.
+                    // This prevents network errors (503) or other messages containing
+                    // "401" from being misinterpreted as irrecoverable session expiry.
+                    val isAuthError = result.message?.contains("Unauthorized - session expired") == true
                     _uiState.update {
                         it.copy(
                             isLoading = false,

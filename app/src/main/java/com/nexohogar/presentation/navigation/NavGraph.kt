@@ -1,6 +1,17 @@
 package com.nexohogar.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -10,6 +21,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.core.session.RefreshResult
+import com.nexohogar.core.session.TokenRefreshCoordinator
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 // RED-01: Import desde addmovement (paquete no deprecado)
@@ -61,11 +74,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.nexohogar.core.result.AppResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
     object Login : Screen("login")
     object Register : Screen("register")
     object Household : Screen("household")
@@ -115,11 +131,54 @@ fun NavGraph(navController: NavHostController) {
     val tenantContext = ServiceLocator.tenantContext
     val tutorialManager = ServiceLocator.tutorialManager
 
-    val startDestination =
-        if (sessionManager.fetchAuthToken() != null) Screen.Household.route
-        else Screen.Login.route
+    NavHost(navController = navController, startDestination = Screen.Splash.route) {
 
-    NavHost(navController = navController, startDestination = startDestination) {
+        // ── Splash (session gate) ────────────────────────────────────────────
+        composable(Screen.Splash.route) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cargando...", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                val session = sessionManager.fetchSession()
+                if (session == null) {
+                    // No session at all → login
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                    return@LaunchedEffect
+                }
+
+                // Try to refresh if expired
+                if (sessionManager.isTokenExpired()) {
+                    val result = withContext(Dispatchers.IO) {
+                        TokenRefreshCoordinator.refresh(sessionManager)
+                    }
+                    if (!result.isSuccess) {
+                        // Refresh failed → clean up and go to login
+                        if (result is RefreshResult.ServerRejected) {
+                            sessionManager.clearSession()
+                        }
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                        return@LaunchedEffect
+                    }
+                }
+
+                // Token valid → go to household
+                navController.navigate(Screen.Household.route) {
+                    popUpTo(Screen.Splash.route) { inclusive = true }
+                }
+            }
+        }
 
         // ── Login ──────────────────────────────────────────────────────────
         composable(Screen.Login.route) {
