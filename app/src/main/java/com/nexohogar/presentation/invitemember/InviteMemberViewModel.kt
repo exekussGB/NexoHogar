@@ -87,7 +87,7 @@ class InviteMemberViewModel(
             _uiState.value = _uiState.value.copy(joinError = "El código debe tener al menos 6 caracteres")
             return
         }
-        if (!Regex("^[a-zA-Z0-9\-_]+$").matches(trimmedCode)) {
+        if (!Regex("^[a-zA-Z0-9_-]+$").matches(trimmedCode)) {
             _uiState.value = _uiState.value.copy(joinError = "El código contiene caracteres no válidos")
             return
         }
