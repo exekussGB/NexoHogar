@@ -1,17 +1,21 @@
 package com.nexohogar.presentation.transactions
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,9 +30,7 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +55,14 @@ fun TransactionsScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddTransactionClick,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Agregar movimiento")
+            }
         }
     ) { padding ->
         Box(
@@ -66,7 +76,14 @@ fun TransactionsScreen(
                     LoadingOverlay()
                 }
                 is TransactionsUiState.Success -> {
-                    TransactionsList(state.transactions, onTransactionClick)
+                    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+                    TransactionsList(
+                        transactions = state.transactions,
+                        hasMoreData = state.hasMoreData,
+                        isLoadingMore = isLoadingMore,
+                        onItemClick = onTransactionClick,
+                        onLoadMore = { viewModel.loadMoreTransactions() }
+                    )
                 }
                 is TransactionsUiState.Error -> {
                     ErrorState(state.message) {
@@ -92,17 +109,34 @@ fun TransactionsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsList(
     transactions: List<Transaction>,
-    onItemClick: (Transaction) -> Unit
+    hasMoreData: Boolean,
+    isLoadingMore: Boolean,
+    onItemClick: (Transaction) -> Unit,
+    onLoadMore: () -> Unit
 ) {
     if (transactions.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No se encontraron movimientos.")
         }
     } else {
+        val listState = rememberLazyListState()
+
+        // Detectar cuando llega al final para cargar más
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                .collect { lastIndex ->
+                    if (lastIndex != null && lastIndex >= transactions.size - 3 && hasMoreData && !isLoadingMore) {
+                        onLoadMore()
+                    }
+                }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("transactions_list"),
@@ -110,7 +144,46 @@ fun TransactionsList(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(transactions) { transaction ->
-                TransactionItem(transaction, onItemClick)
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                            onItemClick(transaction)
+                            false  // no descartar visualmente, solo navegar
+                        } else false
+                    },
+                    positionalThreshold = { it * 0.5f }
+                )
+                SwipeToDismissBox(
+                    state = dismissState,
+                    backgroundContent = {
+                        val color by animateColorAsState(
+                            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                                Color(0xFF1565C0) else Color.Transparent,
+                            label = "swipe_tx_color"
+                        )
+                        Box(
+                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(Icons.Default.OpenInNew, contentDescription = "Ver detalle",
+                                tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                        }
+                    },
+                    enableDismissFromStartToEnd = false,
+                    enableDismissFromEndToStart = true
+                ) {
+                    TransactionItem(transaction, onItemClick)
+                }
+            }
+            if (isLoadingMore) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    }
+                }
             }
         }
     }
@@ -123,17 +196,16 @@ fun TransactionItem(
 ) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
-    // Iconos y colores basados en transaction.type, NO en el signo del monto
     val icon = when (transaction.type.lowercase()) {
         "expense"  -> Icons.Default.ArrowUpward
         "transfer" -> Icons.Default.SwapHoriz
-        else       -> Icons.Default.ArrowDownward  // income
+        else       -> Icons.Default.ArrowDownward
     }
 
     val iconColor = when (transaction.type.lowercase()) {
-        "expense"  -> Color(0xFFF44336)  // rojo
-        "transfer" -> Color(0xFF2196F3)  // azul
-        else       -> Color(0xFF4CAF50)  // verde (income)
+        "expense"  -> Color(0xFFF44336)
+        "transfer" -> Color(0xFF2196F3)
+        else       -> Color(0xFF4CAF50)
     }
 
     Card(
@@ -204,5 +276,4 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
             Text("Reintentar")
         }
     }
-
 }

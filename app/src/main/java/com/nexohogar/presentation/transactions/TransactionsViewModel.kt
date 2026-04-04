@@ -14,42 +14,98 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * ViewModel for managing the transactions screen state.
+ * ViewModel for managing the transactions screen state with pagination support.
  */
 class TransactionsViewModel(
     private val repository: TransactionsRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
+    private val PAGE_SIZE = 30
+
     private val _uiState = MutableStateFlow<TransactionsUiState>(TransactionsUiState.Loading)
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
+
+    // Lista acumulada de transacciones (para paginación)
+    private val _allTransactions = mutableListOf<Transaction>()
+    private var currentOffset = 0
+    private var isLoadingMoreFlag = false
+    private var hasMoreData = true
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
     init {
         loadTransactions()
     }
 
     /**
-     * Fetches transactions for the current household.
+     * Fetches transactions from the beginning (refresh).
      */
     fun loadTransactions() {
         viewModelScope.launch {
             _uiState.value = TransactionsUiState.Loading
-            
+            _allTransactions.clear()
+            currentOffset = 0
+            hasMoreData = true
+
             val householdId = tenantContext.getCurrentHouseholdId()
             if (householdId == null) {
                 _uiState.value = TransactionsUiState.Error("No se ha seleccionado un hogar.")
                 return@launch
             }
 
-            when (val result = repository.getTransactions(householdId)) {
+            when (val result = repository.getTransactions(householdId, limit = PAGE_SIZE, offset = 0)) {
                 is AppResult.Success -> {
-                    _uiState.value = TransactionsUiState.Success(result.data)
+                    _allTransactions.addAll(result.data)
+                    hasMoreData = result.data.size >= PAGE_SIZE
+                    currentOffset = result.data.size
+                    _uiState.value = TransactionsUiState.Success(
+                        transactions = _allTransactions.toList(),
+                        hasMoreData = hasMoreData
+                    )
                 }
                 is AppResult.Error -> {
                     _uiState.value = TransactionsUiState.Error(result.message)
                 }
                 is AppResult.Loading -> { }
             }
+        }
+    }
+
+    /**
+     * Loads the next page of transactions (infinite scroll).
+     */
+    fun loadMoreTransactions() {
+        if (isLoadingMoreFlag || !hasMoreData) return
+        val state = _uiState.value
+        if (state !is TransactionsUiState.Success) return
+
+        viewModelScope.launch {
+            isLoadingMoreFlag = true
+            _isLoadingMore.value = true
+
+            val householdId = tenantContext.getCurrentHouseholdId() ?: run {
+                isLoadingMoreFlag = false
+                _isLoadingMore.value = false
+                return@launch
+            }
+
+            when (val result = repository.getTransactions(householdId, limit = PAGE_SIZE, offset = currentOffset)) {
+                is AppResult.Success -> {
+                    _allTransactions.addAll(result.data)
+                    hasMoreData = result.data.size >= PAGE_SIZE
+                    currentOffset += result.data.size
+                    _uiState.value = TransactionsUiState.Success(
+                        transactions = _allTransactions.toList(),
+                        hasMoreData = hasMoreData
+                    )
+                }
+                is AppResult.Error -> { /* silently ignore, keep current state */ }
+                else -> {}
+            }
+            isLoadingMoreFlag = false
+            _isLoadingMore.value = false
         }
     }
 
@@ -97,6 +153,9 @@ class TransactionsViewModel(
 
 sealed interface TransactionsUiState {
     object Loading : TransactionsUiState
-    data class Success(val transactions: List<Transaction>) : TransactionsUiState
+    data class Success(
+        val transactions: List<Transaction>,
+        val hasMoreData: Boolean = true
+    ) : TransactionsUiState
     data class Error(val message: String) : TransactionsUiState
 }

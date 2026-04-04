@@ -27,6 +27,10 @@ import com.nexohogar.presentation.tutorial.TutorialOverlay
 import com.nexohogar.presentation.tutorial.TutorialStep
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,13 +153,42 @@ fun WishlistScreen(
                                 PriorityHeader(label = "🔴  Alta Prioridad", color = Color(0xFFD32F2F))
                             }
                             items(highItems) { item ->
-                                WishlistSquareCard(
-                                    item         = item,
-                                    format       = clpFormat,
-                                    onEdit       = { viewModel.onShowEditDialog(item) },
-                                    onMarkBought = { viewModel.markAsPurchased(item) },
-                                    onDelete     = { viewModel.deleteItem(item) }
+                                val dismissState = rememberSwipeToDismissBoxState(
+                                    confirmValueChange = { value ->
+                                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                                            viewModel.markAsPurchased(item)
+                                            true
+                                        } else false
+                                    },
+                                    positionalThreshold = { it * 0.4f }
                                 )
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    backgroundContent = {
+                                        val color by animateColorAsState(
+                                            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                                                Color(0xFF4CAF50) else Color.Transparent,
+                                            label = "swipe_color"
+                                        )
+                                        Box(
+                                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = "Comprado",
+                                                tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                                        }
+                                    },
+                                    enableDismissFromStartToEnd = false,
+                                    enableDismissFromEndToStart = true
+                                ) {
+                                    WishlistSquareCard(
+                                        item         = item,
+                                        format       = clpFormat,
+                                        onEdit       = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought = { viewModel.markAsPurchased(item) },
+                                        onDelete     = { viewModel.deleteItem(item) }
+                                    )
+                                }
                             }
                         }
 
@@ -165,13 +198,42 @@ fun WishlistScreen(
                                 PriorityHeader(label = "🟠  Media Prioridad", color = Color(0xFFF57F17))
                             }
                             items(mediumItems) { item ->
-                                WishlistSquareCard(
-                                    item         = item,
-                                    format       = clpFormat,
-                                    onEdit       = { viewModel.onShowEditDialog(item) },
-                                    onMarkBought = { viewModel.markAsPurchased(item) },
-                                    onDelete     = { viewModel.deleteItem(item) }
+                                val dismissState = rememberSwipeToDismissBoxState(
+                                    confirmValueChange = { value ->
+                                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                                            viewModel.markAsPurchased(item)
+                                            true
+                                        } else false
+                                    },
+                                    positionalThreshold = { it * 0.4f }
                                 )
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    backgroundContent = {
+                                        val color by animateColorAsState(
+                                            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                                                Color(0xFF4CAF50) else Color.Transparent,
+                                            label = "swipe_color"
+                                        )
+                                        Box(
+                                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = "Comprado",
+                                                tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                                        }
+                                    },
+                                    enableDismissFromStartToEnd = false,
+                                    enableDismissFromEndToStart = true
+                                ) {
+                                    WishlistSquareCard(
+                                        item         = item,
+                                        format       = clpFormat,
+                                        onEdit       = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought = { viewModel.markAsPurchased(item) },
+                                        onDelete     = { viewModel.deleteItem(item) }
+                                    )
+                                }
                             }
                         }
 
@@ -181,13 +243,42 @@ fun WishlistScreen(
                                 PriorityHeader(label = "🟢  Baja Prioridad", color = Color(0xFF388E3C))
                             }
                             items(lowItems) { item ->
-                                WishlistSquareCard(
-                                    item         = item,
-                                    format       = clpFormat,
-                                    onEdit       = { viewModel.onShowEditDialog(item) },
-                                    onMarkBought = { viewModel.markAsPurchased(item) },
-                                    onDelete     = { viewModel.deleteItem(item) }
+                                val dismissState = rememberSwipeToDismissBoxState(
+                                    confirmValueChange = { value ->
+                                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                                            viewModel.markAsPurchased(item)
+                                            true
+                                        } else false
+                                    },
+                                    positionalThreshold = { it * 0.4f }
                                 )
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    backgroundContent = {
+                                        val color by animateColorAsState(
+                                            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                                                Color(0xFF4CAF50) else Color.Transparent,
+                                            label = "swipe_color"
+                                        )
+                                        Box(
+                                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = "Comprado",
+                                                tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                                        }
+                                    },
+                                    enableDismissFromStartToEnd = false,
+                                    enableDismissFromEndToStart = true
+                                ) {
+                                    WishlistSquareCard(
+                                        item         = item,
+                                        format       = clpFormat,
+                                        onEdit       = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought = { viewModel.markAsPurchased(item) },
+                                        onDelete     = { viewModel.deleteItem(item) }
+                                    )
+                                }
                             }
                         }
 

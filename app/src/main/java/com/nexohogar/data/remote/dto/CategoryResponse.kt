@@ -10,5 +10,7 @@ data class CategoryResponse(
     val name: String,
     val type: String,
     @SerializedName("household_id")
-    val householdId: String
+    val householdId: String,
+    @SerializedName("icon")
+    val icon: String? = null
 )

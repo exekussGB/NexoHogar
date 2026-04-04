@@ -10,7 +10,7 @@ import com.nexohogar.domain.model.Transaction
  * Interface for the transactions repository.
  */
 interface TransactionsRepository {
-    suspend fun getTransactions(householdId: String): AppResult<List<Transaction>>
+    suspend fun getTransactions(householdId: String, limit: Int = 30, offset: Int = 0): AppResult<List<Transaction>>
     
     suspend fun createTransaction(
         request: CreateTransactionRequest
