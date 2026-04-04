@@ -20,5 +20,9 @@ class NexoHogarApp : Application() {
         if (ServiceLocator.sessionManager.fetchSession() != null) {
             FcmTokenManager.registerToken(this)
         }
+
+        // FIX-SESSION-05: Inicializar SessionRefresher para mantener
+        // la sesión activa automáticamente (lifecycle-aware)
+        ServiceLocator.sessionRefresher.init()
     }
 }
