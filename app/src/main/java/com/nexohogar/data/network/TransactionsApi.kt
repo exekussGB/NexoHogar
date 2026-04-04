@@ -18,7 +18,10 @@ interface TransactionsApi {
     @GET("rest/v1/v_transactions_with_user")
     suspend fun getTransactions(
         @Query("household_id") householdFilter: String,
-        @Query("select") select: String = "*"
+        @Query("select") select: String = "*",
+        @Query("limit") limit: Int = 30,
+        @Query("offset") offset: Int = 0,
+        @Query("order") order: String = "created_at.desc"
     ): Response<List<TransactionResponse>>
 
     @POST("rest/v1/rpc/rpc_create_transaction")

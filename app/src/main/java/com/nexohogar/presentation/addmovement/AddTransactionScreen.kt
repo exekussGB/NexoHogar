@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.model.RecurringBill
@@ -321,16 +322,24 @@ fun CategoryDropdown(
             categories.forEach { category ->
                 DropdownMenuItem(
                     text = {
-                        Column {
-                            Text(category.name)
-                            Text(
-                                text  = when (category.type) {
-                                    "expense" -> "Gasto"
-                                    "income"  -> "Ingreso"
-                                    else      -> category.type
-                                },
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (!category.icon.isNullOrBlank()) {
+                                Text(category.icon, fontSize = 16.sp)
+                            }
+                            Column {
+                                Text(category.name)
+                                Text(
+                                    text  = when (category.type) {
+                                        "expense" -> "Gasto"
+                                        "income"  -> "Ingreso"
+                                        else      -> category.type
+                                    },
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     },
                     onClick = {

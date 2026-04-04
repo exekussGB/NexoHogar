@@ -11,7 +11,8 @@ fun CategoryResponse.toDomain(): Category {
     return Category(
         id = id,
         name = name,
-        type = type
+        type = type,
+        icon = icon
     )
 }
 

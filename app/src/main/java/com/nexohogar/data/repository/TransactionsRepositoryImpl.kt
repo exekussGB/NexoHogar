@@ -21,10 +21,16 @@ class TransactionsRepositoryImpl(
 ) : TransactionsRepository {
 
     override suspend fun getTransactions(
-        householdId: String
+        householdId: String,
+        limit: Int,
+        offset: Int
     ): AppResult<List<Transaction>> {
         return try {
-            val response = api.getTransactions("eq.$householdId")
+            val response = api.getTransactions(
+                householdFilter = "eq.$householdId",
+                limit = limit,
+                offset = offset
+            )
 
             if (!response.isSuccessful) {
                 val error = response.errorBody()?.string()
