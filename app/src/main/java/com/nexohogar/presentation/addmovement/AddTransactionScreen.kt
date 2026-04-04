@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,7 @@ import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.presentation.addmovement.AddMovementViewModel
 import com.nexohogar.presentation.addmovement.TransactionType
 import com.nexohogar.presentation.components.LoadingOverlay
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +38,9 @@ fun AddTransactionScreen(
     val categories by viewModel.filteredCategories.collectAsState()
     val context    = LocalContext.current
 
+    // Auto-focus on amount field
+    val amountFocusRequester = remember { FocusRequester() }
+
     LaunchedEffect(key1 = transactionType) {
         val type = when (transactionType) {
             "income"   -> TransactionType.INCOME
@@ -42,6 +48,14 @@ fun AddTransactionScreen(
             else       -> TransactionType.EXPENSE
         }
         viewModel.onTypeChange(type)
+    }
+
+    // Request focus on amount field after short delay
+    LaunchedEffect(Unit) {
+        delay(300)
+        try {
+            amountFocusRequester.requestFocus()
+        } catch (_: Exception) { }
     }
 
     LaunchedEffect(uiState.isSuccess) {
@@ -184,17 +198,34 @@ fun AddTransactionScreen(
 
                     OutlinedTextField(
                         value         = uiState.amount,
-                        onValueChange = { viewModel.onAmountChange(it) },
+                        onValueChange = { newValue ->
+                            // Validate decimal format: digits, optional dot, up to 2 decimals
+                            if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                                viewModel.onAmountChange(newValue)
+                            }
+                        },
                         label         = { Text("Monto") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier      = Modifier.fillMaxWidth()
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier      = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(amountFocusRequester)
                     )
 
                     OutlinedTextField(
                         value         = uiState.description,
-                        onValueChange = { viewModel.onDescriptionChange(it) },
+                        onValueChange = { if (it.length <= 200) viewModel.onDescriptionChange(it) },
                         label         = { Text("Descripción (opcional)") },
-                        modifier      = Modifier.fillMaxWidth()
+                        modifier      = Modifier.fillMaxWidth(),
+                        supportingText = {
+                            Text(
+                                text = "${uiState.description.length}/200",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (uiState.description.length >= 190)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
 
                     val isButtonEnabled = remember(uiState) {

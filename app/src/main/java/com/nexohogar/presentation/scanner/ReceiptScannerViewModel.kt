@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.service.ChileanReceiptParser
 import com.nexohogar.data.network.service.AiReceiptParserService
 import com.nexohogar.domain.model.ScannedReceiptItem
@@ -167,6 +168,18 @@ class ReceiptScannerViewModel(
         }
     }
 
+    /**
+     * Sanitizes scanned receipt items before sending to API.
+     */
+    private fun sanitizeItems(items: List<ScannedReceiptItem>): List<ScannedReceiptItem> {
+        return items.map { item ->
+            item.copy(
+                name = InputSanitizer.sanitizeText(item.name, 100),
+                category = item.category?.let { InputSanitizer.sanitizeText(it, 50) }
+            )
+        }
+    }
+
     fun confirmImport() {
         val state = _uiState.value
         val selectedItems = state.items.filter { it.isSelected }
@@ -198,6 +211,9 @@ class ReceiptScannerViewModel(
 
         viewModelScope.launch {
             try {
+                // Sanitize items before sending to API
+                val sanitizedItems = sanitizeItems(selectedItems)
+
                 val result = inventoryRepository.importReceipt(
                     householdId = householdId,
                     userId = userId,
@@ -205,7 +221,7 @@ class ReceiptScannerViewModel(
                     categoryId = null,  // Ya no hay categoría global; cada item tiene la suya
                     store = state.store.ifBlank { null },
                     receiptDate = state.receiptDate,
-                    items = selectedItems
+                    items = sanitizedItems
                 ).getOrThrow()
 
                 _uiState.update {

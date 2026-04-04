@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.domain.repository.AccountsRepository
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 data class AccountsUiState(
     val sharedAccounts: List<AccountBalance> = emptyList(),
@@ -140,6 +142,26 @@ class AccountsViewModel(
             _uiState.update { it.copy(error = "El nombre es obligatorio") }
             return
         }
+        if (name.length > 50) {
+            _uiState.update { it.copy(error = "El nombre es demasiado largo (máx. 50 caracteres)") }
+            return
+        }
+        val sanitizedName = InputSanitizer.sanitizeText(name, 50)
+
+        val initialBalance = if (state.newAccountHasInitialBalance) {
+            val parsed = state.newAccountInitialBalance.toDoubleOrNull()
+            if (parsed == null) {
+                _uiState.update { it.copy(error = "Ingresa un saldo inicial válido") }
+                return
+            }
+            if (abs(parsed) > 999_999_999) {
+                _uiState.update { it.copy(error = "Ingresa un saldo inicial válido") }
+                return
+            }
+            parsed
+        } else {
+            null
+        }
 
         val accountType = when (state.newAccountSubtype) {
             "credit_card" -> "LIABILITY"
@@ -150,12 +172,12 @@ class AccountsViewModel(
             _uiState.update { it.copy(isCreating = true) }
             when (val result = accountsRepository.createAccount(
                 householdId    = householdId,
-                name           = name,
+                name           = sanitizedName,
                 accountType    = accountType,
                 accountSubtype = state.newAccountSubtype,
                 isShared       = state.newAccountIsShared,
                 ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null,
-                initialBalanceCLP = if (state.newAccountHasInitialBalance) state.newAccountInitialBalance.toDoubleOrNull() else null
+                initialBalanceCLP = initialBalance
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }

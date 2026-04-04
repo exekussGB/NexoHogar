@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.util.AppLogger
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +26,20 @@ class LoginViewModel(
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
     fun login(email: String, pass: String) {
-        if (email.isBlank() || pass.isBlank()) {
+        val trimmedEmail = email.trim()
+
+        if (trimmedEmail.isBlank() || pass.isBlank()) {
             _loginState.value = LoginState.Error("Campos obligatorios")
+            return
+        }
+
+        if (trimmedEmail.length > 254) {
+            _loginState.value = LoginState.Error("El correo es demasiado largo")
+            return
+        }
+
+        if (pass.length > 128) {
+            _loginState.value = LoginState.Error("La contraseña es demasiado larga")
             return
         }
 
@@ -34,7 +47,7 @@ class LoginViewModel(
         viewModelScope.launch {
             AppLogger.d("LoginViewModel", "Iniciando intento de login")
 
-            when (val result = repository.login(email, pass)) {
+            when (val result = repository.login(trimmedEmail, pass)) {
                 is AppResult.Success -> {
                     AppLogger.d("LoginViewModel", "Login exitoso, guardando sesión")
                     sessionManager.saveSession(result.data)

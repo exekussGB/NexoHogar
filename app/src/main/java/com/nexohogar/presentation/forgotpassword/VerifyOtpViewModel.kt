@@ -29,7 +29,16 @@ class VerifyOtpViewModel(
     private val _state = MutableStateFlow(VerifyOtpState())
     val state: StateFlow<VerifyOtpState> = _state.asStateFlow()
 
+    private var attemptCount = 0
+    private val MAX_ATTEMPTS = 5
+
     fun verifyOtp(email: String, code: String) {
+        if (attemptCount >= MAX_ATTEMPTS) {
+            _state.update { it.copy(error = "Demasiados intentos. Solicita un nuevo código.") }
+            return
+        }
+        attemptCount++
+
         if (code.length != 8) {
             _state.update { it.copy(error = "El código debe tener 8 dígitos") }
             return

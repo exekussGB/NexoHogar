@@ -14,6 +14,13 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
+ * Filter types for the transactions list.
+ */
+enum class TransactionFilter {
+    ALL, EXPENSE, INCOME, TRANSFER
+}
+
+/**
  * ViewModel for managing the transactions screen state with pagination support.
  */
 class TransactionsViewModel(
@@ -35,8 +42,36 @@ class TransactionsViewModel(
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
+    // ── Filter state ─────────────────────────────────────────────────────────
+    private val _selectedFilter = MutableStateFlow(TransactionFilter.ALL)
+    val selectedFilter: StateFlow<TransactionFilter> = _selectedFilter.asStateFlow()
+
     init {
         loadTransactions()
+    }
+
+    /**
+     * Sets the active transaction filter and updates the displayed list.
+     */
+    fun setFilter(filter: TransactionFilter) {
+        _selectedFilter.value = filter
+        applyFilter()
+    }
+
+    /**
+     * Applies the current filter to the accumulated transactions list.
+     */
+    private fun applyFilter() {
+        val filtered = when (_selectedFilter.value) {
+            TransactionFilter.ALL -> _allTransactions.toList()
+            TransactionFilter.EXPENSE -> _allTransactions.filter { it.type.lowercase() == "expense" }
+            TransactionFilter.INCOME -> _allTransactions.filter { it.type.lowercase() == "income" }
+            TransactionFilter.TRANSFER -> _allTransactions.filter { it.type.lowercase() == "transfer" }
+        }
+        _uiState.value = TransactionsUiState.Success(
+            transactions = filtered,
+            hasMoreData = hasMoreData
+        )
     }
 
     /**
@@ -60,10 +95,7 @@ class TransactionsViewModel(
                     _allTransactions.addAll(result.data)
                     hasMoreData = result.data.size >= PAGE_SIZE
                     currentOffset = result.data.size
-                    _uiState.value = TransactionsUiState.Success(
-                        transactions = _allTransactions.toList(),
-                        hasMoreData = hasMoreData
-                    )
+                    applyFilter()
                 }
                 is AppResult.Error -> {
                     _uiState.value = TransactionsUiState.Error(result.message)
@@ -96,10 +128,7 @@ class TransactionsViewModel(
                     _allTransactions.addAll(result.data)
                     hasMoreData = result.data.size >= PAGE_SIZE
                     currentOffset += result.data.size
-                    _uiState.value = TransactionsUiState.Success(
-                        transactions = _allTransactions.toList(),
-                        hasMoreData = hasMoreData
-                    )
+                    applyFilter()
                 }
                 is AppResult.Error -> { /* silently ignore, keep current state */ }
                 else -> {}

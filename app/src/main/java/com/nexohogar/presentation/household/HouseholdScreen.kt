@@ -40,6 +40,13 @@ fun HouseholdScreen(
         }
     }
 
+    // Auto-navigate when only 1 household is available
+    LaunchedEffect(Unit) {
+        viewModel.autoSelectEvent.collect { householdId ->
+            onHouseholdSelected(householdId)
+        }
+    }
+
     // Redirigir al login cuando la sesión expira definitivamente
     LaunchedEffect(uiState.sessionExpired) {
         if (uiState.sessionExpired) {

@@ -33,59 +33,36 @@ private data class HubAction(
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HubScreen
-// Orden de la grilla (2 columnas):
-//   Resumen      | Agregar
-//   Cuentas      | Recurrentes
-//   Presupuesto  | Inventario
+// HubScreen — "Más opciones"
+// Items now accessible from BottomBar (Dashboard, Transactions, Inventory)
+// have been removed. Remaining items:
+//   Presupuesto  | Cuentas Recurrentes
+//   Cuentas      | Lista de Deseos
 //   Invitar      | Opciones
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun HubScreen(
     householdName             : String = "",
-    onNavigateToDashboard     : () -> Unit,
-    onNavigateToTransactions  : () -> Unit,
-    onNavigateToAddMovement   : (String) -> Unit,
+    onNavigateToDashboard     : () -> Unit = {},
+    onNavigateToTransactions  : () -> Unit = {},
+    onNavigateToAddMovement   : (String) -> Unit = {},
     onNavigateToAccounts      : () -> Unit,
     onNavigateToInviteMember  : () -> Unit,
     onNavigateToRecurringBills: () -> Unit,
     onNavigateToBudget        : () -> Unit,
-    onNavigateToInventory     : () -> Unit,
+    onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
     onNavigateToWishlist      : () -> Unit
 ) {
-    var showAddTypeDialog by remember { mutableStateOf(false) }
-
-    // Grilla en el orden solicitado:
-    // Fila 1: Resumen / Agregar
-    // Fila 2: Cuentas / Recurrentes
-    // Fila 3: Presupuesto / Inventario
-    // Fila 4: Lista Deseos / Invitar
-    // Fila 5: Opciones
+    // Simplified grid — items already in BottomBar are removed
     val actions = listOf(
         HubAction(
-            title           = "Resumen",
-            subtitle        = "Saldos y gráficos",
-            icon            = Icons.Default.BarChart,
-            backgroundColor = Color(0xFFE8F5E9),
-            iconColor       = Color(0xFF2E7D32),
-            onClick         = onNavigateToDashboard
-        ),
-        HubAction(
-            title           = "Agregar",
-            subtitle        = "Nuevo movimiento",
-            icon            = Icons.Default.AddCircle,
-            backgroundColor = Color(0xFFFFF8E1),
-            iconColor       = Color(0xFFF57F17),
-            onClick         = { showAddTypeDialog = true }
-        ),
-        HubAction(
-            title           = "Cuentas",
-            subtitle        = "Ver saldos",
-            icon            = Icons.Default.AccountBalance,
-            backgroundColor = Color(0xFFF3E5F5),
-            iconColor       = Color(0xFF6A1B9A),
-            onClick         = onNavigateToAccounts
+            title           = "Presupuesto",
+            subtitle        = "Control de gastos",
+            icon            = Icons.Default.AccountBalanceWallet,
+            backgroundColor = Color(0xFFE8EAF6),
+            iconColor       = Color(0xFF283593),
+            onClick         = onNavigateToBudget
         ),
         HubAction(
             title           = "Recurrentes",
@@ -96,20 +73,12 @@ fun HubScreen(
             onClick         = onNavigateToRecurringBills
         ),
         HubAction(
-            title           = "Presupuesto",
-            subtitle        = "Control de gastos",
-            icon            = Icons.Default.AccountBalanceWallet,
-            backgroundColor = Color(0xFFE8EAF6),
-            iconColor       = Color(0xFF283593),
-            onClick         = onNavigateToBudget
-        ),
-        HubAction(
-            title           = "Inventario",
-            subtitle        = "Control de stock",
-            icon            = Icons.Default.Inventory,
-            backgroundColor = Color(0xFFF1F8E9),
-            iconColor       = Color(0xFF33691E),
-            onClick         = onNavigateToInventory
+            title           = "Cuentas",
+            subtitle        = "Ver saldos",
+            icon            = Icons.Default.AccountBalance,
+            backgroundColor = Color(0xFFF3E5F5),
+            iconColor       = Color(0xFF6A1B9A),
+            onClick         = onNavigateToAccounts
         ),
         HubAction(
             title           = "Lista de Deseos",
@@ -147,14 +116,14 @@ fun HubScreen(
         Spacer(modifier = Modifier.height(52.dp))
 
         Text(
-            text       = if (householdName.isNotBlank()) "Estás en '$householdName'" else "Mi hogar",
+            text       = "Más opciones",
             style      = MaterialTheme.typography.headlineMedium,
             color      = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text       = "¿Qué quieres hacer?",
+            text       = if (householdName.isNotBlank()) "Hogar: $householdName" else "Herramientas adicionales",
             style      = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Medium,
             color      = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
@@ -176,16 +145,6 @@ fun HubScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-    }
-
-    if (showAddTypeDialog) {
-        AddMovementTypeDialog(
-            onDismiss     = { showAddTypeDialog = false },
-            onTypeSelected = { type ->
-                showAddTypeDialog = false
-                onNavigateToAddMovement(type)
-            }
-        )
     }
 }
 
@@ -236,107 +195,6 @@ private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
                     color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
             }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Diálogo selector tipo de movimiento
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun AddMovementTypeDialog(
-    onDismiss     : () -> Unit,
-    onTypeSelected: (String) -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape     = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(
-                modifier            = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text       = "¿Qué quieres registrar?",
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 17.sp,
-                    color      = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-
-                MovementTypeOption(
-                    icon        = Icons.Default.ArrowDownward,
-                    label       = "Ingreso",
-                    description = "Sueldo, venta u otro ingreso",
-                    iconColor   = Color(0xFF2E7D32),
-                    bgColor     = Color(0xFFE8F5E9),
-                    onClick     = { onTypeSelected("income") }
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                MovementTypeOption(
-                    icon        = Icons.Default.ArrowUpward,
-                    label       = "Gasto",
-                    description = "Cuenta, compra u otro gasto",
-                    iconColor   = Color(0xFFC62828),
-                    bgColor     = Color(0xFFFFEBEE),
-                    onClick     = { onTypeSelected("expense") }
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                MovementTypeOption(
-                    icon        = Icons.Default.SwapHoriz,
-                    label       = "Transferencia",
-                    description = "Mover dinero entre cuentas",
-                    iconColor   = Color(0xFF1565C0),
-                    bgColor     = Color(0xFFE3F2FD),
-                    onClick     = { onTypeSelected("transfer") }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                TextButton(onClick = onDismiss) { Text("Cancelar") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MovementTypeOption(
-    icon       : ImageVector,
-    label      : String,
-    description: String,
-    iconColor  : Color,
-    bgColor    : Color,
-    onClick    : () -> Unit
-) {
-    Row(
-        modifier          = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Box(
-            modifier         = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(bgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector        = icon,
-                contentDescription = null,
-                tint               = iconColor,
-                modifier           = Modifier.size(22.dp)
-            )
-        }
-        Column {
-            Text(label,       fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(description, fontSize   = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
         }
     }
 }

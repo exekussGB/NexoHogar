@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.util.AppLogger
+import com.nexohogar.data.local.SessionManager
 import com.nexohogar.domain.model.ScannedReceiptItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,11 +33,12 @@ data class AiParsedReceipt(
  *
  * USA SU PROPIO OkHttpClient con:
  *  - Timeout de 60s (la IA puede tardar 15-30s)
- *  - Sin AuthInterceptor (usa API_KEY directamente)
+ *  - Sin AuthInterceptor (usa token de sesión o API_KEY como fallback)
  *  - Sin CertificatePinner (evita problemas de rotación de certs)
  */
 class AiReceiptParserService(
-    @Suppress("UNUSED_PARAMETER") unusedClient: OkHttpClient? = null
+    @Suppress("UNUSED_PARAMETER") unusedClient: OkHttpClient? = null,
+    private val sessionManager: SessionManager? = null
 ) {
 
     companion object {
@@ -45,6 +47,7 @@ class AiReceiptParserService(
         private const val MAX_IMAGE_WIDTH = 1024
         private const val JPEG_QUALITY = 85
         private const val TIMEOUT_SECONDS = 60L
+        private const val MAX_BASE64_LENGTH = 1_000_000
     }
 
     // Cliente propio — sin interceptors que interfieran, con timeout largo
@@ -79,6 +82,12 @@ class AiReceiptParserService(
 
             AppLogger.d(TAG, "Imagen: ${scaled.width}x${scaled.height}, base64: ${base64Image.length} chars")
 
+            // Image size check
+            if (base64Image.length > MAX_BASE64_LENGTH) {
+                AppLogger.e(TAG, "Imagen demasiado grande: ${base64Image.length} chars")
+                return@withContext null
+            }
+
             // 3. Construir request con categorías y productos existentes
             val json = JSONObject().apply {
                 put("image_base64", base64Image)
@@ -93,10 +102,13 @@ class AiReceiptParserService(
             val url = "${SupabaseConfig.BASE_URL}/functions/v1/$FUNCTION_NAME"
             val body = json.toString().toRequestBody("application/json".toMediaType())
 
+            // Use session token if available, fallback to API key
+            val authToken = sessionManager?.fetchAuthToken() ?: SupabaseConfig.API_KEY
+
             val request = Request.Builder()
                 .url(url)
                 .post(body)
-                .addHeader("Authorization", "Bearer ${SupabaseConfig.API_KEY}")
+                .addHeader("Authorization", "Bearer $authToken")
                 .addHeader("apikey", SupabaseConfig.API_KEY)
                 .addHeader("Content-Type", "application/json")
                 .build()

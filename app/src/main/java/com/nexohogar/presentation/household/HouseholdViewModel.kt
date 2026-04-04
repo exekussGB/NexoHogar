@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.repository.HouseholdRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,6 +47,9 @@ class HouseholdViewModel(
     private val _uiState = MutableStateFlow(HouseholdUiState())
     val uiState: StateFlow<HouseholdUiState> = _uiState.asStateFlow()
 
+    private val _autoSelectEvent = MutableSharedFlow<String>() // household ID
+    val autoSelectEvent: SharedFlow<String> = _autoSelectEvent.asSharedFlow()
+
     init {
         loadHouseholds()
     }
@@ -51,8 +58,14 @@ class HouseholdViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             when (val result = householdRepository.getHouseholds()) {
-                is AppResult.Success -> _uiState.update {
-                    it.copy(isLoading = false, households = result.data)
+                is AppResult.Success -> {
+                    _uiState.update {
+                        it.copy(isLoading = false, households = result.data)
+                    }
+                    // Auto-select if there's exactly one household
+                    if (result.data.size == 1) {
+                        _autoSelectEvent.emit(result.data[0].id)
+                    }
                 }
                 is AppResult.Error -> {
                     // Only match the SPECIFIC synthetic message from AuthInterceptor.
@@ -78,13 +91,23 @@ class HouseholdViewModel(
     }
 
     fun createHousehold(name: String) {
-        if (name.isBlank()) {
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
             _uiState.update { it.copy(createError = "El nombre no puede estar vacío") }
+            return
+        }
+        if (trimmedName.length > 50) {
+            _uiState.update { it.copy(createError = "El nombre es demasiado largo (máx. 50 caracteres)") }
+            return
+        }
+        val sanitizedName = InputSanitizer.sanitizeText(trimmedName, 50)
+        if (sanitizedName != trimmedName) {
+            _uiState.update { it.copy(createError = "El nombre contiene caracteres no permitidos") }
             return
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
-            when (val result = householdRepository.createHousehold(name.trim())) {
+            when (val result = householdRepository.createHousehold(sanitizedName)) {
                 is AppResult.Success -> {
                     _uiState.update {
                         it.copy(

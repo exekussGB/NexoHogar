@@ -22,15 +22,26 @@ class ForgotPasswordViewModel(
     private val _state = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Idle)
     val state: StateFlow<ForgotPasswordState> = _state.asStateFlow()
 
+    private var lastSendTime = 0L
+
     fun sendRecoveryEmail(email: String) {
-        if (email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
+        if (System.currentTimeMillis() - lastSendTime < 60_000) {
+            _state.value = ForgotPasswordState.Error("Espera un momento antes de reenviar")
+            return
+        }
+
+        val trimmedEmail = email.trim()
+
+        if (trimmedEmail.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
             _state.value = ForgotPasswordState.Error("Ingresa un correo válido")
             return
         }
+
+        lastSendTime = System.currentTimeMillis()
         _state.value = ForgotPasswordState.Loading
         viewModelScope.launch {
             AppLogger.d("ForgotPasswordVM", "Enviando correo de recuperación")
-            when (val result = repository.forgotPassword(email.trim())) {
+            when (val result = repository.forgotPassword(trimmedEmail)) {
                 is AppResult.Success -> _state.value = ForgotPasswordState.Success
                 is AppResult.Error -> {
                     AppLogger.e("ForgotPasswordVM", "Error: ${result.message}")

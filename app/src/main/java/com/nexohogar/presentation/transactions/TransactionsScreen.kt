@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +42,7 @@ fun TransactionsScreen(
     onAddTransactionClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
 
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.TRANSACTIONS))
@@ -65,29 +67,54 @@ fun TransactionsScreen(
             }
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .testTag("transactions_filters")
         ) {
-            when (val state = uiState) {
-                is TransactionsUiState.Loading -> {
-                    LoadingOverlay()
-                }
-                is TransactionsUiState.Success -> {
-                    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-                    TransactionsList(
-                        transactions = state.transactions,
-                        hasMoreData = state.hasMoreData,
-                        isLoadingMore = isLoadingMore,
-                        onItemClick = onTransactionClick,
-                        onLoadMore = { viewModel.loadMoreTransactions() }
+            // ── Filter chips ────────────────────────────────────────────────
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("transactions_filters"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val filters = listOf(
+                    TransactionFilter.ALL to "Todos",
+                    TransactionFilter.EXPENSE to "Gastos",
+                    TransactionFilter.INCOME to "Ingresos",
+                    TransactionFilter.TRANSFER to "Transferencias"
+                )
+                items(filters) { (filter, label) ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { viewModel.setFilter(filter) },
+                        label = { Text(label) }
                     )
                 }
-                is TransactionsUiState.Error -> {
-                    ErrorState(state.message) {
-                        viewModel.loadTransactions()
+            }
+
+            // ── Content ─────────────────────────────────────────────────────
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = uiState) {
+                    is TransactionsUiState.Loading -> {
+                        LoadingOverlay()
+                    }
+                    is TransactionsUiState.Success -> {
+                        val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+                        TransactionsList(
+                            transactions = state.transactions,
+                            hasMoreData = state.hasMoreData,
+                            isLoadingMore = isLoadingMore,
+                            onItemClick = onTransactionClick,
+                            onLoadMore = { viewModel.loadMoreTransactions() }
+                        )
+                    }
+                    is TransactionsUiState.Error -> {
+                        ErrorState(state.message) {
+                            viewModel.loadTransactions()
+                        }
                     }
                 }
             }

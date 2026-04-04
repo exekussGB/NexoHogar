@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.util.PasswordValidator
 import com.nexohogar.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,48 @@ class ResetPasswordViewModel(
         if (accessToken.isBlank()) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = "Token de recuperación no válido. Solicita un nuevo código."
+            )
+            return
+        }
+
+        if (newPassword.length < 8) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña debe tener al menos 8 caracteres"
+            )
+            return
+        }
+
+        if (newPassword.length > 128) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña es demasiado larga"
+            )
+            return
+        }
+
+        if (!newPassword.any { it.isUpperCase() }) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña debe contener al menos una mayúscula"
+            )
+            return
+        }
+
+        if (!newPassword.any { it.isDigit() }) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña debe contener al menos un dígito"
+            )
+            return
+        }
+
+        if (!newPassword.any { !it.isLetterOrDigit() }) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña debe contener al menos un carácter especial"
+            )
+            return
+        }
+
+        if (!PasswordValidator.validate(newPassword).meetsMinimum) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "La contraseña no cumple los requisitos mínimos de seguridad"
             )
             return
         }

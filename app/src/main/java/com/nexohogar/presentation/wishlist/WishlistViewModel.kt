@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.domain.model.WishlistItem
 import com.nexohogar.domain.repository.WishlistRepository
@@ -73,10 +74,34 @@ class WishlistViewModel(
     fun createItem(name: String, price: Double?, description: String?, priority: String) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         val userId = sessionManager.fetchSession()?.userId ?: ""
+
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            _uiState.update { it.copy(createError = "El nombre es obligatorio") }
+            return
+        }
+        if (trimmedName.length > 100) {
+            _uiState.update { it.copy(createError = "El nombre es demasiado largo (máx. 100 caracteres)") }
+            return
+        }
+        val sanitizedName = InputSanitizer.sanitizeText(trimmedName, 100)
+
+        if (price != null && (price < 0 || price > 999_999_999)) {
+            _uiState.update { it.copy(createError = "Ingresa un precio válido") }
+            return
+        }
+
+        val sanitizedDescription = if (!description.isNullOrBlank()) {
+            val trimmedDesc = description.trim()
+            InputSanitizer.sanitizeText(trimmedDesc, 500)
+        } else {
+            description
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
             when (val result = repository.createWishlistItem(
-                householdId, name, description, price, priority, userId
+                householdId, sanitizedName, sanitizedDescription, price, priority, userId
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }
@@ -101,9 +126,32 @@ class WishlistViewModel(
     }
 
     fun updateItem(itemId: String, name: String, price: Double?, description: String?, priority: String) {
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            _uiState.update { it.copy(editError = "El nombre es obligatorio") }
+            return
+        }
+        if (trimmedName.length > 100) {
+            _uiState.update { it.copy(editError = "El nombre es demasiado largo (máx. 100 caracteres)") }
+            return
+        }
+        val sanitizedName = InputSanitizer.sanitizeText(trimmedName, 100)
+
+        if (price != null && (price < 0 || price > 999_999_999)) {
+            _uiState.update { it.copy(editError = "Ingresa un precio válido") }
+            return
+        }
+
+        val sanitizedDescription = if (!description.isNullOrBlank()) {
+            val trimmedDesc = description.trim()
+            InputSanitizer.sanitizeText(trimmedDesc, 500)
+        } else {
+            description
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isEditing = true, editError = null) }
-            when (val result = repository.updateWishlistItem(itemId, name, description, price, priority)) {
+            when (val result = repository.updateWishlistItem(itemId, sanitizedName, sanitizedDescription, price, priority)) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isEditing = false, itemToEdit = null) }
                     loadItems()

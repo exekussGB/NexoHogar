@@ -9,6 +9,8 @@
     <!-- WorkManager necesita este permiso para reagendarse tras reinicio -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Biometric authentication -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -51,6 +53,15 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- BroadcastReceiver para acciones rápidas de notificación de recurrentes -->
+        <receiver
+            android:name=".service.RecurringBillActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.nexohogar.ACTION_MARK_BILL_PAID" />
+            </intent-filter>
+        </receiver>
 
     </application>
 
