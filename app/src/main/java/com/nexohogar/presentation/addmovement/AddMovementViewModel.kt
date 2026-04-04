@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.remote.dto.CreateTransactionRequest
 import com.nexohogar.data.remote.dto.CreateTransferRequest
 import com.nexohogar.domain.model.Account
@@ -199,10 +200,22 @@ class AddMovementViewModel(
         val state       = _uiState.value
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
 
-        val amountLong = state.amount.toLongOrNull()
-        if (state.selectedFromAccount == null || amountLong == null) {
+        val amountLong = InputSanitizer.sanitizeAmount(state.amount)
+        if (amountLong == null || amountLong <= 0 || amountLong > 999_999_999) {
+            _uiState.update { it.copy(error = "Ingresa un monto válido mayor a 0") }
+            return
+        }
+
+        if (state.selectedFromAccount == null) {
             _uiState.update { it.copy(error = "Datos incompletos") }
             return
+        }
+
+        val desc = state.description.trim()
+        val sanitizedDescription = if (desc.isNotBlank()) {
+            InputSanitizer.sanitizeText(desc, 200)
+        } else {
+            null
         }
 
         viewModelScope.launch {
@@ -223,7 +236,7 @@ class AddMovementViewModel(
                         fromAccountId = state.selectedFromAccount.id,
                         toAccountId   = state.selectedToAccount.id,
                         amountClp     = amountLong,
-                        description   = state.description.ifBlank { null },
+                        description   = sanitizedDescription,
                         transactionDate = LocalDate.now().toString()
                     )
                 )
@@ -244,7 +257,7 @@ class AddMovementViewModel(
                         pAccountId       = state.selectedFromAccount.id,
                         pAmountClp       = amountLong,
                         pCategoryId      = categoryId,
-                        pDescription     = state.description.ifBlank { null },
+                        pDescription     = sanitizedDescription,
                         pTransactionDate = LocalDate.now().toString()
                     )
                 )

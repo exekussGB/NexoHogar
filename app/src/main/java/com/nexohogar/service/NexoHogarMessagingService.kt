@@ -135,7 +135,10 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
             else              -> android.R.drawable.ic_dialog_info
         }
 
-        val notification = NotificationCompat.Builder(this, channelId)
+        val notificationType = data["type"] ?: "general"
+        val billId = data["bill_id"] ?: ""
+
+        val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(iconRes)
             .setContentTitle(title)
             .setContentText(body)
@@ -143,7 +146,21 @@ class NexoHogarMessagingService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .build()
+
+        // Add quick action for recurring bill notifications
+        if (notificationType == "recurring_bill" && billId.isNotBlank()) {
+            val markPaidIntent = Intent("com.nexohogar.ACTION_MARK_BILL_PAID").apply {
+                putExtra("bill_id", billId)
+                setPackage(packageName)
+            }
+            val markPaidPendingIntent = PendingIntent.getBroadcast(
+                this, billId.hashCode(), markPaidIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, "Ya pagué", markPaidPendingIntent)
+        }
+
+        val notification = builder.build()
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(System.currentTimeMillis().toInt(), notification)

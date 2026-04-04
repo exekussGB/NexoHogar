@@ -82,14 +82,18 @@ class InviteMemberViewModel(
     }
 
     fun joinHousehold() {
-        val code = _uiState.value.joinInput.trim()
-        if (code.length < 6) {
+        val trimmedCode = _uiState.value.joinInput.trim()
+        if (trimmedCode.length < 6) {
             _uiState.value = _uiState.value.copy(joinError = "El código debe tener al menos 6 caracteres")
+            return
+        }
+        if (!Regex("^[a-zA-Z0-9\-_]+$").matches(trimmedCode)) {
+            _uiState.value = _uiState.value.copy(joinError = "El código contiene caracteres no válidos")
             return
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isJoining = true, joinError = null)
-            when (val result = householdRepository.joinHouseholdByCode(code)) {
+            when (val result = householdRepository.joinHouseholdByCode(trimmedCode)) {
                 is AppResult.Success -> _uiState.value = _uiState.value.copy(
                     isJoining   = false,
                     joinSuccess = true,

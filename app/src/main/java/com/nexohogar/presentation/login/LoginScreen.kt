@@ -4,6 +4,8 @@ import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,7 +28,9 @@ fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onNavigateToForgotPassword: () -> Unit
+    onNavigateToForgotPassword: () -> Unit,
+    showBiometric: Boolean = false,
+    onBiometricLogin: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -131,6 +135,19 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = state !is LoginState.Loading
             ) { Text("Iniciar Sesión") }
+
+            // Biometric login option
+            if (showBiometric) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = onBiometricLogin,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Iniciar con biometría")
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

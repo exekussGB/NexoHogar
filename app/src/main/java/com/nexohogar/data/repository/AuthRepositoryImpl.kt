@@ -16,11 +16,28 @@ import com.nexohogar.data.remote.dto.VerifyOtpRequest
  * Implementación del repositorio de autenticación.
  * COH-04: register() ahora retorna AppResult (consistente con login, forgotPassword, etc.)
  * SEC-04: Logging via AppLogger.
+ * SEC-ERR: Error bodies are logged but not exposed to user — user-friendly messages only.
  */
 class AuthRepositoryImpl(
     private val authApi: AuthApi,
     private val sessionManager: SessionManager
 ) : AuthRepository {
+
+    companion object {
+        private const val TAG = "AuthRepository"
+
+        /**
+         * Maps HTTP error codes to user-friendly messages.
+         * Actual error bodies are logged for debugging but never exposed to the UI.
+         */
+        private fun userFriendlyMessage(code: Int): String = when (code) {
+            400 -> "Datos inválidos"
+            401 -> "Sesión expirada"
+            422 -> "Los datos no cumplen los requisitos"
+            429 -> "Demasiados intentos, intenta más tarde"
+            else -> "Error inesperado, intenta nuevamente"
+        }
+    }
 
     override suspend fun login(email: String, password: String): AppResult<UserSession> {
         return try {
@@ -36,11 +53,13 @@ class AuthRepositoryImpl(
                     AppResult.Error("Respuesta de sesión inválida")
                 }
             } else {
-                AppResult.Error("Credenciales inválidas")
+                val errorBody = response.errorBody()?.string()
+                AppLogger.e(TAG, "Error en login HTTP ${response.code()}: $errorBody")
+                AppResult.Error(userFriendlyMessage(response.code()))
             }
         } catch (e: Exception) {
-            AppLogger.e("AuthRepository", "Error en login: ${e.message}")
-            AppResult.Error("Error de conexión: ${e.message}")
+            AppLogger.e(TAG, "Error en login: ${e.message}")
+            AppResult.Error("Error de conexión, intenta nuevamente")
         }
     }
 
@@ -63,16 +82,19 @@ class AuthRepositoryImpl(
                     AppResult.Error("No se recibió token de acceso")
                 }
             } else {
+                val errorBody = response.errorBody()?.string()
+                AppLogger.e(TAG, "Error en register HTTP ${response.code()}: $errorBody")
                 val errorMsg = when (response.code()) {
                     422 -> "El correo ya está registrado o es inválido"
                     400 -> "Datos inválidos"
-                    else -> "Error al registrar (${response.code()})"
+                    429 -> "Demasiados intentos, intenta más tarde"
+                    else -> "Error inesperado, intenta nuevamente"
                 }
                 AppResult.Error(errorMsg)
             }
         } catch (e: Exception) {
-            AppLogger.e("AuthRepository", "Error en register: ${e.message}")
-            AppResult.Error("Error de conexión: ${e.message}")
+            AppLogger.e(TAG, "Error en register: ${e.message}")
+            AppResult.Error("Error de conexión, intenta nuevamente")
         }
     }
 
@@ -86,11 +108,13 @@ class AuthRepositoryImpl(
             if (response.isSuccessful) {
                 AppResult.Success(Unit)
             } else {
-                AppResult.Error("No se pudo enviar el correo de recuperación")
+                val errorBody = response.errorBody()?.string()
+                AppLogger.e(TAG, "Error en forgotPassword HTTP ${response.code()}: $errorBody")
+                AppResult.Error(userFriendlyMessage(response.code()))
             }
         } catch (e: Exception) {
-            AppLogger.e("AuthRepository", "Error en forgotPassword: ${e.message}")
-            AppResult.Error(e.message ?: "Error de conexión")
+            AppLogger.e(TAG, "Error en forgotPassword: ${e.message}")
+            AppResult.Error("Error de conexión, intenta nuevamente")
         }
     }
 
@@ -104,11 +128,12 @@ class AuthRepositoryImpl(
                 AppResult.Success(Unit)
             } else {
                 val errorBody = response.errorBody()?.string()
-                AppResult.Error(errorBody ?: "No se pudo cambiar la contraseña")
+                AppLogger.e(TAG, "Error en updatePassword HTTP ${response.code()}: $errorBody")
+                AppResult.Error(userFriendlyMessage(response.code()))
             }
         } catch (e: Exception) {
-            AppLogger.e("AuthRepository", "Error en updatePassword: ${e.message}")
-            AppResult.Error(e.message ?: "Error de conexión")
+            AppLogger.e(TAG, "Error en updatePassword: ${e.message}")
+            AppResult.Error("Error de conexión, intenta nuevamente")
         }
     }
 
@@ -129,11 +154,13 @@ class AuthRepositoryImpl(
                     AppResult.Error("No se recibió el token de acceso")
                 }
             } else {
-                AppResult.Error("Código inválido o expirado")
+                val errorBody = response.errorBody()?.string()
+                AppLogger.e(TAG, "Error en verifyOtp HTTP ${response.code()}: $errorBody")
+                AppResult.Error(userFriendlyMessage(response.code()))
             }
         } catch (e: Exception) {
-            AppLogger.e("AuthRepository", "Error en verifyOtp: ${e.message}")
-            AppResult.Error(e.message ?: "Error de conexión")
+            AppLogger.e(TAG, "Error en verifyOtp: ${e.message}")
+            AppResult.Error("Error de conexión, intenta nuevamente")
         }
     }
 }

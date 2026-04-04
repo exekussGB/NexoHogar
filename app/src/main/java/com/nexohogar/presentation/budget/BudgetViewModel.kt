@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.domain.repository.BudgetRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,8 +45,25 @@ class BudgetViewModel(
     fun createBudget(categoryName: String, amount: Long) {
         viewModelScope.launch {
             val householdId = tenantContext.getCurrentHouseholdId() ?: return@launch
+
+            val name = categoryName.trim()
+            if (name.isBlank()) {
+                _uiState.update { it.copy(error = "El nombre es obligatorio") }
+                return@launch
+            }
+            if (name.length > 100) {
+                _uiState.update { it.copy(error = "El nombre es demasiado largo (máx. 100 caracteres)") }
+                return@launch
+            }
+            val sanitizedName = InputSanitizer.sanitizeText(name, 100)
+
+            if (amount <= 0 || amount > 999_999_999) {
+                _uiState.update { it.copy(error = "Ingresa un monto válido mayor a 0") }
+                return@launch
+            }
+
             _uiState.update { it.copy(isLoading = true) }
-            when (budgetRepository.createBudget(householdId, categoryName, amount)) {
+            when (budgetRepository.createBudget(householdId, sanitizedName, amount)) {
                 is AppResult.Success -> load()
                 is AppResult.Error -> {
                     _uiState.update { it.copy(isLoading = false, error = "Error al crear presupuesto") }

@@ -7,8 +7,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +33,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.core.result.AppResult
@@ -112,6 +120,19 @@ sealed class Screen(val route: String) {
 }
 
 // ---------------------------------------------------------------------------
+// Auth routes where BottomBar should be hidden
+// ---------------------------------------------------------------------------
+private val authRoutes = setOf(
+    Screen.Splash.route,
+    Screen.Login.route,
+    Screen.Register.route,
+    Screen.ForgotPassword.route,
+    "verify_otp/{email}",
+    "reset_password/{accessToken}",
+    Screen.Household.route
+)
+
+// ---------------------------------------------------------------------------
 // NavGraph
 // ---------------------------------------------------------------------------
 @Composable
@@ -132,7 +153,34 @@ fun NavGraph(navController: NavHostController) {
     val tenantContext = ServiceLocator.tenantContext
     val tutorialManager = ServiceLocator.tutorialManager
 
-    NavHost(navController = navController, startDestination = Screen.Splash.route) {
+    // Determine if BottomBar should be shown based on current route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != null && currentRoute !in authRoutes
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                BottomNavBar(navController = navController)
+            }
+        },
+        floatingActionButton = {
+            if (showBottomBar) {
+                FloatingActionButton(
+                    onClick = { navController.navigate("add_transaction/expense") },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Default.Add, "Agregar")
+                }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Splash.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
 
         // ── Splash (session gate) ────────────────────────────────────────────
         composable(Screen.Splash.route) {
@@ -348,7 +396,7 @@ fun NavGraph(navController: NavHostController) {
                 viewModel = vm,
                 onHouseholdSelected = { householdId ->
                     tenantContext.setHouseholdId(householdId)
-                    navController.navigate(Screen.Hub.route) {
+                    navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Household.route) { inclusive = true }
                     }
                 },
@@ -361,7 +409,7 @@ fun NavGraph(navController: NavHostController) {
             )
         }
 
-        // ── Hub ────────────────────────────────────────────────────────────
+        // ── Hub (now "Más opciones") ──────────────────────────────────────
         composable(Screen.Hub.route) {
             var hubHouseholdName by remember { mutableStateOf("") }
             val hubHouseholdId = remember { tenantContext.getCurrentHouseholdId() ?: "" }
@@ -653,5 +701,6 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
-    }
+        } // end NavHost
+    } // end Scaffold
 }

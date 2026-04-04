@@ -73,7 +73,8 @@ fun DashboardScreen(
     onTransactionClick: (String) -> Unit,
     onSeeAllClick: () -> Unit,
     onNavigateToCategoryExp: () -> Unit,
-    onNavigateToPersonal: () -> Unit
+    onNavigateToPersonal: () -> Unit,
+    onAddMovement: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
@@ -91,90 +92,100 @@ fun DashboardScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (uiState.isLoading) LoadingOverlay()
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddMovement,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Agregar movimiento")
+            }
+        }
+    ) { scaffoldPadding ->
+        Box(modifier = Modifier.fillMaxSize().padding(scaffoldPadding)) {
+            if (uiState.isLoading) LoadingOverlay()
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // ── Título + botón Mis Cuentas ─────────────────────────────────
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Resumen Financiero",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (onNavigateToPersonal != null) {
-                        OutlinedButton(
-                            onClick = onNavigateToPersonal,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Mis Cuentas", style = MaterialTheme.typography.labelMedium)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // ── Título + botón Mis Cuentas ─────────────────────────────────
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Resumen Financiero",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (onNavigateToPersonal != null) {
+                            OutlinedButton(
+                                onClick = onNavigateToPersonal,
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Mis Cuentas", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
                     }
                 }
-            }
-            // ── Balance ────────────────────────────────────────────────────
-            item {
-                Box(modifier = Modifier.testTag("dashboard_balance")) {
-                    uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+                // ── Balance ────────────────────────────────────────────────────
+                item {
+                    Box(modifier = Modifier.testTag("dashboard_balance")) {
+                        uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+                    }
                 }
-            }
 
-            // ── Gráfico de tendencia ───────────────────────────────────────
-            item {
-                Box(modifier = Modifier.testTag("dashboard_chart")) {
-                    MonthlyChart(monthlyData = uiState.monthlyBalance)
+                // ── Gráfico de tendencia ───────────────────────────────────────
+                item {
+                    Box(modifier = Modifier.testTag("dashboard_chart")) {
+                        MonthlyChart(monthlyData = uiState.monthlyBalance)
+                    }
                 }
-            }
 
-            // ── Gastos por categoría (botón) ───────────────────────────────
-            item {
-                CategoryExpensesButton(onClick = onNavigateToCategoryExp)
-            }
+                // ── Gastos por categoría (botón) ───────────────────────────────
+                item {
+                    CategoryExpensesButton(onClick = onNavigateToCategoryExp)
+                }
 
-            // ── Últimos movimientos ────────────────────────────────────────
-            item {
-                Box(modifier = Modifier.testTag("dashboard_recent")) {
-                    RecentTransactionsList(
-                        transactions = uiState.recentTransactions,
-                        format = clpFormat,
-                        onTransactionClick = onTransactionClick,
-                        onSeeAllClick = onSeeAllClick
-                    )
+                // ── Últimos movimientos ────────────────────────────────────────
+                item {
+                    Box(modifier = Modifier.testTag("dashboard_recent")) {
+                        RecentTransactionsList(
+                            transactions = uiState.recentTransactions,
+                            format = clpFormat,
+                            onTransactionClick = onTransactionClick,
+                            onSeeAllClick = onSeeAllClick
+                        )
+                    }
                 }
             }
-        }
-        // ── Tutorial overlay ────────────────────────────────────────────────────
-        if (showTutorial) {
-            TutorialOverlay(
-                module = TutorialModule.DASHBOARD,
-                onComplete = {
-                    tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
-                    showTutorial = false
-                },
-                onSkip = {
-                    tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
-                    showTutorial = false
-                }
-            )
+            // ── Tutorial overlay ────────────────────────────────────────────────────
+            if (showTutorial) {
+                TutorialOverlay(
+                    module = TutorialModule.DASHBOARD,
+                    onComplete = {
+                        tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
+                        showTutorial = false
+                    },
+                    onSkip = {
+                        tutorialManager.markTutorialCompleted(TutorialModule.DASHBOARD)
+                        showTutorial = false
+                    }
+                )
+            }
         }
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,10 +408,6 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
             val maxAbs = monthlyData.maxOf { kotlin.math.abs(it.net) }.takeIf { it > 0L } ?: 1L
 
             // ── FIX: Altura mínima para barras con datos ──────────────────
-            // Cuando un mes tiene movimientos pero su valor neto es muy pequeño
-            // en comparación con el máximo, la barra era invisible (ej. $1.410
-            // vs $716.361 → 0.2% de altura). Ahora garantizamos una altura
-            // mínima de 8px para que siempre sea visible y clickeable.
             val MIN_BAR_HEIGHT = 8f
 
             Canvas(

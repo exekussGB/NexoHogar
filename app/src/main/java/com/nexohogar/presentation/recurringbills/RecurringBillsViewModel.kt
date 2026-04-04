@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
@@ -126,10 +127,32 @@ class RecurringBillsViewModel(
         paidInstallments: Int? = null
     ) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
+
+        val trimmedName = name.trim()
+        if (trimmedName.isBlank()) {
+            _uiState.update { it.copy(createError = "El nombre es obligatorio") }
+            return
+        }
+        if (trimmedName.length > 100) {
+            _uiState.update { it.copy(createError = "El nombre es demasiado largo (máx. 100 caracteres)") }
+            return
+        }
+        val sanitizedName = InputSanitizer.sanitizeText(trimmedName, 100)
+
+        if (amountClp <= 0 || amountClp > 999_999_999) {
+            _uiState.update { it.copy(createError = "Ingresa un monto válido mayor a 0") }
+            return
+        }
+
+        if (dueDayOfMonth < 1 || dueDayOfMonth > 31) {
+            _uiState.update { it.copy(createError = "El día de vencimiento debe estar entre 1 y 31") }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, createError = null) }
             when (val result = repository.createRecurringBill(
-                householdId, name, amountClp, dueDayOfMonth, notes,
+                householdId, sanitizedName, amountClp, dueDayOfMonth, notes,
                 totalInstallments, paidInstallments
             )) {
                 is AppResult.Success -> {
@@ -167,11 +190,35 @@ class RecurringBillsViewModel(
         paidInstallments: Int? = null
     ) {
         val bill = _uiState.value.billToEdit ?: return
+
+        val sanitizedName = if (name != null) {
+            val trimmedName = name.trim()
+            if (trimmedName.isBlank()) {
+                _uiState.update { it.copy(updateError = "El nombre es obligatorio") }
+                return
+            }
+            if (trimmedName.length > 100) {
+                _uiState.update { it.copy(updateError = "El nombre es demasiado largo (máx. 100 caracteres)") }
+                return
+            }
+            InputSanitizer.sanitizeText(trimmedName, 100)
+        } else null
+
+        if (amountClp != null && (amountClp <= 0 || amountClp > 999_999_999)) {
+            _uiState.update { it.copy(updateError = "Ingresa un monto válido mayor a 0") }
+            return
+        }
+
+        if (dueDayOfMonth != null && (dueDayOfMonth < 1 || dueDayOfMonth > 31)) {
+            _uiState.update { it.copy(updateError = "El día de vencimiento debe estar entre 1 y 31") }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdating = true, updateError = null) }
             when (val result = repository.updateRecurringBill(
                 billId            = bill.id,
-                name              = name,
+                name              = sanitizedName,
                 amountClp         = amountClp,
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
