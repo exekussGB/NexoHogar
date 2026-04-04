@@ -5,6 +5,7 @@ import android.content.Context
 import com.nexohogar.BuildConfig
 import com.nexohogar.core.network.AuthInterceptor
 import com.nexohogar.core.network.SupabaseConfig
+import com.nexohogar.core.session.SessionRefresher
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
@@ -46,6 +47,11 @@ object ServiceLocator {
         TenantContext(sessionManager)
     }
 
+    // ── FIX-SESSION-05: SessionRefresher (lifecycle-aware token refresh) ──────
+    val sessionRefresher: SessionRefresher by lazy {
+        SessionRefresher(sessionManager)
+    }
+
     // ── Tutorial ──────────────────────────────────────────────────────────
     val tutorialManager: TutorialManager by lazy {
         TutorialManager(context)
@@ -68,27 +74,18 @@ object ServiceLocator {
 
     /**
      * SEC-07: Certificate pinning para Supabase.
-     * Se fija al certificado intermedio (Google Trust Services WE1) y al root (GTS Root R4)
-     * para tolerar rotación del certificado leaf.
-     *
-     * ⚠️ Si Supabase cambia de CA, estos pins deberán actualizarse.
-     * Revisar periódicamente con:
-     *   openssl s_client -servername <host> -connect <host>:443 -showcerts
      */
     private val certificatePinner: CertificatePinner by lazy {
         val supabaseHost = SupabaseConfig.BASE_URL
             .removePrefix("https://")
             .removeSuffix("/")
         CertificatePinner.Builder()
-            // Intermediate: Google Trust Services WE1
             .add(supabaseHost, "sha256/kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=")
-            // Root: GTS Root R4
             .add(supabaseHost, "sha256/mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=")
             .build()
     }
 
     private val okHttpClient: OkHttpClient by lazy {
-        // SEC-04: Solo loguear body HTTP en debug, NONE en release
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -99,12 +96,11 @@ object ServiceLocator {
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .certificatePinner(certificatePinner) // SEC-07
+            .certificatePinner(certificatePinner)
             .build()
     }
 
     private val retrofit: Retrofit by lazy {
-        // SEC-01: Usar SupabaseConfig.BASE_URL en lugar de URL hardcodeada
         Retrofit.Builder()
             .baseUrl(SupabaseConfig.BASE_URL)
             .client(okHttpClient)

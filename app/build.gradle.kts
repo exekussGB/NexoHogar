@@ -110,6 +110,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
 
     // ── WorkManager (notificaciones en background) ────────────────────────
     implementation("androidx.work:work-runtime-ktx:2.9.0")

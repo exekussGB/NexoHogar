@@ -14,108 +14,119 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import java.util.concurrent.TimeUnit
 
 /**
  * Interceptor encargado de:
  * 1. Inyectar los headers de Supabase y el JWT en cada petición.
  * 2. Verificar PROACTIVAMENTE si el token está por expirar y refrescarlo
- *    ANTES de enviar la request (evita el primer fallo tras 1 hora).
- * 3. Si la respuesta es 401, refrescar el token y reintentar (fallback).
+ *    ANTES de enviar la request.
+ * 3. Si la respuesta es 401, refrescar el token y reintentar (fallback reactivo).
  * 4. Si el refresh falla POR EL SERVIDOR (token revocado/expirado), limpiar
  *    la sesión para forzar re-login.
  *
- * Bug corregido v1 (race condition):
- * [refreshLock] garantiza que solo UNO refresca a la vez.
+ * FIX-SESSION-05: Resultado sellado (RefreshResult) para distinguir entre
+ *   éxito, rechazo del servidor y error de red. Solo clearSession() en rechazo.
  *
- * Bug corregido v2 (401 reactivo incorrecto):
- * Se guarda el token usado en la request y se compara con el token actual.
+ * FIX-SESSION-06: Retry con exponential backoff en tryRefreshToken().
+ *   3 intentos: 0s → 1s → 2s. Evita logout por error de red transitorio.
  *
- * Bug corregido v3 (clearSession en error de red):
- * Excepciones de red devuelven el token actual (no null).
+ * FIX-SESSION-07: refreshClient tiene timeouts explícitos (15s connect, 15s read)
+ *   para evitar bloqueos indefinidos en el refresh.
  */
 class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor {
 
     companion object {
         private const val TAG = "AuthInterceptor"
+        private const val MAX_REFRESH_RETRIES = 3
+        private val RETRY_DELAYS_MS = longArrayOf(0, 1000, 2000)
     }
 
-    /** Cliente HTTP separado SIN AuthInterceptor para evitar bucle infinito en refresh. */
+    // ── Resultado sellado para el refresh ────────────────────────────────
+    sealed class RefreshResult {
+        data class Success(val accessToken: String) : RefreshResult()
+        object ServerRejected : RefreshResult()
+        data class NetworkError(val message: String) : RefreshResult()
+    }
+
+    /** Cliente HTTP separado SIN AuthInterceptor para evitar bucle infinito. */
     private val refreshClient: OkHttpClient by lazy {
-        OkHttpClient.Builder().build()
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .build()
     }
 
     private val gson = Gson()
-
-    /**
-     * Mutex que serializa todos los intentos de refresh.
-     * Solo un hilo puede refrescar a la vez; los demás esperan.
-     */
     private val refreshLock = Any()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        // ── 1. Proactive refresh ──────────────────────────────────────────────
-        // Si el token está expirado o a punto de expirar (margen 2 min),
-        // refrescamos ANTES de enviar.
-        val isExpired = sessionManager.isTokenExpired()
-        if (isExpired) {
+        // ── 1. Proactive refresh ──────────────────────────────────────────
+        if (sessionManager.isTokenExpired()) {
             Log.d(TAG, "⏰ Token expirado/por expirar → proactive refresh")
             synchronized(refreshLock) {
-                // Double-check: otro hilo puede haber refrescado mientras esperábamos.
                 if (sessionManager.isTokenExpired()) {
-                    val result = tryRefreshToken()
-                    Log.d(TAG, "⏰ Proactive refresh result: ${if (result != null) "✅ OK" else "❌ FAILED"}")
+                    val result = tryRefreshTokenWithRetry()
+                    when (result) {
+                        is RefreshResult.Success ->
+                            Log.d(TAG, "⏰ Proactive refresh: ✅ OK")
+                        is RefreshResult.ServerRejected ->
+                            Log.d(TAG, "⏰ Proactive refresh: ❌ Servidor rechazó refresh_token")
+                        is RefreshResult.NetworkError ->
+                            Log.d(TAG, "⏰ Proactive refresh: ⚠️ Error de red (${result.message})")
+                    }
                 } else {
                     Log.d(TAG, "⏰ Otro hilo ya refrescó el token")
                 }
             }
         }
 
-        // ── 2. Enviar request con el token actual ─────────────────────────────
-        // Guardamos el token exacto que usamos para poder compararlo luego.
+        // ── 2. Enviar request con el token actual ─────────────────────────
         val tokenUsedForRequest = sessionManager.fetchAuthToken()
         val response = chain.proceed(originalRequest.withAuthHeaders(tokenUsedForRequest))
 
-        // ── 3. Reactive refresh en caso de 401 ───────────────────────────────
+        // ── 3. Reactive refresh en caso de 401 ───────────────────────────
         if (response.code == 401) {
             Log.d(TAG, "🔴 Server respondió 401 para ${originalRequest.url.encodedPath}")
             response.close()
 
-            val newToken = synchronized(refreshLock) {
+            val reactiveResult = synchronized(refreshLock) {
                 val currentToken = sessionManager.fetchAuthToken()
                 if (currentToken != tokenUsedForRequest && currentToken != null) {
-                    // Otro hilo ya refrescó el token mientras esperábamos el lock.
                     Log.d(TAG, "🔄 Token ya fue refrescado por otro hilo")
-                    currentToken
+                    RefreshResult.Success(currentToken)
                 } else {
-                    // El token no cambió: el servidor rechazó este token → refresh.
                     Log.d(TAG, "🔄 Intentando refresh reactivo...")
-                    val result = tryRefreshToken()
-                    Log.d(TAG, "🔄 Reactive refresh result: ${if (result != null) "✅ OK" else "❌ FAILED"}")
-                    result
+                    tryRefreshTokenWithRetry()
                 }
             }
 
-            if (newToken != null) {
-                Log.d(TAG, "🟢 Reintentando request con token nuevo")
-                return chain.proceed(originalRequest.withAuthHeaders(newToken))
+            return when (reactiveResult) {
+                is RefreshResult.Success -> {
+                    Log.d(TAG, "🟢 Reintentando request con token nuevo")
+                    chain.proceed(originalRequest.withAuthHeaders(reactiveResult.accessToken))
+                }
+                is RefreshResult.ServerRejected -> {
+                    Log.d(TAG, "🔴 Refresh rechazado → clearSession → login")
+                    sessionManager.clearSession()
+                    syntheticUnauthorizedResponse(originalRequest)
+                }
+                is RefreshResult.NetworkError -> {
+                    // NO limpiar sesión — el refresh_token sigue válido
+                    Log.d(TAG, "⚠️ Red no disponible — 401 sin limpiar sesión")
+                    syntheticUnauthorizedResponse(originalRequest)
+                }
             }
-
-            // Refresh falló definitivamente (servidor rechazó el refresh_token).
-            Log.d(TAG, "🔴 Refresh falló → clearSession → redirigir a login")
-            sessionManager.clearSession()
-            return syntheticUnauthorizedResponse(originalRequest)
         }
 
         return response
     }
 
-    // ───────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ───────────────────────────────────────────────────────────────────────────
+    // ───────────────────────────────────────────────────────────────────────
 
-    /** Añade los headers de Supabase y el Bearer token a la request. */
     private fun Request.withAuthHeaders(token: String?): Request {
         val builder = newBuilder()
             .header("apikey", SupabaseConfig.API_KEY)
@@ -127,21 +138,41 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
     }
 
     /**
-     * Intenta renovar la sesión usando el refresh_token almacenado.
-     * Usa [refreshClient] (sin el AuthInterceptor) para evitar bucles.
-     *
-     * @return el nuevo access_token si el refresh fue exitoso,
-     *         el token actual si hubo error de RED (para no destruir la sesión),
-     *         null solo si el SERVIDOR rechazó el refresh_token (sesión inválida).
+     * FIX-SESSION-06: Retry con exponential backoff.
      */
-    private fun tryRefreshToken(): String? {
+    private fun tryRefreshTokenWithRetry(): RefreshResult {
+        var lastResult: RefreshResult = RefreshResult.NetworkError("No se intentó")
+
+        for (attempt in 0 until MAX_REFRESH_RETRIES) {
+            if (attempt > 0) {
+                val delayMs = RETRY_DELAYS_MS.getOrElse(attempt) { 2000L }
+                Log.d(TAG, "🔄 Retry #$attempt tras ${delayMs}ms...")
+                try { Thread.sleep(delayMs) } catch (_: InterruptedException) { break }
+            }
+
+            lastResult = tryRefreshToken()
+            when (lastResult) {
+                is RefreshResult.Success -> return lastResult
+                is RefreshResult.ServerRejected -> return lastResult // no tiene sentido reintentar
+                is RefreshResult.NetworkError -> continue
+            }
+        }
+
+        Log.d(TAG, "❌ Refresh falló tras $MAX_REFRESH_RETRIES intentos: $lastResult")
+        return lastResult
+    }
+
+    /**
+     * Un solo intento de refresh. Retorna RefreshResult sellado.
+     */
+    private fun tryRefreshToken(): RefreshResult {
         val refreshToken = sessionManager.fetchRefreshToken()
         if (refreshToken == null) {
             Log.d(TAG, "❌ No hay refresh_token almacenado")
-            return null
+            return RefreshResult.ServerRejected
         }
 
-        Log.d(TAG, "🔑 Enviando refresh_token a Supabase (${refreshToken.take(8)}...)")
+        Log.d(TAG, "🔑 Enviando refresh_token (${refreshToken.take(8)}...)")
 
         return try {
             val bodyJson = gson.toJson(mapOf("refresh_token" to refreshToken))
@@ -160,15 +191,16 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                 val responseBody = response.body?.string()
                 if (responseBody == null) {
                     Log.d(TAG, "❌ Refresh response body es null")
-                    return null
+                    return RefreshResult.ServerRejected
                 }
                 val loginResponse = gson.fromJson(responseBody, LoginResponse::class.java)
                 var newSession = loginResponse.toDomain()
 
-                // Fallback: si toDomain() falla (user object ausente en la respuesta de refresh),
-                // reconstruimos la sesión con los tokens nuevos + userId/email almacenados.
-                // Esto ocurre cuando Supabase no incluye el objeto `user` en el refresh response.
-                if (newSession == null && loginResponse.accessToken != null && loginResponse.refreshToken != null) {
+                // Fallback: user object puede no venir en respuesta de refresh
+                if (newSession == null &&
+                    loginResponse.accessToken != null &&
+                    loginResponse.refreshToken != null
+                ) {
                     val stored = sessionManager.fetchSession()
                     if (stored != null) {
                         val expSec = loginResponse.expiresIn ?: 3600L
@@ -179,35 +211,29 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
                             email        = loginResponse.user?.email ?: stored.email,
                             expiresAt    = System.currentTimeMillis() + (expSec * 1000L)
                         )
-                        Log.d(TAG, "🔄 Refresh: toDomain() usó fallback con userId/email de sesión almacenada")
+                        Log.d(TAG, "🔄 Fallback con userId/email almacenados")
                     }
                 }
 
                 if (newSession == null) {
-                    Log.d(TAG, "❌ toDomain() retornó null — accessToken=${loginResponse.accessToken != null}, refreshToken=${loginResponse.refreshToken != null}, user=${loginResponse.user != null}, userId=${loginResponse.user?.id != null}, email=${loginResponse.user?.email != null}")
-                    return null
+                    Log.d(TAG, "❌ toDomain() retornó null")
+                    return RefreshResult.ServerRejected
                 }
+
                 sessionManager.saveSession(newSession)
-                Log.d(TAG, "✅ Token refrescado OK — expira en ${loginResponse.expiresIn}s, nuevo refresh=${newSession.refreshToken.take(8)}...")
-                newSession.accessToken
+                Log.d(TAG, "✅ Token refrescado — expira en ${loginResponse.expiresIn}s")
+                RefreshResult.Success(newSession.accessToken)
             } else {
-                // El servidor rechazó el refresh_token (expirado/revocado).
                 val errorBody = response.body?.string() ?: "sin body"
                 Log.d(TAG, "❌ Servidor rechazó refresh: HTTP ${response.code} — $errorBody")
-                null
+                RefreshResult.ServerRejected
             }
         } catch (e: Exception) {
-            // Error de RED temporal (WiFi reconectando, timeout, etc.).
-            // NO limpiar la sesión — el refresh_token sigue siendo válido.
-            Log.d(TAG, "⚠️ Error de red en refresh (no se limpia sesión): ${e.message}")
-            sessionManager.fetchAuthToken()
+            Log.d(TAG, "⚠️ Error de red en refresh: ${e.message}")
+            RefreshResult.NetworkError(e.message ?: "Unknown")
         }
     }
 
-    /**
-     * Construye una respuesta 401 sintética sin necesidad de hacer una
-     * petición de red adicional.
-     */
     private fun syntheticUnauthorizedResponse(request: Request): Response =
         Response.Builder()
             .request(request)
