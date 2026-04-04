@@ -2,23 +2,22 @@ package com.nexohogar.core.util
 
 import android.util.Patterns
 
-/**
- * Utilidad centralizada para sanitización de inputs.
- * Referencia: nexohogar_report.md — Sección F.2 (Fix #1 prioritario)
- */
 object InputSanitizer {
+    private val DANGEROUS_CHARS = Regex("""[<>"'`;\{\}\[\]\\]""")
+
     fun sanitizeText(input: String, maxLength: Int = 200): String {
         return input
             .trim()
             .take(maxLength)
-            .replace(Regex("[<>\"'\`;{}\\[\\]\\\\]"), "")
-            .replace(Regex("\\s+"), " ") // Normalizar espacios
+            .replace(DANGEROUS_CHARS, "")
+            .replace(Regex("""\s+"""), " ")
     }
 
-    fun sanitizeAmount(input: String): Double? {
+    fun sanitizeAmount(input: String): Long? {
         val cleaned = input.trim().replace(",", ".")
         val value = cleaned.toDoubleOrNull() ?: return null
-        return if (value > 0 && value <= 999_999_999) value else null
+        if (value <= 0 || value > 999_999_999) return null
+        return value.toLong()
     }
 
     fun sanitizeUrl(input: String): String? {

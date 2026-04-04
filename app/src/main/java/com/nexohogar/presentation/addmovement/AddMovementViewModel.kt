@@ -201,7 +201,7 @@ class AddMovementViewModel(
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
 
         val amountLong = InputSanitizer.sanitizeAmount(state.amount)
-        if (amountLong == null || amountLong <= 0 || amountLong > 999_999_999) {
+        if (amountLong == null) {
             _uiState.update { it.copy(error = "Ingresa un monto válido mayor a 0") }
             return
         }

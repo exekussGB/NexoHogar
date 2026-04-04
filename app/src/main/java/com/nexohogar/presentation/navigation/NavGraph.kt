@@ -161,7 +161,12 @@ fun NavGraph(navController: NavHostController) {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                BottomNavBar(navController = navController)
+                NexoHogarBottomNavBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } },
+                    onAddExpense = { navController.navigate("add_transaction/expense") },
+                    onShowTransactionTypeDialog = { /* TODO: show type picker dialog */ }
+                )
             }
         },
         floatingActionButton = {
