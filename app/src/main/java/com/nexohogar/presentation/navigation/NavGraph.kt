@@ -1,5 +1,7 @@
 package com.nexohogar.presentation.navigation
 
+import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,8 +28,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
+import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.session.RefreshResult
 import com.nexohogar.core.session.TokenRefreshCoordinator
+import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 // RED-01: Import desde addmovement (paquete no deprecado)
@@ -34,6 +43,11 @@ import com.nexohogar.presentation.categoryexpenses.CategoryExpensesScreen
 import com.nexohogar.presentation.categoryexpenses.CategoryExpensesViewModel
 import com.nexohogar.presentation.dashboard.DashboardScreen
 import com.nexohogar.presentation.dashboard.DashboardViewModel
+import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
+import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
+import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
+import com.nexohogar.presentation.forgotpassword.VerifyOtpScreen
+import com.nexohogar.presentation.household.DeleteHouseholdViewModel
 import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
@@ -41,8 +55,6 @@ import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.HubScreen
 import com.nexohogar.presentation.inventory.InventoryScreen
 import com.nexohogar.presentation.inventory.InventoryViewModel
-import com.nexohogar.presentation.wishlist.WishlistScreen
-import com.nexohogar.presentation.wishlist.WishlistViewModel
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
 import com.nexohogar.presentation.invitemember.InviteMemberViewModel
 import com.nexohogar.presentation.login.LoginScreen
@@ -53,27 +65,16 @@ import com.nexohogar.presentation.recurringbills.RecurringBillsScreen
 import com.nexohogar.presentation.recurringbills.RecurringBillsViewModel
 import com.nexohogar.presentation.register.RegisterScreen
 import com.nexohogar.presentation.register.RegisterViewModel
+import com.nexohogar.presentation.scanner.ReceiptScannerScreen
+import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
 import com.nexohogar.presentation.settings.SettingsScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailScreen
 import com.nexohogar.presentation.transactiondetail.TransactionDetailViewModel
 import com.nexohogar.presentation.transactions.TransactionsScreen
 import com.nexohogar.presentation.transactions.TransactionsViewModel
-import com.nexohogar.presentation.scanner.ReceiptScannerScreen
-import com.nexohogar.presentation.scanner.ReceiptScannerViewModel
-import androidx.compose.runtime.remember
-import com.nexohogar.presentation.forgotpassword.ForgotPasswordScreen
-import com.nexohogar.presentation.forgotpassword.ForgotPasswordViewModel
-import com.nexohogar.presentation.forgotpassword.ResetPasswordScreen
-import android.net.Uri
-import com.nexohogar.presentation.forgotpassword.VerifyOtpScreen
-import com.nexohogar.presentation.household.DeleteHouseholdViewModel
-import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialListScreen
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import com.nexohogar.core.result.AppResult
+import com.nexohogar.presentation.wishlist.WishlistScreen
+import com.nexohogar.presentation.wishlist.WishlistViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -135,48 +136,113 @@ fun NavGraph(navController: NavHostController) {
 
         // ── Splash (session gate) ────────────────────────────────────────────
         composable(Screen.Splash.route) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Cargando...", style = MaterialTheme.typography.bodyMedium)
+            // State for showing retry UI on network error
+            var showNetworkError by remember { mutableStateOf(false) }
+            var isRetrying by remember { mutableStateOf(false) }
+
+            if (showNetworkError) {
+                // Network error screen with retry button
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("😕", style = MaterialTheme.typography.displayMedium)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Sin conexión", style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "No se pudo verificar tu sesión.\nRevisa tu conexión a internet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                showNetworkError = false
+                                isRetrying = true
+                            },
+                            enabled = !isRetrying
+                        ) {
+                            Text(if (isRetrying) "Reintentando..." else "Reintentar")
+                        }
+                    }
+                }
+            } else {
+                // Loading spinner
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Cargando...", style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
 
-            LaunchedEffect(Unit) {
+            // Key on isRetrying to re-trigger the effect on retry
+            LaunchedEffect(isRetrying) {
+                // Reset flag
+                if (isRetrying) isRetrying = false
+
                 val session = sessionManager.fetchSession()
                 if (session == null) {
-                    // No session at all → login
+                    Log.d("Splash", "❌ No session found → Login")
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                     return@LaunchedEffect
                 }
 
-                // Try to refresh if expired
-                if (sessionManager.isTokenExpired()) {
+                if (!sessionManager.isTokenExpired()) {
+                    Log.d("Splash", "✅ Token still valid → Household")
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                    return@LaunchedEffect
+                }
+
+                // Token expired — try to refresh with retries
+                Log.d("Splash", "⏰ Token expired — attempting refresh...")
+                var lastResult: RefreshResult? = null
+                val maxAttempts = 3
+
+                for (attempt in 1..maxAttempts) {
+                    Log.d("Splash", "🔄 Splash refresh attempt $attempt/$maxAttempts")
                     val result = withContext(Dispatchers.IO) {
                         TokenRefreshCoordinator.refresh(sessionManager)
                     }
-                    if (!result.isSuccess) {
-                        // Refresh failed → clean up and go to login
-                        if (result is RefreshResult.ServerRejected) {
-                            sessionManager.clearSession()
+                    lastResult = result
+
+                    if (result.isSuccess) {
+                        Log.d("Splash", "✅ Refresh succeeded on attempt $attempt → Household")
+                        navController.navigate(Screen.Household.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
                         }
+                        return@LaunchedEffect
+                    }
+
+                    if (result is RefreshResult.ServerRejected) {
+                        Log.d("Splash", "❌ Server rejected on attempt $attempt → Login")
+                        sessionManager.clearSession()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
                         return@LaunchedEffect
                     }
+
+                    // NetworkError — wait and retry
+                    if (attempt < maxAttempts) {
+                        Log.d("Splash", "⚠️ Network error on attempt $attempt — retrying in 2s...")
+                        kotlinx.coroutines.delay(2000L)
+                    }
                 }
 
-                // Token valid → go to household
-                navController.navigate(Screen.Household.route) {
-                    popUpTo(Screen.Splash.route) { inclusive = true }
-                }
+                // All attempts failed with NetworkError — show retry UI (don't go to Login!)
+                Log.d("Splash", "⚠️ All $maxAttempts attempts failed — showing network error UI")
+                showNetworkError = true
             }
         }
 

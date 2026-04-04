@@ -26,7 +26,13 @@ class HouseholdRepositoryImpl(
                 } ?: emptyList()
                 AppResult.Success(households)
             } else {
-                AppResult.Error("Error al obtener hogares: ${response.code()}")
+                // BUG 4 FIX: Propagate synthetic 401 message from AuthInterceptor
+                val msg = response.message()
+                if (response.code() == 401 && msg.contains("session expired", ignoreCase = true)) {
+                    AppResult.Error("Unauthorized - session expired")
+                } else {
+                    AppResult.Error("Error al obtener hogares: ${response.code()}")
+                }
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
