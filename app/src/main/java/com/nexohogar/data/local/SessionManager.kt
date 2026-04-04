@@ -6,52 +6,29 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.nexohogar.domain.model.UserSession
+import java.io.File
 
-/**
- * Clase encargada de gestionar la persistencia de la sesión del usuario.
- * SEC-02: Migrado a EncryptedSharedPreferences para cifrar tokens en reposo.
- *
- * FIX-SESSION-01: expiresAt se almacena como String para evitar el bug conocido
- *   de EncryptedSharedPreferences con getLong() en security-crypto:1.0.x.
- *   Ver: https://issuetracker.google.com/issues/164901843
- *
- * FIX-SESSION-02: saveSession() usa commit() (síncrono) para garantizar que los
- *   tokens se persisten en disco antes de continuar, evitando pérdida de datos
- *   si el proceso es terminado inmediatamente después.
- *
- * FIX-SESSION-03: isTokenExpired() trata expiresAt == 0L como token potencialmente
- *   expirado (en lugar de "no expirado"), forzando un refresh proactivo. Esto cubre
- *   la migración de sesiones antiguas y el caso edge donde expiresAt no fue guardado.
- *
- * FIX-SESSION-04: createEncryptedPrefs() tiene manejo de error robusto. Si el
- *   AndroidKeyStore invalida la clave (post-update, cambio de biometría, etc.),
- *   se limpian las prefs corruptas y se recrean en lugar de crashear.
- */
 class SessionManager(context: Context) {
-    private val prefs: SharedPreferences = createEncryptedPrefs(context)
+    private val appContext = context.applicationContext
+    private val prefs: SharedPreferences = createEncryptedPrefs(appContext)
 
     companion object {
         private const val TAG = "SessionManager"
-        private const val PREFS_NAME            = "NexoHogarSecurePrefs"
-        private const val ACCESS_TOKEN          = "access_token"
-        private const val REFRESH_TOKEN         = "refresh_token"
-        private const val USER_ID               = "user_id"
-        private const val USER_EMAIL            = "user_email"
-        // FIX-SESSION-01: nueva clave para almacenamiento como String
-        private const val EXPIRES_AT_STR        = "expires_at_str"
+        private const val PREFS_NAME = "NexoHogarSecurePrefs"
+        private const val ACCESS_TOKEN = "access_token"
+        private const val REFRESH_TOKEN = "refresh_token"
+        private const val USER_ID = "user_id"
+        private const val USER_EMAIL = "user_email"
+        private const val EXPIRES_AT_STR = "expires_at_str"
         private const val SELECTED_HOUSEHOLD_ID = "selected_household_id"
-
-        /** Margen de seguridad: considera expirado si faltan menos de 5 minutos. */
         private const val EXPIRY_MARGIN_MS = 5 * 60 * 1000L
+        private const val BACKUP_FILENAME = "session_backup.dat"
 
         private fun createEncryptedPrefs(context: Context): SharedPreferences {
-            // FIX-SESSION-04: manejo robusto de errores en inicialización
             return try {
                 buildEncryptedPrefs(context)
             } catch (e: Exception) {
-                Log.w(TAG, "EncryptedSharedPreferences init falló (${e.message}). " +
-                        "Intentando recuperar borrando prefs corruptas…")
-                // Borrar el archivo de prefs corruptas y el alias de keystore
+                Log.w(TAG, "EncryptedSharedPreferences init failed (${e.message}). Recovering...")
                 try {
                     context.deleteSharedPreferences(PREFS_NAME)
                     val ks = java.security.KeyStore.getInstance("AndroidKeyStore")
@@ -60,15 +37,12 @@ class SessionManager(context: Context) {
                         ks.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
                     }
                 } catch (cleanupEx: Exception) {
-                    Log.e(TAG, "Error limpiando prefs corruptas: ${cleanupEx.message}")
+                    Log.e(TAG, "Cleanup error: ${cleanupEx.message}")
                 }
-                // Segundo intento tras la limpieza
                 try {
                     buildEncryptedPrefs(context)
                 } catch (retryEx: Exception) {
-                    Log.e(TAG, "EncryptedSharedPreferences no pudo inicializarse, " +
-                            "usando SharedPreferences planas como fallback de emergencia. " +
-                            "Los tokens NO estarán cifrados en este dispositivo.")
+                    Log.e(TAG, "EncryptedSharedPreferences unrecoverable, using plain fallback")
                     context.getSharedPreferences("${PREFS_NAME}_fallback", Context.MODE_PRIVATE)
                 }
             }
@@ -79,119 +53,196 @@ class SessionManager(context: Context) {
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
             return EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
+                context, PREFS_NAME, masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         }
     }
 
-    /**
-     * Guarda la sesión completa del usuario usando el modelo de Dominio.
-     * FIX-SESSION-02: usa commit() para escritura síncrona y confiable.
-     */
-    fun saveSession(session: UserSession) {
-        prefs.edit().apply {
-            putString(ACCESS_TOKEN,     session.accessToken)
-            putString(REFRESH_TOKEN,    session.refreshToken)
-            putString(USER_ID,          session.userId)
-            putString(USER_EMAIL,       session.email)
-            // FIX-SESSION-01: almacenar expiresAt como String
-            putString(EXPIRES_AT_STR,   session.expiresAt.toString())
-            commit()  // síncrono — garantiza persistencia antes de continuar
+    // ── Backup file I/O ────────────────────────────────────────────────────
+    // Simple line-based file: refreshToken|userId|email|accessToken|expiresAt
+
+    private fun saveToBackup(session: UserSession) {
+        try {
+            val file = File(appContext.filesDir, BACKUP_FILENAME)
+            val data = listOf(
+                session.refreshToken,
+                session.userId,
+                session.email,
+                session.accessToken,
+                session.expiresAt.toString()
+            ).joinToString("|")
+            file.writeText(data)
+            Log.d(TAG, "📁 Backup saved OK")
+        } catch (e: Exception) {
+            Log.e(TAG, "📁 Backup save failed: ${e.message}")
         }
     }
 
-    /**
-     * Recupera la sesión actual y la mapea al modelo de Dominio.
-     * Retorna null si no hay un token de acceso persistido.
-     */
+    private fun readFromBackup(): UserSession? {
+        return try {
+            val file = File(appContext.filesDir, BACKUP_FILENAME)
+            if (!file.exists()) return null
+            val parts = file.readText().split("|")
+            if (parts.size < 5) return null
+            val refreshToken = parts[0]
+            val userId = parts[1]
+            val email = parts[2]
+            val accessToken = parts[3]
+            val expiresAt = parts[4].toLongOrNull() ?: 0L
+            if (refreshToken.isBlank() || accessToken.isBlank()) return null
+            Log.d(TAG, "📁 Backup read OK (token ${accessToken.take(8)}...)")
+            UserSession(accessToken, refreshToken, userId, email, expiresAt)
+        } catch (e: Exception) {
+            Log.e(TAG, "📁 Backup read failed: ${e.message}")
+            null
+        }
+    }
+
+    private fun clearBackup() {
+        try {
+            File(appContext.filesDir, BACKUP_FILENAME).delete()
+        } catch (_: Exception) {}
+    }
+
+    // ── Core session operations ────────────────────────────────────────────
+
+    fun saveSession(session: UserSession) {
+        // Write to EncryptedSharedPreferences
+        val success = try {
+            prefs.edit().apply {
+                putString(ACCESS_TOKEN, session.accessToken)
+                putString(REFRESH_TOKEN, session.refreshToken)
+                putString(USER_ID, session.userId)
+                putString(USER_EMAIL, session.email)
+                putString(EXPIRES_AT_STR, session.expiresAt.toString())
+            }.commit()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ EncryptedPrefs commit threw: ${e.message}")
+            false
+        }
+
+        if (!success) {
+            Log.w(TAG, "⚠️ EncryptedPrefs commit() returned false — data may not be persisted!")
+        }
+
+        // Verify write
+        try {
+            val readBack = prefs.getString(REFRESH_TOKEN, null)
+            if (readBack != session.refreshToken) {
+                Log.e(TAG, "❌ VERIFY FAILED: refresh_token not persisted! readBack=${readBack?.take(8)}, expected=${session.refreshToken.take(8)}")
+            } else {
+                Log.d(TAG, "✅ Session saved & verified (token ${session.accessToken.take(8)}..., expires ${session.expiresAt})")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Verify read threw: ${e.message}")
+        }
+
+        // Always save to backup file
+        saveToBackup(session)
+    }
+
     fun fetchSession(): UserSession? {
-        val token   = prefs.getString(ACCESS_TOKEN, null) ?: return null
-        val refresh = prefs.getString(REFRESH_TOKEN, "") ?: ""
-        val id      = prefs.getString(USER_ID, "") ?: ""
-        val email   = prefs.getString(USER_EMAIL, "") ?: ""
-        val expires = prefs.getString(EXPIRES_AT_STR, null)?.toLongOrNull() ?: 0L
+        // Try EncryptedSharedPreferences first
+        val fromPrefs = try {
+            val token = prefs.getString(ACCESS_TOKEN, null)
+            if (token == null) {
+                Log.d(TAG, "fetchSession: no access_token in prefs")
+                null
+            } else {
+                val refresh = prefs.getString(REFRESH_TOKEN, "") ?: ""
+                val id = prefs.getString(USER_ID, "") ?: ""
+                val email = prefs.getString(USER_EMAIL, "") ?: ""
+                val expires = prefs.getString(EXPIRES_AT_STR, null)?.toLongOrNull() ?: 0L
+                UserSession(token, refresh, id, email, expires)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ fetchSession from prefs threw: ${e.message}")
+            null
+        }
 
-        return UserSession(
-            accessToken  = token,
-            refreshToken = refresh,
-            userId       = id,
-            email        = email,
-            expiresAt    = expires
-        )
+        if (fromPrefs != null && fromPrefs.refreshToken.isNotBlank()) {
+            return fromPrefs
+        }
+
+        // Fallback to backup
+        Log.w(TAG, "⚠️ Prefs returned null/empty — trying backup file")
+        val fromBackup = readFromBackup()
+        if (fromBackup != null) {
+            Log.w(TAG, "📁 Recovered session from backup! Re-saving to prefs...")
+            // Try to re-save to prefs so next read works normally
+            try {
+                prefs.edit().apply {
+                    putString(ACCESS_TOKEN, fromBackup.accessToken)
+                    putString(REFRESH_TOKEN, fromBackup.refreshToken)
+                    putString(USER_ID, fromBackup.userId)
+                    putString(USER_EMAIL, fromBackup.email)
+                    putString(EXPIRES_AT_STR, fromBackup.expiresAt.toString())
+                }.commit()
+            } catch (_: Exception) {}
+        }
+        return fromBackup
     }
 
-    /**
-     * Método de conveniencia para el Interceptor de red.
-     */
     fun fetchAuthToken(): String? {
-        return prefs.getString(ACCESS_TOKEN, null)
+        return try {
+            prefs.getString(ACCESS_TOKEN, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ fetchAuthToken threw: ${e.message}")
+            readFromBackup()?.accessToken
+        }
     }
 
-    /**
-     * Retorna true si el token de acceso ya expiró o está a punto de expirar.
-     *
-     * FIX-SESSION-03: si expiresAt == 0 (nunca guardado o migración desde formato
-     * antiguo) Y hay un token, se considera potencialmente expirado para forzar
-     * un refresh proactivo. Esto es seguro: si el token sigue siendo válido en el
-     * servidor, el refresh simplemente devuelve uno nuevo sin interrumpir al usuario.
-     */
     fun isTokenExpired(): Boolean {
-        val token     = prefs.getString(ACCESS_TOKEN, null) ?: return false
-        val expiresAt = prefs.getString(EXPIRES_AT_STR, null)?.toLongOrNull() ?: 0L
-
-        // FIX-SESSION-03: tratar expiresAt == 0 como expirado para forzar refresh
-        if (expiresAt == 0L) {
-            Log.d(TAG, "⚠️ expiresAt no disponible para token ${token.take(8)}… → asumiendo expirado")
+        val session = fetchSession() ?: return false
+        if (session.expiresAt == 0L) {
+            Log.d(TAG, "⚠️ expiresAt=0 → assuming expired")
             return true
         }
-
-        return System.currentTimeMillis() >= (expiresAt - EXPIRY_MARGIN_MS)
+        val expired = System.currentTimeMillis() >= (session.expiresAt - EXPIRY_MARGIN_MS)
+        if (expired) {
+            Log.d(TAG, "⏰ Token expired (expiresAt=${session.expiresAt}, now=${System.currentTimeMillis()})")
+        }
+        return expired
     }
 
-    /**
-     * Retorna el refresh token almacenado, o null si no existe.
-     */
     fun fetchRefreshToken(): String? {
-        val token = prefs.getString(REFRESH_TOKEN, null)
-        return if (token.isNullOrBlank()) null else token
+        // Try prefs first
+        val fromPrefs = try {
+            prefs.getString(REFRESH_TOKEN, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ fetchRefreshToken threw: ${e.message}")
+            null
+        }
+        if (!fromPrefs.isNullOrBlank()) return fromPrefs
+
+        // Fallback to backup
+        Log.w(TAG, "⚠️ refresh_token not in prefs — trying backup")
+        return readFromBackup()?.refreshToken
     }
 
-    /**
-     * Guarda el ID del household seleccionado.
-     */
     fun saveSelectedHouseholdId(id: String) {
-        prefs.edit().putString(SELECTED_HOUSEHOLD_ID, id).apply()
+        try { prefs.edit().putString(SELECTED_HOUSEHOLD_ID, id).apply() } catch (_: Exception) {}
     }
 
-    /**
-     * Recupera el ID del household seleccionado.
-     */
     fun fetchSelectedHouseholdId(): String? {
-        return prefs.getString(SELECTED_HOUSEHOLD_ID, null)
+        return try { prefs.getString(SELECTED_HOUSEHOLD_ID, null) } catch (_: Exception) { null }
     }
 
-    /**
-     * Elimina todos los datos de la sesión (Logout completo).
-     */
     fun clearSession() {
-        prefs.edit().clear().commit()
+        Log.d(TAG, "🗑️ clearSession() called")
+        try { prefs.edit().clear().commit() } catch (_: Exception) {}
+        clearBackup()
     }
-
-    // ── Métodos genéricos para almacenamiento cifrado extra ──────────────────
 
     fun saveExtra(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
+        try { prefs.edit().putString(key, value).apply() } catch (_: Exception) {}
     }
-
     fun getExtra(key: String): String? {
-        return prefs.getString(key, null)
+        return try { prefs.getString(key, null) } catch (_: Exception) { null }
     }
-
     fun removeExtra(key: String) {
-        prefs.edit().remove(key).apply()
+        try { prefs.edit().remove(key).apply() } catch (_: Exception) {}
     }
 }
