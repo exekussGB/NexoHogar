@@ -51,7 +51,7 @@ object TutorialSteps {
             ),
             TutorialStep(
                 title = "Nueva Transacción",
-                description = "Presiona aquí para registrar un nuevo ingreso o gasto.",
+                description = "Presiona aquí para registrar un nuevo ingreso o gasto. Recuerda que la descripción es obligatoria para identificar cada movimiento.",
                 targetTag = "transactions_add_button"
             ),
             TutorialStep(

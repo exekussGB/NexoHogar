@@ -198,6 +198,11 @@ class AddMovementViewModel(
     // ── Guardar transacción ──────────────────────────────────────────────────
     fun saveTransaction() {
         val state       = _uiState.value
+
+        if (state.description.isBlank()) {
+            _uiState.update { it.copy(error = "La descripción es obligatoria") }
+            return
+        }
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
 
         val amountLong = InputSanitizer.sanitizeAmount(state.amount)

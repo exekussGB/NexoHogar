@@ -2,6 +2,10 @@ package com.nexohogar.core.util
 
 import android.util.Patterns
 
+/**
+ * Utilidad centralizada para sanitización de inputs.
+ * Referencia: nexohogar_report.md — Sección F.2 (Fix #1 prioritario)
+ */
 object InputSanitizer {
     private val DANGEROUS_CHARS = Regex("""[<>"'`;\{\}\[\]\\]""")
 

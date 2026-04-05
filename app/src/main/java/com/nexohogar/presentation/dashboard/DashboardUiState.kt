@@ -10,5 +10,6 @@ data class DashboardUiState(
     val recentTransactions: List<Transaction> = emptyList(),
     val monthlyBalance: List<MonthlyBalance> = emptyList(),
     val hasPersonalAccounts: Boolean = false,
+    val totalSavings: Long = 0L,    // 🆕 Feature 2: total de cuentas de ahorro
     val error: String? = null
 )

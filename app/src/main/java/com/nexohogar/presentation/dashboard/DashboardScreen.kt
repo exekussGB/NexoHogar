@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
@@ -156,6 +157,52 @@ fun DashboardScreen(
                 // ── Gastos por categoría (botón) ───────────────────────────────
                 item {
                     CategoryExpensesButton(onClick = onNavigateToCategoryExp)
+                }
+
+                // 🆕 Feature 2: Tarjeta de ahorro
+                if (uiState.totalSavings != 0L) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF3E5F5)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Savings,
+                                    contentDescription = null,
+                                    tint = Color(0xFF6A1B9A),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        "Ahorro total",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF6A1B9A)
+                                    )
+                                    Text(
+                                        text = clpFormat.format(uiState.totalSavings),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp,
+                                        color = Color(0xFF6A1B9A)
+                                    )
+                                    Text(
+                                        "No incluido en el balance del hogar",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // ── Últimos movimientos ────────────────────────────────────────

@@ -214,7 +214,7 @@ fun AddTransactionScreen(
                     OutlinedTextField(
                         value         = uiState.description,
                         onValueChange = { if (it.length <= 200) viewModel.onDescriptionChange(it) },
-                        label         = { Text("Descripción (opcional)") },
+                        label         = { Text("Descripción") },
                         modifier      = Modifier.fillMaxWidth(),
                         supportingText = {
                             Text(
@@ -229,7 +229,7 @@ fun AddTransactionScreen(
                     )
 
                     val isButtonEnabled = remember(uiState) {
-                        val common = uiState.selectedFromAccount != null && uiState.amount.isNotBlank()
+                        val common = uiState.selectedFromAccount != null && uiState.amount.isNotBlank() && uiState.description.isNotBlank()
                         if (uiState.type == TransactionType.TRANSFER) {
                             common && uiState.selectedToAccount != null
                         } else {

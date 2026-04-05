@@ -167,5 +167,18 @@ class HouseholdViewModel(
 
     fun selectHousehold(household: Household) {
         tenantContext.setHouseholdId(household.id)
+        // 🆕 Feature 1: Fetch and save user role for super_user check
+        viewModelScope.launch {
+            val userId = tenantContext.getCurrentUserId()
+            if (userId != null) {
+                when (val result = householdRepository.getHouseholdMembers(household.id)) {
+                    is AppResult.Success -> {
+                        val myRole = result.data.firstOrNull { it.userId == userId }?.role ?: "user"
+                        tenantContext.setCurrentUserRole(myRole)
+                    }
+                    else -> tenantContext.setCurrentUserRole("user")
+                }
+            }
+        }
     }
 }

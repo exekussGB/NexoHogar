@@ -45,11 +45,21 @@ class DashboardViewModel(
                 if (userId != null) accountsRepository.hasPersonalAccounts(householdId, userId)
                 else AppResult.Success(false)
             }
+            // 🆕 Feature 2: Calcular total de ahorro desde los saldos de cuentas
+            val balancesDeferred     = async { accountsRepository.getAccountBalances(householdId) }
 
             val summaryResult      = summaryDeferred.await()
             val transactionsResult = transactionsDeferred.await()
             val monthlyResult      = monthlyDeferred.await()
             val personalResult     = personalDeferred.await()
+            val balancesResult     = balancesDeferred.await()
+
+            // 🆕 Feature 2: Sumar saldos de cuentas marcadas como ahorro
+            val savingsTotal = if (balancesResult is AppResult.Success) {
+                balancesResult.data
+                    .filter { it.isSavings }
+                    .sumOf { it.movementBalance }
+            } else 0L
 
             _uiState.update {
                 it.copy(
@@ -57,6 +67,7 @@ class DashboardViewModel(
                     recentTransactions  = if (transactionsResult is AppResult.Success) transactionsResult.data.take(5) else emptyList(),
                     monthlyBalance      = if (monthlyResult is AppResult.Success) monthlyResult.data else emptyList(),
                     hasPersonalAccounts = if (personalResult is AppResult.Success) personalResult.data else false,
+                    totalSavings        = savingsTotal,    // 🆕 Feature 2
                     isLoading           = false,
                     error               = if (summaryResult is AppResult.Error) summaryResult.message else null
                 )
