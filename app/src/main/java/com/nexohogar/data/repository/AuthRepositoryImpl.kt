@@ -11,6 +11,8 @@ import com.nexohogar.domain.repository.AuthRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Implementación del repositorio de autenticación.
@@ -110,7 +112,7 @@ class AuthRepositoryImpl(
             supabaseClient.auth.signUpWith(Email) {
                 this.email    = email
                 this.password = password
-                data {
+                this.data = buildJsonObject {
                     put("full_name", name)
                 }
             }
