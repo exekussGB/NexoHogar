@@ -40,7 +40,12 @@ data class AccountsUiState(
     // Phase 3: super user flag for edit swipe
     val isSuperUser: Boolean = false,
     // Phase 3: edit dialog
-    val showEditDialog: String? = null // accountId to edit
+    val showEditDialog: String? = null, // accountId to edit
+    // Phase 3: edit dialog form state
+    val editAccountName: String = "",
+    val editAccountIsSavings: Boolean = false,
+    val editAccountIsShared: Boolean = true,
+    val isSavingEdit: Boolean = false
 )
 
 class AccountsViewModel(
@@ -230,13 +235,65 @@ class AccountsViewModel(
         }
     }
 
-    // ── Edit (Phase 3 placeholder) ──────────────────────────────────────────
+    // ── Edit account ────────────────────────────────────────────────────────
     fun showEditDialog(accountId: String) {
-        _uiState.update { it.copy(showEditDialog = accountId) }
+        val all = _uiState.value.sharedAccounts +
+                  _uiState.value.personalAccounts +
+                  _uiState.value.savingsAccounts
+        val account = all.find { it.accountId == accountId }
+        _uiState.update {
+            it.copy(
+                showEditDialog       = accountId,
+                editAccountName      = account?.accountName ?: "",
+                editAccountIsSavings = account?.isSavings  ?: false,
+                editAccountIsShared  = account?.isShared   ?: true,
+                error                = null
+            )
+        }
     }
 
     fun dismissEditDialog() {
-        _uiState.update { it.copy(showEditDialog = null) }
+        _uiState.update { it.copy(showEditDialog = null, error = null) }
+    }
+
+    fun onEditNameChange(name: String) {
+        _uiState.update { it.copy(editAccountName = name) }
+    }
+
+    fun onEditIsSavingsChange(isSavings: Boolean) {
+        _uiState.update { it.copy(editAccountIsSavings = isSavings) }
+    }
+
+    fun onEditIsSharedChange(isShared: Boolean) {
+        _uiState.update { it.copy(editAccountIsShared = isShared) }
+    }
+
+    fun saveEditAccount() {
+        val state = _uiState.value
+        val accountId = state.showEditDialog ?: return
+        val name = InputSanitizer.sanitizeText(state.editAccountName.trim(), 50)
+        if (name.isBlank()) {
+            _uiState.update { it.copy(error = "El nombre es obligatorio") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingEdit = true, error = null) }
+            when (val result = accountsRepository.updateAccount(
+                accountId = accountId,
+                name      = name,
+                isSavings = state.editAccountIsSavings,
+                isShared  = state.editAccountIsShared
+            )) {
+                is AppResult.Success -> {
+                    _uiState.update { it.copy(isSavingEdit = false, showEditDialog = null) }
+                    loadAccounts()
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(isSavingEdit = false, error = result.message) }
+                }
+                else -> _uiState.update { it.copy(isSavingEdit = false) }
+            }
+        }
     }
 
     fun clearError() { _uiState.update { it.copy(error = null) } }

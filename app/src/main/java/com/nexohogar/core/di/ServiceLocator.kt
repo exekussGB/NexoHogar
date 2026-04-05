@@ -6,6 +6,7 @@ import com.nexohogar.BuildConfig
 import com.nexohogar.core.network.AuthInterceptor
 import com.nexohogar.core.network.SupabaseConfig
 import com.nexohogar.core.session.SessionRefresher
+import com.nexohogar.core.session.SupabaseDataStoreSessionManager
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
@@ -14,6 +15,9 @@ import com.nexohogar.data.repository.WishlistRepositoryImpl
 import com.nexohogar.domain.repository.WishlistRepository
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.createSupabaseClient
 import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -45,10 +49,29 @@ object ServiceLocator {
     }
 
     val tenantContext: TenantContext by lazy {
-        TenantContext(sessionManager)
+        TenantContext(sessionManager, supabaseClient)
     }
 
-    // ── FIX-SESSION-05: SessionRefresher (lifecycle-aware token refresh) ──────
+    /**
+     * SDK de Supabase con gestión de sesión persistente en DataStore.
+     * - [autoLoadFromStorage = true]: restaura la sesión al iniciar la app.
+     * - [alwaysAutoRefresh = true]: renueva el access_token automáticamente
+     *   antes de que expire → el usuario nunca es expulsado por expiración.
+     */
+    val supabaseClient: SupabaseClient by lazy {
+        createSupabaseClient(
+            supabaseUrl = SupabaseConfig.BASE_URL,
+            supabaseKey = SupabaseConfig.API_KEY
+        ) {
+            install(Auth) {
+                sessionManager = SupabaseDataStoreSessionManager(context)
+                alwaysAutoRefresh = true
+                autoLoadFromStorage = true
+            }
+        }
+    }
+
+    // ── Legacy: mantenido por compatibilidad pero ya no gestiona tokens ──────
     val sessionRefresher: SessionRefresher by lazy {
         SessionRefresher(sessionManager)
     }
@@ -75,7 +98,7 @@ object ServiceLocator {
     // ── Network ───────────────────────────────────────────────────────────────
 
     private val authInterceptor: AuthInterceptor by lazy {
-        AuthInterceptor(sessionManager)
+        AuthInterceptor(sessionManager, supabaseClient)
     }
 
     /**
@@ -133,7 +156,7 @@ object ServiceLocator {
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(authApi, sessionManager)
+        AuthRepositoryImpl(authApi, sessionManager, supabaseClient)
     }
 
     val householdRepository: HouseholdRepository by lazy {

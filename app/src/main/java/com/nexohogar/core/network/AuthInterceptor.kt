@@ -1,9 +1,9 @@
 package com.nexohogar.core.network
 
 import android.util.Log
-import com.nexohogar.core.session.RefreshResult
-import com.nexohogar.core.session.TokenRefreshCoordinator
 import com.nexohogar.data.local.SessionManager
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
@@ -12,23 +12,17 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 
 /**
- * OkHttp interceptor that:
- * 1. Injects Supabase headers and the current JWT on every request.
- * 2. Proactively refreshes the token BEFORE sending the request when it is
- *    expired or about to expire.
- * 3. Reactively refreshes the token when the server responds with 401.
- *
- * All refresh logic is delegated to [TokenRefreshCoordinator] to prevent the
- * race condition between this interceptor and [com.nexohogar.core.session.SessionRefresher].
- *
- * Error semantics:
- * - Server rejected refresh → clears session, returns synthetic **401**
- *   with message "Unauthorized - session expired".
- * - Network error during refresh → returns synthetic **503** so that
- *   [com.nexohogar.presentation.household.HouseholdViewModel] does NOT
- *   interpret it as a session-expired event.
+ * OkHttp interceptor que:
+ * 1. Inyecta las cabeceras de Supabase y el JWT actual en cada request.
+ * 2. Obtiene el token SIEMPRE del SDK de Supabase (supabase-kt), que lo
+ *    mantiene fresco gracias a [alwaysAutoRefresh = true]. Eliminamos la
+ *    lógica manual de expiración/refresco que causaba el cierre de sesión.
+ * 3. En caso de 401, reintenta una vez con el token más reciente.
  */
-class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor {
+class AuthInterceptor(
+    private val sessionManager: SessionManager,
+    private val supabaseClient: SupabaseClient
+) : Interceptor {
 
     companion object {
         private const val TAG = "AuthInterceptor"
@@ -37,50 +31,29 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
 
-        // ── 1. Proactive refresh ─────────────────────────────────────────────
-        if (sessionManager.isTokenExpired()) {
-            Log.d(TAG, "⏰ Token expired/expiring → proactive refresh")
-            val result = TokenRefreshCoordinator.refresh(sessionManager)
-            when (result) {
-                is RefreshResult.Success ->
-                    Log.d(TAG, "⏰ Proactive refresh: ✅ OK")
-                is RefreshResult.AlreadyFresh ->
-                    Log.d(TAG, "⏰ Proactive refresh: ✅ Already fresh")
-                is RefreshResult.ServerRejected ->
-                    Log.d(TAG, "⏰ Proactive refresh: ❌ Server rejected refresh_token")
-                is RefreshResult.NetworkError ->
-                    Log.d(TAG, "⏰ Proactive refresh: ⚠️ Network error (${result.message})")
-            }
-        }
+        // ── 1. Obtener token fresco del SDK (supabase-kt maneja el refresh) ──
+        val token = supabaseClient.auth.currentSessionOrNull()?.accessToken
+            ?: sessionManager.fetchAuthToken() // fallback por si el SDK aún no inicializó
 
-        // ── 2. Send request with the current token ───────────────────────────
-        val token = sessionManager.fetchAuthToken()
         val response = chain.proceed(originalRequest.withAuthHeaders(token))
 
-        // ── 3. Reactive refresh on 401 ───────────────────────────────────────
+        // ── 2. Reintento reactivo en 401 (el SDK puede haber refrescado mientras) ──
         if (response.code == 401) {
-            Log.d(TAG, "🔴 Server responded 401 for ${originalRequest.url.encodedPath}")
+            Log.d(TAG, "🔴 Server respondió 401 — reintentando con token actualizado")
             response.close()
 
-            val result = TokenRefreshCoordinator.refresh(sessionManager)
+            val freshToken = supabaseClient.auth.currentSessionOrNull()?.accessToken
+                ?: sessionManager.fetchAuthToken()
 
-            return when {
-                result.isSuccess -> {
-                    val newToken = sessionManager.fetchAuthToken()
-                    Log.d(TAG, "🟢 Retrying request with refreshed token")
-                    chain.proceed(originalRequest.withAuthHeaders(newToken))
-                }
-                result is RefreshResult.ServerRejected -> {
-                    Log.d(TAG, "🔴 Refresh rejected → clearSession → login")
-                    sessionManager.clearSession()
-                    syntheticResponse(originalRequest, 401, "Unauthorized - session expired")
-                }
-                else -> {
-                    // Network error — do NOT clear session, return 503
-                    Log.d(TAG, "⚠️ Network unavailable — returning 503 (session preserved)")
-                    syntheticResponse(originalRequest, 503, "Service unavailable - token refresh failed")
-                }
+            val retryResponse = chain.proceed(originalRequest.withAuthHeaders(freshToken))
+
+            if (retryResponse.code == 401) {
+                Log.w(TAG, "🔴 Segundo 401 consecutivo — posible sesión expirada")
+                // No limpiamos la sesión aquí; el Splash screen detectará el estado
+                // via supabaseClient.auth.sessionStatus al próximo inicio.
             }
+
+            return retryResponse
         }
 
         return response
@@ -98,6 +71,7 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
         return builder.build()
     }
 
+    @Suppress("unused")
     private fun syntheticResponse(request: Request, code: Int, message: String): Response =
         Response.Builder()
             .request(request)

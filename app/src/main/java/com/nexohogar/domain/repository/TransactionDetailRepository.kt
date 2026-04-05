@@ -6,12 +6,13 @@ import com.nexohogar.domain.model.TransactionDetail
 interface TransactionDetailRepository {
     suspend fun getTransactionDetail(transactionId: String): AppResult<TransactionDetail>
 
-    // 🆕 Feature 1: Editar transacción
+    // Feature 1: Editar transacción (solo super_user)
+    // Todos los parámetros son obligatorios — la RPC los requiere no-nulos.
     suspend fun updateTransaction(
-        transactionId: String,
-        amountClp: Long? = null,
-        description: String? = null,
-        transactionDate: String? = null,
-        categoryId: String? = null
+        transactionId  : String,
+        householdId    : String,
+        amountClp      : Long,
+        description    : String,
+        transactionDate: String
     ): AppResult<Unit>
 }

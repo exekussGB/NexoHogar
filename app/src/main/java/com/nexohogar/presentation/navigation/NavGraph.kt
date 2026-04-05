@@ -39,9 +39,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.core.session.RefreshResult
-import com.nexohogar.core.session.TokenRefreshCoordinator
 import com.nexohogar.core.tutorial.TutorialModule
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import com.nexohogar.presentation.accounts.AccountsScreen
 import com.nexohogar.presentation.accounts.AccountsViewModel
 // RED-01: Import desde addmovement (paquete no deprecado)
@@ -86,8 +86,7 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 import com.nexohogar.presentation.tutorial.TutorialListScreen
 import com.nexohogar.presentation.wishlist.WishlistScreen
 import com.nexohogar.presentation.wishlist.WishlistViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -142,6 +141,7 @@ private val hiddenBarRoutes = setOf(
 @Composable
 fun NavGraph(navController: NavHostController) {
     val sessionManager = ServiceLocator.sessionManager
+    val supabaseClient = ServiceLocator.supabaseClient
     val authRepository = ServiceLocator.authRepository
     val householdRepository = ServiceLocator.householdRepository
     val dashboardRepository = ServiceLocator.dashboardRepository
@@ -350,71 +350,35 @@ fun NavGraph(navController: NavHostController) {
                 }
 
                 // ── Main navigation logic ──
+                // supabase-kt carga la sesión desde DataStore y la refresca automáticamente.
+                // Solo esperamos a que el SDK termine de inicializar, luego decidimos la ruta.
                 LaunchedEffect(splashPhase, isRetrying) {
-                    if (splashPhase == "biometric" || splashPhase == "biometric_failed" ||
-                        splashPhase == "network_error" || splashPhase == "session_expired") return@LaunchedEffect
-
+                    if (splashPhase == "biometric" || splashPhase == "biometric_failed") return@LaunchedEffect
                     if (isRetrying) isRetrying = false
 
-                    val session = sessionManager.fetchSession()
-                    if (session == null) {
-                        Log.d("Splash", "❌ No session found → Login")
+                    // Esperar a que el SDK cargue la sesión guardada (DataStore)
+                    val status = supabaseClient.auth.sessionStatus
+                        .first { it !is SessionStatus.Initializing }
+
+                    if (status !is SessionStatus.Authenticated) {
+                        Log.d("Splash", "❌ No hay sesión autenticada → Login")
                         navController.navigate(Screen.Login.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
                         return@LaunchedEffect
                     }
 
-                    // Check biometric
+                    Log.d("Splash", "✅ Sesión activa restaurada por supabase-kt")
+
+                    // Verificación biométrica si está habilitada
                     if (sessionManager.isBiometricEnabled() && !biometricSuccess.value && !biometricAttempted.value) {
                         splashPhase = "biometric"
                         return@LaunchedEffect
                     }
 
-                    // Token still valid?
-                    if (!sessionManager.isTokenExpired()) {
-                        Log.d("Splash", "✅ Token still valid → Household")
-                        navController.navigate(Screen.Household.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
-                        }
-                        return@LaunchedEffect
+                    navController.navigate(Screen.Household.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
                     }
-
-                    // Token expired — try to refresh with retries
-                    Log.d("Splash", "⏰ Token expired — attempting refresh...")
-                    splashPhase = "refreshing"
-                    var lastResult: RefreshResult? = null
-                    val maxAttempts = 3
-
-                    for (attempt in 1..maxAttempts) {
-                        Log.d("Splash", "🔄 Splash refresh attempt $attempt/$maxAttempts")
-                        val result = withContext(Dispatchers.IO) {
-                            TokenRefreshCoordinator.refresh(sessionManager)
-                        }
-                        lastResult = result
-
-                        if (result.isSuccess) {
-                            Log.d("Splash", "✅ Refresh succeeded on attempt $attempt → Household")
-                            navController.navigate(Screen.Household.route) {
-                                popUpTo(Screen.Splash.route) { inclusive = true }
-                            }
-                            return@LaunchedEffect
-                        }
-
-                        if (result is RefreshResult.ServerRejected) {
-                            Log.d("Splash", "❌ Server rejected on attempt $attempt")
-                            splashPhase = "session_expired"
-                            return@LaunchedEffect
-                        }
-
-                        if (attempt < maxAttempts) {
-                            Log.d("Splash", "⚠️ Network error on attempt $attempt — retrying in 2s...")
-                            kotlinx.coroutines.delay(2000L)
-                        }
-                    }
-
-                    Log.d("Splash", "⚠️ All $maxAttempts attempts failed — showing network error UI")
-                    splashPhase = "network_error"
                 }
 
                 // ── Biometric launcher ──

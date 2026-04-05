@@ -51,21 +51,21 @@ class TransactionDetailRepositoryImpl(
         }
     }
 
-    // 🆕 Feature 1: Editar transacción
+    // Feature 1: Editar transacción
     override suspend fun updateTransaction(
-        transactionId: String,
-        amountClp: Long?,
-        description: String?,
-        transactionDate: String?,
-        categoryId: String?
+        transactionId  : String,
+        householdId    : String,
+        amountClp      : Long,
+        description    : String,
+        transactionDate: String
     ): AppResult<Unit> {
         return try {
             val request = UpdateTransactionRequest(
                 transactionId   = transactionId,
+                householdId     = householdId,
                 amountClp       = amountClp,
                 description     = description,
-                transactionDate = transactionDate,
-                categoryId      = categoryId
+                transactionDate = transactionDate
             )
             val response = api.updateTransaction(request)
             if (response.isSuccessful) {

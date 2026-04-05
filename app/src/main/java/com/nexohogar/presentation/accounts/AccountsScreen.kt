@@ -165,6 +165,22 @@ fun AccountsScreen(
         )
     }
 
+    // ── Diálogo editar cuenta ─────────────────────────────────────────────
+    if (uiState.showEditDialog != null) {
+        EditAccountDialog(
+            name           = uiState.editAccountName,
+            isSavings      = uiState.editAccountIsSavings,
+            isShared       = uiState.editAccountIsShared,
+            isSaving       = uiState.isSavingEdit,
+            error          = uiState.error,
+            onNameChange   = { viewModel.onEditNameChange(it) },
+            onIsSavingsChange = { viewModel.onEditIsSavingsChange(it) },
+            onIsSharedChange  = { viewModel.onEditIsSharedChange(it) },
+            onDismiss      = { viewModel.dismissEditDialog() },
+            onSave         = { viewModel.saveEditAccount() }
+        )
+    }
+
     // ── Tutorial overlay ────────────────────────────────────────────────
     if (showTutorial) {
         TutorialOverlay(
@@ -597,6 +613,110 @@ fun CreateAccountDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancelar") }
+        }
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Diálogo de edición de cuenta
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditAccountDialog(
+    name            : String,
+    isSavings       : Boolean,
+    isShared        : Boolean,
+    isSaving        : Boolean,
+    error           : String?,
+    onNameChange    : (String) -> Unit,
+    onIsSavingsChange: (Boolean) -> Unit,
+    onIsSharedChange: (Boolean) -> Unit,
+    onDismiss       : () -> Unit,
+    onSave          : () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = { Text("Editar cuenta") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value         = name,
+                    onValueChange = onNameChange,
+                    label         = { Text("Nombre de la cuenta") },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth(),
+                    enabled       = !isSaving
+                )
+
+                // Compartida / Personal
+                Row(
+                    modifier          = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text     = if (isShared) "Cuenta compartida" else "Cuenta personal",
+                        modifier = Modifier.weight(1f),
+                        style    = MaterialTheme.typography.bodyMedium
+                    )
+                    Switch(
+                        checked         = isShared,
+                        onCheckedChange = onIsSharedChange,
+                        enabled         = !isSaving
+                    )
+                }
+
+                // Cuenta de ahorro
+                Row(
+                    modifier          = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text  = if (isSavings) "Cuenta de ahorro" else "Cuenta normal",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text  = "Las cuentas de ahorro no suman en el balance del hogar",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked         = isSavings,
+                        onCheckedChange = onIsSavingsChange,
+                        enabled         = !isSaving
+                    )
+                }
+
+                if (error != null) {
+                    Text(
+                        text  = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (isSaving) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier              = Modifier.fillMaxWidth()
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Guardando...")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                enabled = !isSaving && name.isNotBlank()
+            ) { Text("Guardar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancelar") }
         }
     )
 }

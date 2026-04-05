@@ -17,7 +17,7 @@ rootProject.file("local.properties").let { file ->
 
 android {
     namespace = "com.nexohogar"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.nexohogar"
@@ -144,4 +144,16 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx")
     // Biometric authentication
     implementation("androidx.biometric:biometric:1.1.0")
+
+    // ── Supabase Auth SDK (session persistence + auto-refresh) ────────────
+    // Reemplaza la gestión manual de tokens (EncryptedSharedPreferences)
+    // con persistencia en DataStore + refresh automático. Login una sola vez.
+    implementation("io.github.jan-tennert.supabase:auth-kt:3.3.0")
+    implementation("io.ktor:ktor-client-okhttp:3.0.3")
+
+    // DataStore (storage para supabase-kt SessionManager)
+    implementation("androidx.datastore:datastore-preferences:1.1.2")
+
+    // Kotlinx serialization runtime (serialización de UserSession en DataStore)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 }
