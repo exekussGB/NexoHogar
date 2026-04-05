@@ -4,6 +4,8 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.gms.google-services")
 }
 
@@ -66,9 +68,8 @@ android {
         buildConfig = true   // Necesario para BuildConfig.SUPABASE_KEY
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Con Kotlin 2.0+ el Compose compiler se configura via el plugin kotlin-compose,
+    // ya no se necesita composeOptions { kotlinCompilerExtensionVersion }.
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         kotlinOptions {
