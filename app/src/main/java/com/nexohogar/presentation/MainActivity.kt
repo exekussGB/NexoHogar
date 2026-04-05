@@ -6,7 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +23,7 @@ import com.nexohogar.presentation.theme.NexoHogarTheme
  * SEC-04: Logs via AppLogger.
  * SEC-05: Token de reset se pasa via NavArgs (sin ResetPasswordTokenHolder).
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val pendingNavigation = mutableStateOf<String?>(null)
 

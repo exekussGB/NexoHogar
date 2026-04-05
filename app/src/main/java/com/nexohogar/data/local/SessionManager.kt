@@ -23,6 +23,7 @@ class SessionManager(context: Context) {
         private const val SELECTED_HOUSEHOLD_ID = "selected_household_id"
         private const val EXPIRY_MARGIN_MS = 5 * 60 * 1000L
         private const val BACKUP_FILENAME = "session_backup.dat"
+        private const val BIOMETRIC_ENABLED = "biometric_enabled"
 
         private fun createEncryptedPrefs(context: Context): SharedPreferences {
             return try {
@@ -244,5 +245,22 @@ class SessionManager(context: Context) {
     }
     fun removeExtra(key: String) {
         try { prefs.edit().remove(key).apply() } catch (_: Exception) {}
+    }
+
+    // ── Biometric preference ──────────────────────────────────────────────
+    fun setBiometricEnabled(enabled: Boolean) {
+        try { prefs.edit().putBoolean(BIOMETRIC_ENABLED, enabled).apply() } catch (_: Exception) {}
+    }
+
+    fun isBiometricEnabled(): Boolean {
+        return try { prefs.getBoolean(BIOMETRIC_ENABLED, false) } catch (_: Exception) { false }
+    }
+
+    /**
+     * Returns true if the user has previously logged in (has stored credentials)
+     * AND has enabled biometric authentication.
+     */
+    fun shouldOfferBiometric(): Boolean {
+        return isBiometricEnabled() && fetchSession() != null
     }
 }

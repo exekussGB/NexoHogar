@@ -8,12 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -120,16 +115,18 @@ sealed class Screen(val route: String) {
 }
 
 // ---------------------------------------------------------------------------
-// Auth routes where BottomBar should be hidden
+// Routes where BottomBar should be hidden
+// (auth screens + Hub — the bar only appears after selecting a module)
 // ---------------------------------------------------------------------------
-private val authRoutes = setOf(
+private val hiddenBarRoutes = setOf(
     Screen.Splash.route,
     Screen.Login.route,
     Screen.Register.route,
     Screen.ForgotPassword.route,
     "verify_otp/{email}",
     "reset_password/{accessToken}",
-    Screen.Household.route
+    Screen.Household.route,
+    Screen.Hub.route              // ← Bottom bar hidden on Hub
 )
 
 // ---------------------------------------------------------------------------
@@ -156,30 +153,27 @@ fun NavGraph(navController: NavHostController) {
     // Determine if BottomBar should be shown based on current route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != null && currentRoute !in authRoutes
+    val showBottomBar = currentRoute != null && currentRoute !in hiddenBarRoutes
 
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 NexoHogarBottomNavBar(
                     currentRoute = currentRoute,
-                    onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } },
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                            // Evitar apilar múltiples copias al cambiar entre tabs
+                            popUpTo(Screen.Dashboard.route) { saveState = true }
+                            restoreState = true
+                        }
+                    },
                     onAddExpense = { navController.navigate("add_transaction/expense") },
                     onShowTransactionTypeDialog = { /* TODO: show type picker dialog */ }
                 )
             }
-        },
-        floatingActionButton = {
-            if (showBottomBar) {
-                FloatingActionButton(
-                    onClick = { navController.navigate("add_transaction/expense") },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Add, "Agregar")
-                }
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center
+        }
+        // FAB removido — el botón "+" ahora vive dentro de la BottomNavBar
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -302,13 +296,39 @@ fun NavGraph(navController: NavHostController) {
         // ── Login ──────────────────────────────────────────────────────────
         composable(Screen.Login.route) {
             val vm = LoginViewModel(authRepository, sessionManager)
+            val biometricHelper = ServiceLocator.biometricHelper
+            val offerBiometric = biometricHelper.isBiometricAvailable() && sessionManager.shouldOfferBiometric()
+            val context = androidx.compose.ui.platform.LocalContext.current
+
             LoginScreen(
                 viewModel = vm,
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                 onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
                 onLoginSuccess = {
+                    // Enable biometric after first successful login
+                    if (biometricHelper.isBiometricAvailable()) {
+                        sessionManager.setBiometricEnabled(true)
+                    }
                     navController.navigate(Screen.Household.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                showBiometric = offerBiometric,
+                onBiometricLogin = {
+                    val activity = context as? androidx.fragment.app.FragmentActivity
+                    if (activity != null) {
+                        biometricHelper.showBiometricPrompt(
+                            activity = activity,
+                            onSuccess = {
+                                // Biometric OK → navigate to household selection
+                                navController.navigate(Screen.Household.route) {
+                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                }
+                            },
+                            onError = { errorMsg ->
+                                android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 }
             )
@@ -401,7 +421,8 @@ fun NavGraph(navController: NavHostController) {
                 viewModel = vm,
                 onHouseholdSelected = { householdId ->
                     tenantContext.setHouseholdId(householdId)
-                    navController.navigate(Screen.Dashboard.route) {
+                    // Navegar al Hub tras seleccionar hogar (la bottom bar aparecerá al elegir módulo)
+                    navController.navigate(Screen.Hub.route) {
                         popUpTo(Screen.Household.route) { inclusive = true }
                     }
                 },

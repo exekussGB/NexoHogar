@@ -1,6 +1,5 @@
 package com.nexohogar.presentation.navigation
 
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -15,28 +14,26 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
- * Bottom Navigation Bar con FAB central.
- * Referencia: nexohogar_report.md — Sección 1.1
- * Referencia: nexohogar_ux_analysis.md — Prioridad Alta
+ * Bottom Navigation Bar con botón "+" central integrado.
  *
- * Items: Resumen, Movimientos, (+) FAB, Inventario, Más
+ * Items: Resumen | Movim. | (+) Agregar | Inventario | Más
  *
- * El FAB central:
- * - Toque corto → abre directamente el formulario de Gasto
- * - Toque largo → muestra dialog con Ingreso / Gasto / Transferencia
- *
- * TODO: Implementar la integración completa con NavGraph.kt
+ * - El "+" es un ítem real de la barra (no un FAB flotante separado).
+ * - "Más" navega a la pantalla Hub (más opciones).
+ * - Solo se muestra DESPUÉS de que el usuario selecciona un módulo desde el Hub.
  */
 
 sealed class BottomNavItem(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val isAction: Boolean = false   // true = botón de acción (no es una pantalla de navegación)
 ) {
-    object Dashboard : BottomNavItem("dashboard", "Resumen", Icons.Default.Home)
-    object Transactions : BottomNavItem("transactions", "Movim.", Icons.Default.List)
-    object Inventory : BottomNavItem("inventory", "Inventario", Icons.Default.Inventory2)
-    object More : BottomNavItem("more", "Más", Icons.Default.MoreHoriz)
+    object Dashboard    : BottomNavItem("dashboard",   "Resumen",     Icons.Default.Home)
+    object Transactions : BottomNavItem("transactions","Movim.",      Icons.Default.List)
+    object AddMovement  : BottomNavItem("add_action",  "Agregar",     Icons.Default.Add, isAction = true)
+    object Inventory    : BottomNavItem("inventory",   "Inventario",  Icons.Default.Inventory2)
+    object More         : BottomNavItem("hub",         "Más",         Icons.Default.MoreHoriz)
 }
 
 @Composable
@@ -44,35 +41,42 @@ fun NexoHogarBottomNavBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
     onAddExpense: () -> Unit,
-    onShowTransactionTypeDialog: () -> Unit
+    onShowTransactionTypeDialog: () -> Unit   // reservado para long-press futuro
 ) {
-    NavigationBar {
-        val items = listOf(
-            BottomNavItem.Dashboard,
-            BottomNavItem.Transactions,
-            // FAB ocupa el espacio central (ver Scaffold)
-            BottomNavItem.Inventory,
-            BottomNavItem.More
-        )
+    val items = listOf(
+        BottomNavItem.Dashboard,
+        BottomNavItem.Transactions,
+        BottomNavItem.AddMovement,
+        BottomNavItem.Inventory,
+        BottomNavItem.More
+    )
 
-        items.forEachIndexed { index, item ->
-            // Insertar espacio para el FAB central
-            if (index == 2) {
+    NavigationBar {
+        items.forEach { item ->
+            if (item.isAction) {
+                // ── Botón central "+" ────────────────────────────────────────
                 NavigationBarItem(
                     selected = false,
-                    onClick = { },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(0.dp)) },
-                    label = { Text("") },
-                    enabled = false
+                    onClick  = onAddExpense,
+                    icon     = {
+                        Icon(
+                            imageVector        = item.icon,
+                            contentDescription = item.title,
+                            modifier           = Modifier.size(28.dp),
+                            tint               = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    label = { Text(item.title) }
+                )
+            } else {
+                // ── Ítems de navegación normales ─────────────────────────────
+                NavigationBarItem(
+                    selected = currentRoute == item.route,
+                    onClick  = { onNavigate(item.route) },
+                    icon     = { Icon(item.icon, contentDescription = item.title) },
+                    label    = { Text(item.title) }
                 )
             }
-
-            NavigationBarItem(
-                selected = currentRoute == item.route,
-                onClick = { onNavigate(item.route) },
-                icon = { Icon(item.icon, contentDescription = item.title) },
-                label = { Text(item.title) }
-            )
         }
     }
 }

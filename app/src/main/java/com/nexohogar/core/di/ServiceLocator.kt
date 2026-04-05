@@ -22,6 +22,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.data.local.ThemePreferences
 import com.nexohogar.data.local.NotificationPreferences
+import com.nexohogar.core.biometric.BiometricHelper
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -64,6 +65,11 @@ object ServiceLocator {
 
     val notificationPreferences: NotificationPreferences by lazy {
         NotificationPreferences(context)
+    }
+
+    // ── Biometric ─────────────────────────────────────────────────────
+    val biometricHelper: BiometricHelper by lazy {
+        BiometricHelper(context)
     }
 
     // ── Network ───────────────────────────────────────────────────────────────
