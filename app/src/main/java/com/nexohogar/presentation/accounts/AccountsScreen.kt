@@ -1,5 +1,7 @@
 package com.nexohogar.presentation.accounts
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -27,6 +30,31 @@ import java.util.*
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+
+// ---------------------------------------------------------------------------
+// Icon mapping by account subtype
+// ---------------------------------------------------------------------------
+
+@Composable
+fun getAccountIcon(account: AccountBalance): Pair<ImageVector, Color> {
+    // Map by accountSubtype first (more specific), then fall back to accountType
+    val subtypeLower = (account.accountSubtype ?: "").lowercase()
+    val typeLower = account.accountType.lowercase()
+
+    return when {
+        subtypeLower == "bank" || subtypeLower == "banco" -> Icons.Default.AccountBalance to Color(0xFF1565C0)
+        subtypeLower == "cash" || subtypeLower == "efectivo" -> Icons.Default.Wallet to Color(0xFF2E7D32)
+        subtypeLower == "credit_card" || subtypeLower == "tarjeta" -> Icons.Default.CreditCard to Color(0xFFC62828)
+        subtypeLower == "savings" || subtypeLower == "ahorro" || account.isSavings -> Icons.Default.Star to Color(0xFF7B1FA2)
+        subtypeLower == "investment" || subtypeLower == "inversión" || subtypeLower == "inversion" -> Icons.Default.TrendingUp to Color(0xFFFF8F00)
+        // Fall back to type-based
+        typeLower == "asset" -> Icons.Default.AccountBalanceWallet to Color(0xFF1565C0)
+        typeLower == "liability" -> Icons.Default.CreditCard to Color(0xFFC62828)
+        typeLower == "income" -> Icons.Default.TrendingUp to Color(0xFF2E7D32)
+        typeLower == "expense" -> Icons.Default.TrendingDown to Color(0xFFE65100)
+        else -> Icons.Default.AccountBalanceWallet to Color(0xFF757575)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,8 +106,9 @@ fun AccountsScreen(
                     personalAccounts = uiState.personalAccounts,
                     savingsAccounts  = uiState.savingsAccounts,
                     onDeleteClick    = { accountId -> viewModel.showDeleteConfirm(accountId) },
-                    // ✅ NUEVO: callback para click en cuenta
-                    onAccountClick   = { account -> viewModel.selectAccount(account) }
+                    onAccountClick   = { account -> viewModel.selectAccount(account) },
+                    isSuperUser      = uiState.isSuperUser,
+                    onEditClick      = { accountId -> viewModel.showEditDialog(accountId) }
                 )
             }
         }
@@ -125,7 +154,7 @@ fun AccountsScreen(
         )
     }
 
-    // ✅ NUEVO: BottomSheet con detalle de cuenta y movimientos recientes
+    // ✅ BottomSheet con detalle de cuenta y movimientos recientes
     uiState.selectedAccount?.let { account ->
         AccountDetailSheet(
             account = account,
@@ -152,7 +181,7 @@ fun AccountsScreen(
 }
 
 // ---------------------------------------------------------------------------
-// ✅ NUEVO: BottomSheet con detalle de cuenta y últimos movimientos
+// BottomSheet con detalle de cuenta y últimos movimientos
 // ---------------------------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,13 +193,7 @@ private fun AccountDetailSheet(
 ) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
-    val (icon, iconColor) = when (account.accountType.lowercase()) {
-        "asset"     -> Icons.Default.Savings             to Color(0xFF1565C0)
-        "liability" -> Icons.Default.CreditCard          to Color(0xFFC62828)
-        "income"    -> Icons.Default.TrendingUp          to Color(0xFF2E7D32)
-        "expense"   -> Icons.Default.TrendingDown        to Color(0xFFE65100)
-        else        -> Icons.Default.AccountBalanceWallet to Color(0xFF424242)
-    }
+    val (icon, iconColor) = getAccountIcon(account)
 
     val typeLabel = when (account.accountType.lowercase()) {
         "asset"     -> "Activo"
@@ -358,7 +381,7 @@ private fun AccountTransactionRow(transaction: Transaction) {
 }
 
 // ---------------------------------------------------------------------------
-// Diálogo de creación de cuenta (sin cambios)
+// Diálogo de creación de cuenta
 // ---------------------------------------------------------------------------
 
 data class AccountTypeOption(
@@ -386,11 +409,11 @@ fun CreateAccountDialog(
     error           : String?,
     hasInitialBalance: Boolean = false,
     initialBalance  : String = "",
-    isSavings       : Boolean = false,    // 🆕 Feature 2
+    isSavings       : Boolean = false,
     onNameChange    : (String) -> Unit,
     onSubtypeChange : (String) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
-    onIsSavingsChange: (Boolean) -> Unit = {},    // 🆕 Feature 2
+    onIsSavingsChange: (Boolean) -> Unit = {},
     onHasInitialBalanceChange: (Boolean) -> Unit = {},
     onInitialBalanceChange   : (String) -> Unit = {},
     onDismiss       : () -> Unit,
@@ -464,7 +487,7 @@ fun CreateAccountDialog(
                 }
 
 
-                // 🆕 Feature 2: Toggle de cuenta de ahorro
+                // Toggle de cuenta de ahorro
                 Row(
                     modifier          = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -550,17 +573,19 @@ fun CreateAccountDialog(
 }
 
 // ---------------------------------------------------------------------------
-// Lista de cuentas
-// ✅ MODIFICADO: Agregado onAccountClick
+// Lista de cuentas con swipe support
 // ---------------------------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsList(
     sharedAccounts  : List<AccountBalance>,
     personalAccounts: List<AccountBalance>,
-    savingsAccounts : List<AccountBalance> = emptyList(),    // 🆕 Feature 2
+    savingsAccounts : List<AccountBalance> = emptyList(),
     onDeleteClick   : (String) -> Unit,
-    onAccountClick  : (AccountBalance) -> Unit
+    onAccountClick  : (AccountBalance) -> Unit,
+    isSuperUser     : Boolean = false,
+    onEditClick     : (String) -> Unit = {}
 ) {
     if (sharedAccounts.isEmpty() && personalAccounts.isEmpty() && savingsAccounts.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -586,11 +611,13 @@ fun AccountsList(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
-                items(sharedAccounts) { account ->
-                    AccountItem(
+                items(sharedAccounts, key = { it.accountId }) { account ->
+                    SwipeableAccountItem(
                         account = account,
                         onDeleteClick = onDeleteClick,
-                        onAccountClick = onAccountClick   // ✅ NUEVO
+                        onAccountClick = onAccountClick,
+                        isSuperUser = isSuperUser,
+                        onEditClick = onEditClick
                     )
                 }
             }
@@ -604,11 +631,13 @@ fun AccountsList(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
-                items(personalAccounts) { account ->
-                    AccountItem(
+                items(personalAccounts, key = { it.accountId }) { account ->
+                    SwipeableAccountItem(
                         account = account,
                         onDeleteClick = onDeleteClick,
-                        onAccountClick = onAccountClick
+                        onAccountClick = onAccountClick,
+                        isSuperUser = isSuperUser,
+                        onEditClick = onEditClick
                     )
                 }
             }
@@ -628,11 +657,13 @@ fun AccountsList(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
-                items(savingsAccounts) { account ->
-                    AccountItem(
+                items(savingsAccounts, key = { it.accountId }) { account ->
+                    SwipeableAccountItem(
                         account = account,
                         onDeleteClick = onDeleteClick,
-                        onAccountClick = onAccountClick
+                        onAccountClick = onAccountClick,
+                        isSuperUser = isSuperUser,
+                        onEditClick = onEditClick
                     )
                 }
             }
@@ -640,26 +671,110 @@ fun AccountsList(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Swipeable account item wrapper
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeableAccountItem(
+    account       : AccountBalance,
+    onDeleteClick : (String) -> Unit,
+    onAccountClick: (AccountBalance) -> Unit,
+    isSuperUser   : Boolean = false,
+    onEditClick   : (String) -> Unit = {}
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            when (dismissValue) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    // Swipe left → Delete
+                    onDeleteClick(account.accountId)
+                    false // Don't actually dismiss; let the dialog handle it
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    // Swipe right → Edit (super user only)
+                    if (isSuperUser) {
+                        onEditClick(account.accountId)
+                    }
+                    false
+                }
+                else -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+
+            val backgroundColor by animateColorAsState(
+                when (direction) {
+                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFF44336) // Red for delete
+                    SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Color(0xFFFF9800) else Color.Transparent // Orange for edit
+                    else -> Color.Transparent
+                },
+                label = "swipeBgColor"
+            )
+
+            val iconVector = when (direction) {
+                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Icons.Default.Edit else null
+                else -> null
+            }
+
+            val alignment = when (direction) {
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                else -> Alignment.CenterEnd
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor, shape = RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                iconVector?.let {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = isSuperUser,
+        enableDismissFromEndToStart = true
+    ) {
+        AccountItem(
+            account = account,
+            onDeleteClick = onDeleteClick,
+            onAccountClick = onAccountClick
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Account item card with icon
+// ---------------------------------------------------------------------------
+
 @Composable
 fun AccountItem(
     account       : AccountBalance,
     onDeleteClick : (String) -> Unit,
-    onAccountClick: (AccountBalance) -> Unit   // ✅ NUEVO
+    onAccountClick: (AccountBalance) -> Unit
 ) {
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
 
-    val (icon, iconColor) = when (account.accountType.lowercase()) {
-        "asset"     -> Icons.Default.Savings             to Color(0xFF1565C0)
-        "liability" -> Icons.Default.CreditCard          to Color(0xFFC62828)
-        "income"    -> Icons.Default.TrendingUp          to Color(0xFF2E7D32)
-        "expense"   -> Icons.Default.TrendingDown        to Color(0xFFE65100)
-        else        -> Icons.Default.AccountBalanceWallet to MaterialTheme.colorScheme.primary
-    }
+    val (icon, iconColor) = getAccountIcon(account)
 
     Card(
         modifier  = Modifier
             .fillMaxWidth()
-            // ✅ NUEVO: Click handler para mostrar detalle
             .clickable { onAccountClick(account) },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

@@ -11,8 +11,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -21,12 +24,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.Transaction
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
@@ -42,19 +48,57 @@ fun TransactionsScreen(
     onTransactionClick: (Transaction) -> Unit,
     onAddTransactionClick: () -> Unit,
     isSuperUser: Boolean = false,
-    onEditTransaction: (Transaction) -> Unit = {}
+    onEditTransaction: (Transaction) -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val dateRange by viewModel.dateRange.collectAsState()
 
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.TRANSACTIONS))
+    }
+
+    // ── Date Range Picker Dialog ───────────────────────────────────────────
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val dateRangePickerState = rememberDateRangePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val start = dateRangePickerState.selectedStartDateMillis
+                        val end = dateRangePickerState.selectedEndDateMillis
+                        if (start != null && end != null) {
+                            viewModel.setDateFilter(start, end)
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("Aplicar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                modifier = Modifier.height(500.dp),
+                title = { Text("Selecciona un rango de fechas", modifier = Modifier.padding(16.dp)) }
+            )
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Movimientos") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -68,27 +112,47 @@ fun TransactionsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // ── Filter chips ────────────────────────────────────────────────
-            LazyRow(
+            // ── Filter chips + calendar button ────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("transactions_filters"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val filters = listOf(
-                    TransactionFilter.ALL to "Todos",
-                    TransactionFilter.EXPENSE to "Gastos",
-                    TransactionFilter.INCOME to "Ingresos",
-                    TransactionFilter.TRANSFER to "Transferencias"
-                )
-                items(filters) { (filter, label) ->
-                    FilterChip(
-                        selected = selectedFilter == filter,
-                        onClick = { viewModel.setFilter(filter) },
-                        label = { Text(label) }
+                LazyRow(
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("transactions_filters"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val filters = listOf(
+                        TransactionFilter.ALL to "Todos",
+                        TransactionFilter.EXPENSE to "Gastos",
+                        TransactionFilter.INCOME to "Ingresos",
+                        TransactionFilter.TRANSFER to "Transferencias"
                     )
+                    items(filters) { (filter, label) ->
+                        FilterChip(
+                            selected = selectedFilter == filter,
+                            onClick = { viewModel.setFilter(filter) },
+                            label = { Text(label) }
+                        )
+                    }
                 }
+                IconButton(onClick = { showDatePicker = true }) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Filtrar por fecha")
+                }
+            }
+
+            // ── Active date filter chip ───────────────────────────────────────
+            if (dateRange != null) {
+                val format = SimpleDateFormat("dd MMM", Locale("es", "CL"))
+                AssistChip(
+                    onClick = { viewModel.clearDateFilter() },
+                    label = { Text("${format.format(Date(dateRange!!.first))} – ${format.format(Date(dateRange!!.second))}") },
+                    trailingIcon = { Icon(Icons.Default.Close, "Quitar filtro", modifier = Modifier.size(16.dp)) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
             }
 
             // ── Content ─────────────────────────────────────────────────────
@@ -171,16 +235,19 @@ fun TransactionsList(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(transactions) { transaction ->
+                val haptic = LocalHapticFeedback.current
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         when (value) {
                             // ← Swipe izquierda: ver detalle
                             SwipeToDismissBoxValue.EndToStart -> {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onItemClick(transaction)
                                 false  // no descartar visualmente, solo navegar
                             }
                             // → Swipe derecha: editar (solo super user)
                             SwipeToDismissBoxValue.StartToEnd -> {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (isSuperUser) {
                                     onEditItem(transaction)
                                 }
@@ -189,7 +256,7 @@ fun TransactionsList(
                             else -> false
                         }
                     },
-                    positionalThreshold = { it * 0.5f }
+                    positionalThreshold = { it * 0.3f }
                 )
                 SwipeToDismissBox(
                     state = dismissState,

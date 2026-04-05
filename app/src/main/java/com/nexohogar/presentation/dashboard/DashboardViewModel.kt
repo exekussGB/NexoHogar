@@ -61,6 +61,11 @@ class DashboardViewModel(
                     .sumOf { it.movementBalance }
             } else 0L
 
+            // 🆕 Fix #3: Compute total balance client-side from account balances
+            val computedTotalBalance = if (balancesResult is AppResult.Success) {
+                balancesResult.data.sumOf { it.movementBalance }.toDouble()
+            } else null
+
             _uiState.update {
                 it.copy(
                     summary             = if (summaryResult is AppResult.Success) summaryResult.data else null,
@@ -68,6 +73,7 @@ class DashboardViewModel(
                     monthlyBalance      = if (monthlyResult is AppResult.Success) monthlyResult.data else emptyList(),
                     hasPersonalAccounts = if (personalResult is AppResult.Success) personalResult.data else false,
                     totalSavings        = savingsTotal,    // 🆕 Feature 2
+                    computedTotalBalance = computedTotalBalance,
                     isLoading           = false,
                     error               = if (summaryResult is AppResult.Error) summaryResult.message else null
                 )

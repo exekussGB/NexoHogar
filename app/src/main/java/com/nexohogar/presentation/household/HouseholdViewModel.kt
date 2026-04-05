@@ -7,11 +7,8 @@ import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.repository.HouseholdRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -47,9 +44,6 @@ class HouseholdViewModel(
     private val _uiState = MutableStateFlow(HouseholdUiState())
     val uiState: StateFlow<HouseholdUiState> = _uiState.asStateFlow()
 
-    private val _autoSelectEvent = MutableSharedFlow<String>() // household ID
-    val autoSelectEvent: SharedFlow<String> = _autoSelectEvent.asSharedFlow()
-
     init {
         loadHouseholds()
     }
@@ -61,10 +55,6 @@ class HouseholdViewModel(
                 is AppResult.Success -> {
                     _uiState.update {
                         it.copy(isLoading = false, households = result.data)
-                    }
-                    // Auto-select if there's exactly one household
-                    if (result.data.size == 1) {
-                        _autoSelectEvent.emit(result.data[0].id)
                     }
                 }
                 is AppResult.Error -> {

@@ -1,6 +1,7 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
+import com.nexohogar.core.util.AppLogger
 import com.nexohogar.data.network.RecurringBillsApi
 import com.nexohogar.data.remote.dto.CreateRecurringBillRequest
 import com.nexohogar.data.remote.dto.PayRecurringBillRequest
@@ -207,9 +208,11 @@ class RecurringBillsRepositoryImpl(
         householdId: String
     ): AppResult<List<RecurringBillPaymentDto>> {
         return try {
+            AppLogger.d("RecurringBills", "getBillHistory billId=$billId, householdId=$householdId")
             val response = api.getRecurringBillHistory(
                 mapOf("p_bill_id" to billId, "p_household_id" to householdId)
             )
+            AppLogger.d("RecurringBills", "getBillHistory response: ${response.code()}, body size: ${response.body()?.size}")
             if (response.isSuccessful) {
                 AppResult.Success(response.body() ?: emptyList())
             } else {

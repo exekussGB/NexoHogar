@@ -448,7 +448,7 @@ private fun PaymentHistoryDialog(
                     CircularProgressIndicator()
                 }
             } else if (payments.isEmpty()) {
-                Text("No hay pagos registrados", style = MaterialTheme.typography.bodyMedium)
+                Text("No se encontraron pagos registrados.\n\nLos pagos aparecen aquí al marcar como 'Pagado' desde esta pantalla.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(payments) { payment ->

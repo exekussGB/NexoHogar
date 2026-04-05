@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit
  * @param lastPaidDate fecha del último pago en formato "YYYY-MM-DD", o null si nunca se ha pagado
  * @param totalInstallments total de cuotas (null = cuenta fija, sin cuotas)
  * @param paidInstallments cuotas ya pagadas
+ * @param categoryId ID de categoría asociada (opcional)
  */
 data class RecurringBill(
     val id: String,
@@ -23,7 +24,8 @@ data class RecurringBill(
     val notes: String?,
     val createdAt: String,
     val totalInstallments: Int? = null,
-    val paidInstallments: Int = 0
+    val paidInstallments: Int = 0,
+    val categoryId: String? = null
 ) {
     companion object {
         private val ZONE = ZoneId.of("America/Santiago")

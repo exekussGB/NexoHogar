@@ -30,12 +30,20 @@ import java.util.*
 fun TransactionDetailScreen(
     transactionId: String,
     viewModel: TransactionDetailViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    openInEditMode: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(transactionId) {
         viewModel.loadTransactionDetail(transactionId)
+    }
+
+    // Auto-start editing if navigated with edit=true
+    LaunchedEffect(uiState, openInEditMode) {
+        if (openInEditMode && uiState is TransactionDetailUiState.Success && !(uiState as TransactionDetailUiState.Success).isEditing) {
+            viewModel.startEditing()
+        }
     }
 
     Scaffold(
