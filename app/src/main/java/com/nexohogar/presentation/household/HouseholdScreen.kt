@@ -1,26 +1,53 @@
 package com.nexohogar.presentation.household
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.Household
 import com.nexohogar.presentation.components.LoadingOverlay
+
+// ---------------------------------------------------------------------------
+// Gradientes predefinidos para fondos de hogares
+// ---------------------------------------------------------------------------
+data class HouseholdGradient(
+    val name: String,
+    val colors: List<Color>
+)
+
+val householdGradients = listOf(
+    HouseholdGradient("Azul Clásico",    listOf(Color(0xFF1565C0), Color(0xFF42A5F5))),
+    HouseholdGradient("Verde Bosque",     listOf(Color(0xFF2E7D32), Color(0xFF66BB6A))),
+    HouseholdGradient("Atardecer",        listOf(Color(0xFFE65100), Color(0xFFFF9800))),
+    HouseholdGradient("Morado Real",      listOf(Color(0xFF6A1B9A), Color(0xFFBA68C8))),
+    HouseholdGradient("Rojo Pasión",      listOf(Color(0xFFC62828), Color(0xFFEF5350))),
+    HouseholdGradient("Océano",           listOf(Color(0xFF0277BD), Color(0xFF4FC3F7))),
+    HouseholdGradient("Esmeralda",        listOf(Color(0xFF00695C), Color(0xFF4DB6AC))),
+    HouseholdGradient("Dorado",           listOf(Color(0xFFFF8F00), Color(0xFFFFD54F))),
+    HouseholdGradient("Nocturno",         listOf(Color(0xFF1A237E), Color(0xFF5C6BC0))),
+    HouseholdGradient("Rosa Suave",       listOf(Color(0xFFAD1457), Color(0xFFF48FB1)))
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +58,10 @@ fun HouseholdScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    // 🆕 Fix 5: Mapa de gradientes seleccionados por hogar
+    var gradientMap by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var showGradientPicker by remember { mutableStateOf<String?>(null) } // householdId
 
     // Navegar al dashboard cuando se crea exitosamente
     LaunchedEffect(uiState.createSuccess) {
@@ -106,7 +137,9 @@ fun HouseholdScreen(
                 else -> {
                     HouseholdList(
                         households = uiState.households,
-                        onHouseholdClick = { onHouseholdSelected(it.id) }
+                        onHouseholdClick = { onHouseholdSelected(it.id) },
+                        gradientMap = gradientMap,
+                        onChangeGradient = { householdId -> showGradientPicker = householdId }
                     )
                 }
             }
@@ -125,6 +158,18 @@ fun HouseholdScreen(
                 showCreateDialog = false
                 viewModel.clearCreateError()
             }
+        )
+    }
+
+    // ── Diálogo de selección de fondo ──────────────────────────────────────────
+    showGradientPicker?.let { householdId ->
+        GradientPickerDialog(
+            currentIndex = gradientMap[householdId] ?: 0,
+            onSelect = { index ->
+                gradientMap = gradientMap + (householdId to index)
+                showGradientPicker = null
+            },
+            onDismiss = { showGradientPicker = null }
         )
     }
 
@@ -148,10 +193,11 @@ fun HouseholdScreen(
 @Composable
 fun HouseholdList(
     households: List<Household>,
-    onHouseholdClick: (Household) -> Unit
+    onHouseholdClick: (Household) -> Unit,
+    gradientMap: Map<String, Int> = emptyMap(),
+    onChangeGradient: (String) -> Unit = {}
 ) {
     if (households.size == 1) {
-        // Single household: large centered card
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -160,11 +206,12 @@ fun HouseholdList(
         ) {
             HouseholdItem(
                 household = households.first(),
-                onClick = onHouseholdClick
+                onClick = onHouseholdClick,
+                gradientIndex = gradientMap[households.first().id] ?: 0,
+                onChangeGradient = { onChangeGradient(households.first().id) }
             )
         }
     } else {
-        // Multiple: grid of 2 columns
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
@@ -173,7 +220,13 @@ fun HouseholdList(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(households.size) { index ->
-                HouseholdItem(households[index], onHouseholdClick)
+                val h = households[index]
+                HouseholdItem(
+                    household = h,
+                    onClick = onHouseholdClick,
+                    gradientIndex = gradientMap[h.id] ?: (index % householdGradients.size),
+                    onChangeGradient = { onChangeGradient(h.id) }
+                )
             }
         }
     }
@@ -182,12 +235,11 @@ fun HouseholdList(
 @Composable
 fun HouseholdItem(
     household: Household,
-    onClick: (Household) -> Unit
+    onClick: (Household) -> Unit,
+    gradientIndex: Int = 0,
+    onChangeGradient: () -> Unit = {}
 ) {
-    val gradientColors = listOf(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.tertiary
-    )
+    val gradient = householdGradients[gradientIndex.coerceIn(0, householdGradients.size - 1)]
 
     Card(
         modifier = Modifier
@@ -198,12 +250,12 @@ fun HouseholdItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background gradient (placeholder for future image via household.imageUri)
+            // Background gradient personalizable
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)
+                        brush = Brush.linearGradient(gradient.colors)
                     )
             )
             // House icon centered
@@ -215,13 +267,28 @@ fun HouseholdItem(
                     .size(80.dp)
                     .align(Alignment.Center)
             )
+            // 🆕 Botón para cambiar fondo (arriba a la derecha)
+            IconButton(
+                onClick = onChangeGradient,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(36.dp)
+            ) {
+                Icon(
+                    Icons.Default.Palette,
+                    contentDescription = "Cambiar fondo",
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             // Bottom scrim with name
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        brush = Brush.verticalGradient(
                             colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
                         )
                     )
@@ -247,6 +314,86 @@ fun HouseholdItem(
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Diálogo de selección de fondo / gradiente
+// ---------------------------------------------------------------------------
+@Composable
+fun GradientPickerDialog(
+    currentIndex: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Elegir fondo del hogar") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Selecciona un estilo visual para la tarjeta de tu hogar",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Grid de gradientes 5x2
+                for (row in householdGradients.chunked(5)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEachIndexed { _, gradient ->
+                            val index = householdGradients.indexOf(gradient)
+                            val isSelected = index == currentIndex
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        brush = Brush.linearGradient(gradient.colors),
+                                        shape = CircleShape
+                                    )
+                                    .then(
+                                        if (isSelected) Modifier
+                                            .clip(CircleShape)
+                                        else Modifier
+                                    )
+                                    .clickable { onSelect(index) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    // White border + check
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.White.copy(alpha = 0.3f),
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {}
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Seleccionado",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                // Show name of currently selected
+                Text(
+                    text = householdGradients[currentIndex.coerceIn(0, householdGradients.size - 1)].name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
 }
 
 // ---------------------------------------------------------------------------
