@@ -150,7 +150,11 @@ dependencies {
     // Reemplaza la gestión manual de tokens (EncryptedSharedPreferences)
     // con persistencia en DataStore + refresh automático. Login una sola vez.
     implementation("io.github.jan-tennert.supabase:auth-kt:3.3.0")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.3.0")
     implementation("io.ktor:ktor-client-okhttp:3.0.3")
+
+    // Coil — carga de imágenes async para Compose
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // DataStore (storage para supabase-kt SessionManager)
     implementation("androidx.datastore:datastore-preferences:1.1.2")

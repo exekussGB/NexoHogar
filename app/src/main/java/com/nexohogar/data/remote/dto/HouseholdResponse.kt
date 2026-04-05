@@ -8,5 +8,9 @@ data class HouseholdResponse(
     @SerializedName("name")
     val name: String,
     @SerializedName("description")
-    val description: String? = null
+    val description: String? = null,
+    @SerializedName("image_url")
+    val imageUrl: String? = null,
+    @SerializedName("gradient_index")
+    val gradientIndex: Int? = null
 )

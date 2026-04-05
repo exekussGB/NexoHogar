@@ -15,4 +15,6 @@ interface HouseholdRepository {
     suspend fun rejectMember(memberId: String): AppResult<Boolean>
     suspend fun removeMember(householdId: String, memberUserId: String): AppResult<Boolean>
     suspend fun deleteHousehold(householdId: String, confirmName: String): AppResult<Boolean>
+    suspend fun updateHouseholdAppearance(householdId: String, imageUrl: String?, gradientIndex: Int?): AppResult<Boolean>
+    suspend fun uploadHouseholdImage(householdId: String, imageBytes: ByteArray, mimeType: String): AppResult<String>
 }

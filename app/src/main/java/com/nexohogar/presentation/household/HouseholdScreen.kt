@@ -1,5 +1,8 @@
 package com.nexohogar.presentation.household
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
@@ -22,9 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.nexohogar.domain.model.Household
 import com.nexohogar.presentation.components.LoadingOverlay
 
@@ -58,10 +67,7 @@ fun HouseholdScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
-
-    // 🆕 Fix 5: Mapa de gradientes seleccionados por hogar
-    var gradientMap by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    var showGradientPicker by remember { mutableStateOf<String?>(null) } // householdId
+    var showAppearancePicker by remember { mutableStateOf<String?>(null) } // householdId
 
     // Navegar al dashboard cuando se crea exitosamente
     LaunchedEffect(uiState.createSuccess) {
@@ -97,7 +103,6 @@ fun HouseholdScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // FAB secundario: unirse con código
                 SmallFloatingActionButton(
                     onClick = { viewModel.onShowJoinDialog() },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -105,7 +110,6 @@ fun HouseholdScreen(
                 ) {
                     Icon(Icons.Default.VpnKey, contentDescription = "Unirse con código")
                 }
-                // FAB principal: crear hogar
                 FloatingActionButton(onClick = { showCreateDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "Crear Hogar")
                 }
@@ -138,10 +142,14 @@ fun HouseholdScreen(
                     HouseholdList(
                         households = uiState.households,
                         onHouseholdClick = { onHouseholdSelected(it.id) },
-                        gradientMap = gradientMap,
-                        onChangeGradient = { householdId -> showGradientPicker = householdId }
+                        onChangeAppearance = { householdId -> showAppearancePicker = householdId }
                     )
                 }
+            }
+
+            // Overlay de subida de imagen
+            if (uiState.isUploadingImage) {
+                LoadingOverlay()
             }
         }
     }
@@ -151,9 +159,7 @@ fun HouseholdScreen(
         CreateHouseholdDialog(
             isCreating = uiState.isCreating,
             errorMessage = uiState.createError,
-            onConfirm = { name ->
-                viewModel.createHousehold(name)
-            },
+            onConfirm = { name -> viewModel.createHousehold(name) },
             onDismiss = {
                 showCreateDialog = false
                 viewModel.clearCreateError()
@@ -161,15 +167,21 @@ fun HouseholdScreen(
         )
     }
 
-    // ── Diálogo de selección de fondo ──────────────────────────────────────────
-    showGradientPicker?.let { householdId ->
-        GradientPickerDialog(
-            currentIndex = gradientMap[householdId] ?: 0,
-            onSelect = { index ->
-                gradientMap = gradientMap + (householdId to index)
-                showGradientPicker = null
+    // ── Diálogo de apariencia (gradiente + imagen) ───────────────────────────
+    showAppearancePicker?.let { householdId ->
+        val household = uiState.households.firstOrNull { it.id == householdId }
+        AppearancePickerDialog(
+            currentGradientIndex = household?.gradientIndex ?: 0,
+            currentImageUrl = household?.imageUri,
+            onSelectGradient = { index ->
+                viewModel.updateGradient(householdId, index)
+                showAppearancePicker = null
             },
-            onDismiss = { showGradientPicker = null }
+            onSelectImage = { imageBytes, mimeType ->
+                viewModel.uploadImage(householdId, imageBytes, mimeType)
+                showAppearancePicker = null
+            },
+            onDismiss = { showAppearancePicker = null }
         )
     }
 
@@ -184,6 +196,15 @@ fun HouseholdScreen(
             onDismiss = { viewModel.onDismissJoinDialog() }
         )
     }
+
+    // ── Snackbar de error de upload ──────────────────────────────────────────
+    uiState.uploadError?.let { error ->
+        LaunchedEffect(error) {
+            // Show briefly then clear
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearUploadError()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -194,8 +215,7 @@ fun HouseholdScreen(
 fun HouseholdList(
     households: List<Household>,
     onHouseholdClick: (Household) -> Unit,
-    gradientMap: Map<String, Int> = emptyMap(),
-    onChangeGradient: (String) -> Unit = {}
+    onChangeAppearance: (String) -> Unit = {}
 ) {
     if (households.size == 1) {
         Box(
@@ -207,8 +227,7 @@ fun HouseholdList(
             HouseholdItem(
                 household = households.first(),
                 onClick = onHouseholdClick,
-                gradientIndex = gradientMap[households.first().id] ?: 0,
-                onChangeGradient = { onChangeGradient(households.first().id) }
+                onChangeAppearance = { onChangeAppearance(households.first().id) }
             )
         }
     } else {
@@ -224,8 +243,7 @@ fun HouseholdList(
                 HouseholdItem(
                     household = h,
                     onClick = onHouseholdClick,
-                    gradientIndex = gradientMap[h.id] ?: (index % householdGradients.size),
-                    onChangeGradient = { onChangeGradient(h.id) }
+                    onChangeAppearance = { onChangeAppearance(h.id) }
                 )
             }
         }
@@ -236,10 +254,10 @@ fun HouseholdList(
 fun HouseholdItem(
     household: Household,
     onClick: (Household) -> Unit,
-    gradientIndex: Int = 0,
-    onChangeGradient: () -> Unit = {}
+    onChangeAppearance: () -> Unit = {}
 ) {
-    val gradient = householdGradients[gradientIndex.coerceIn(0, householdGradients.size - 1)]
+    val gradient = householdGradients[household.gradientIndex.coerceIn(0, householdGradients.size - 1)]
+    val hasImage = !household.imageUri.isNullOrBlank()
 
     Card(
         modifier = Modifier
@@ -250,26 +268,38 @@ fun HouseholdItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background gradient personalizable
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.linearGradient(gradient.colors)
-                    )
-            )
-            // House icon centered
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.3f),
-                modifier = Modifier
-                    .size(80.dp)
-                    .align(Alignment.Center)
-            )
-            // 🆕 Botón para cambiar fondo (arriba a la derecha)
+            if (hasImage) {
+                // Fondo con imagen del usuario
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(household.imageUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Fondo del hogar",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Fondo con gradiente
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(brush = Brush.linearGradient(gradient.colors))
+                )
+                // House icon centered
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .align(Alignment.Center)
+                )
+            }
+
+            // Botón para cambiar fondo (arriba a la derecha)
             IconButton(
-                onClick = onChangeGradient,
+                onClick = onChangeAppearance,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
@@ -282,6 +312,7 @@ fun HouseholdItem(
                     modifier = Modifier.size(20.dp)
                 )
             }
+
             // Bottom scrim with name
             Box(
                 modifier = Modifier
@@ -317,25 +348,76 @@ fun HouseholdItem(
 }
 
 // ---------------------------------------------------------------------------
-// Diálogo de selección de fondo / gradiente
+// Diálogo de apariencia (gradiente + imagen)
 // ---------------------------------------------------------------------------
 @Composable
-fun GradientPickerDialog(
-    currentIndex: Int,
-    onSelect: (Int) -> Unit,
+fun AppearancePickerDialog(
+    currentGradientIndex: Int,
+    currentImageUrl: String?,
+    onSelectGradient: (Int) -> Unit,
+    onSelectImage: (ByteArray, String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes()
+                inputStream?.close()
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    onSelectImage(bytes, mimeType)
+                }
+            } catch (_: Exception) {
+                // Silently fail — user can try again
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Elegir fondo del hogar") },
+        title = { Text("Personalizar fondo") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // ── Sección de imagen ────────────────────────────────
                 Text(
-                    "Selecciona un estilo visual para la tarjeta de tu hogar",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "Imagen personalizada",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Elegir imagen de galería")
+                }
+
+                if (!currentImageUrl.isNullOrBlank()) {
+                    Text(
+                        "✓ Imagen actual aplicada",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                HorizontalDivider()
+
+                // ── Sección de gradientes ────────────────────────────
+                Text(
+                    "O elige un color de fondo",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
+                )
+
                 // Grid de gradientes 5x2
                 for (row in householdGradients.chunked(5)) {
                     Row(
@@ -344,7 +426,7 @@ fun GradientPickerDialog(
                     ) {
                         row.forEachIndexed { _, gradient ->
                             val index = householdGradients.indexOf(gradient)
-                            val isSelected = index == currentIndex
+                            val isSelected = index == currentGradientIndex && currentImageUrl.isNullOrBlank()
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
@@ -353,16 +435,10 @@ fun GradientPickerDialog(
                                         brush = Brush.linearGradient(gradient.colors),
                                         shape = CircleShape
                                     )
-                                    .then(
-                                        if (isSelected) Modifier
-                                            .clip(CircleShape)
-                                        else Modifier
-                                    )
-                                    .clickable { onSelect(index) },
+                                    .clickable { onSelectGradient(index) },
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (isSelected) {
-                                    // White border + check
                                     Surface(
                                         shape = CircleShape,
                                         color = Color.White.copy(alpha = 0.3f),
@@ -379,15 +455,17 @@ fun GradientPickerDialog(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                // Show name of currently selected
-                Text(
-                    text = householdGradients[currentIndex.coerceIn(0, householdGradients.size - 1)].name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+
+                // Show name of currently selected gradient
+                if (currentImageUrl.isNullOrBlank()) {
+                    Text(
+                        text = householdGradients[currentGradientIndex.coerceIn(0, householdGradients.size - 1)].name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         },
         confirmButton = {
@@ -428,7 +506,7 @@ fun EmptyHouseholdState(
             text = "Crea un nuevo hogar o únete a uno existente con un código de invitación",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(
