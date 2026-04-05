@@ -26,7 +26,8 @@ import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.core.tutorial.TutorialManager
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ARCHIVO NUEVO: Sistema de tutorial / onboarding reutilizable
+// Sistema de tutorial / onboarding reutilizable
+// Actualizado con las 8 mejoras v2
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -204,6 +205,7 @@ fun TutorialOverlay(
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Pasos predefinidos para HubScreen
+// ACTUALIZADO: Menciona seguridad biométrica y sesión mejorada
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val hubTutorialSteps = listOf(
@@ -215,8 +217,15 @@ val hubTutorialSteps = listOf(
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
+        title = "Seguridad biométrica 🔒",
+        description = "Tu app ahora está protegida con huella dactilar o reconocimiento facial. Al abrir NexoHogar se te pedirá autenticación biométrica para mayor seguridad.",
+        icon = Icons.Default.Fingerprint,
+        iconColor = Color(0xFF00695C),
+        iconBgColor = Color(0xFFE0F7FA)
+    ),
+    TutorialStep(
         title = "Resumen financiero",
-        description = "Desde \"Resumen\" puedes ver los saldos de tus cuentas, gráficos de gastos e ingresos del mes.",
+        description = "Desde \"Resumen\" puedes ver los saldos reales de tus cuentas, gráficos de gastos e ingresos del mes. ¡El balance ahora se actualiza en tiempo real!",
         icon = Icons.Default.BarChart,
         iconColor = Color(0xFF2E7D32),
         iconBgColor = Color(0xFFE8F5E9)
@@ -230,7 +239,7 @@ val hubTutorialSteps = listOf(
     ),
     TutorialStep(
         title = "Gestiona tus cuentas",
-        description = "En \"Cuentas\" puedes crear billeteras, cuentas bancarias y tarjetas de crédito. Toca una cuenta para ver sus últimos movimientos.",
+        description = "En \"Cuentas\" puedes crear billeteras, cuentas bancarias y tarjetas de crédito. Ahora con íconos visuales por tipo y desliza para editar o eliminar.",
         icon = Icons.Default.AccountBalance,
         iconColor = Color(0xFF6A1B9A),
         iconBgColor = Color(0xFFF3E5F5)
@@ -250,6 +259,13 @@ val hubTutorialSteps = listOf(
         iconBgColor = Color(0xFFF1F8E9)
     ),
     TutorialStep(
+        title = "Navegación mejorada ←",
+        description = "Ahora todas las pantallas tienen botón de retroceso para volver fácilmente. Navega sin perderte entre secciones.",
+        icon = Icons.Default.ArrowBack,
+        iconColor = Color(0xFF455A64),
+        iconBgColor = Color(0xFFECEFF1)
+    ),
+    TutorialStep(
         title = "Invita a tu hogar",
         description = "¡NexoHogar es colaborativo! Invita a los miembros de tu hogar para que todos puedan registrar movimientos.",
         icon = Icons.Default.PersonAdd,
@@ -259,7 +275,7 @@ val hubTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Pasos predefinidos para InventoryScreen (más detallado)
+// Pasos predefinidos para InventoryScreen (sin cambios)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val inventoryTutorialSteps = listOf(
@@ -323,7 +339,7 @@ val inventoryTutorialSteps = listOf(
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Pasos predefinidos para otros módulos
+// Dashboard — ACTUALIZADO: balance en tiempo real
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val dashboardTutorialSteps = listOf(
@@ -335,11 +351,18 @@ val dashboardTutorialSteps = listOf(
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
+        title = "Balance en tiempo real 💰",
+        description = "El balance total ahora se calcula sumando los saldos reales de todas tus cuentas. Se actualiza automáticamente cada vez que registras un movimiento.",
+        icon = Icons.Default.AccountBalanceWallet,
+        iconColor = Color(0xFF2E7D32),
+        iconBgColor = Color(0xFFE8F5E9)
+    ),
+    TutorialStep(
         title = "Últimos movimientos",
         description = "Debajo del resumen verás tus movimientos más recientes. Toca uno para ver sus detalles completos.",
         icon = Icons.Default.Receipt,
-        iconColor = Color(0xFF2E7D32),
-        iconBgColor = Color(0xFFE8F5E9)
+        iconColor = Color(0xFFF57F17),
+        iconBgColor = Color(0xFFFFF8E1)
     ),
     TutorialStep(
         title = "Gastos por categoría",
@@ -350,29 +373,51 @@ val dashboardTutorialSteps = listOf(
     )
 )
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Cuentas — ACTUALIZADO: íconos por tipo, secciones por subtipo, swipe
+// ═══════════════════════════════════════════════════════════════════════════════
+
 val accountsTutorialSteps = listOf(
     TutorialStep(
         title = "Tus cuentas 🏦",
-        description = "Aquí puedes ver todas tus cuentas: billeteras, cuentas bancarias y tarjetas de crédito.",
+        description = "Aquí puedes ver todas tus cuentas: billeteras, cuentas bancarias, tarjetas de crédito y más.",
         icon = Icons.Default.AccountBalance,
         iconColor = Color(0xFF1565C0),
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
-        title = "Detalle de cuenta",
-        description = "Toca cualquier cuenta para ver sus últimos movimientos y el detalle de ingresos y gastos.",
-        icon = Icons.Default.TouchApp,
-        iconColor = Color(0xFF2E7D32),
-        iconBgColor = Color(0xFFE8F5E9)
+        title = "Íconos por tipo",
+        description = "Cada cuenta ahora muestra un ícono según su tipo:\n\n🏦 Banco — cuenta corriente\n⭐ Ahorro — cuenta de ahorro\n💳 Tarjeta — crédito\n👛 Efectivo — billetera\n📈 Inversión\n📁 Otros",
+        icon = Icons.Default.Category,
+        iconColor = Color(0xFF6A1B9A),
+        iconBgColor = Color(0xFFF3E5F5)
+    ),
+    TutorialStep(
+        title = "Secciones organizadas",
+        description = "Las cuentas están agrupadas por tipo: Bancarias, Ahorro, Tarjetas, Efectivo y Otros. Así encuentras rápido lo que buscas.",
+        icon = Icons.Default.ViewList,
+        iconColor = Color(0xFF00838F),
+        iconBgColor = Color(0xFFE0F7FA)
+    ),
+    TutorialStep(
+        title = "Desliza para gestionar ↔️",
+        description = "Desliza cualquier cuenta hacia la derecha para editarla (naranja) o hacia la izquierda para eliminarla (rojo). Sentirás una vibración al cruzar el umbral.",
+        icon = Icons.Default.SwipeRight,
+        iconColor = Color(0xFFE65100),
+        iconBgColor = Color(0xFFFFF3E0)
     ),
     TutorialStep(
         title = "Crear nueva cuenta",
         description = "Usa el botón \"+\" para agregar una nueva cuenta. Puedes elegir si es compartida con el hogar o personal.",
         icon = Icons.Default.AddCard,
-        iconColor = Color(0xFF6A1B9A),
-        iconBgColor = Color(0xFFF3E5F5)
+        iconColor = Color(0xFF2E7D32),
+        iconBgColor = Color(0xFFE8F5E9)
     )
 )
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Transacciones — ACTUALIZADO: swipe mejorado, filtro por fecha, edición directa
+// ═══════════════════════════════════════════════════════════════════════════════
 
 val transactionsTutorialSteps = listOf(
     TutorialStep(
@@ -383,20 +428,38 @@ val transactionsTutorialSteps = listOf(
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
+        title = "Desliza para gestionar ↔️",
+        description = "Desliza un movimiento hacia la derecha para editarlo directamente (se abre en modo edición). Desliza hacia la izquierda para ver el detalle. ¡Ahora el gesto es más sensible y con vibración!",
+        icon = Icons.Default.SwipeRight,
+        iconColor = Color(0xFFE65100),
+        iconBgColor = Color(0xFFFFF3E0)
+    ),
+    TutorialStep(
+        title = "Filtro por fecha 📅",
+        description = "Toca el ícono de calendario para filtrar movimientos por rango de fechas. Puedes elegir un período personalizado o usar atajos rápidos: Hoy, Esta semana, Este mes o Mes anterior.",
+        icon = Icons.Default.DateRange,
+        iconColor = Color(0xFF283593),
+        iconBgColor = Color(0xFFE8EAF6)
+    ),
+    TutorialStep(
+        title = "Filtros combinados",
+        description = "Combina el filtro de fecha con los chips de tipo (Ingresos, Gastos, Transferencias) para encontrar exactamente lo que buscas. Un chip mostrará el rango activo y puedes cerrarlo con ✕.",
+        icon = Icons.Default.FilterList,
+        iconColor = Color(0xFF00695C),
+        iconBgColor = Color(0xFFE0F7FA)
+    ),
+    TutorialStep(
         title = "Agregar movimiento",
         description = "Usa el botón \"+\" para registrar un nuevo ingreso, gasto o transferencia entre cuentas.",
         icon = Icons.Default.AddCircle,
         iconColor = Color(0xFF2E7D32),
         iconBgColor = Color(0xFFE8F5E9)
-    ),
-    TutorialStep(
-        title = "Ver detalle",
-        description = "Toca cualquier movimiento para ver su información completa: fecha, hora, descripción, cuenta y quién lo registró.",
-        icon = Icons.Default.Info,
-        iconColor = Color(0xFFF57F17),
-        iconBgColor = Color(0xFFFFF8E1)
     )
 )
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Presupuestos (sin cambios)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 val budgetsTutorialSteps = listOf(
     TutorialStep(
@@ -422,6 +485,10 @@ val budgetsTutorialSteps = listOf(
     )
 )
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Gastos Recurrentes — ACTUALIZADO: historial mejorado + categoría
+// ═══════════════════════════════════════════════════════════════════════════════
+
 val recurringBillsTutorialSteps = listOf(
     TutorialStep(
         title = "Gastos recurrentes 🔄",
@@ -438,37 +505,59 @@ val recurringBillsTutorialSteps = listOf(
         iconBgColor = Color(0xFFE8F5E9)
     ),
     TutorialStep(
+        title = "Categoría del gasto 🏷️",
+        description = "Al crear o editar un gasto recurrente puedes asignarle una categoría. Así, cuando lo marques como pagado, la transacción se registrará con esa categoría y se reflejará en tus presupuestos.",
+        icon = Icons.Default.Label,
+        iconColor = Color(0xFFF57F17),
+        iconBgColor = Color(0xFFFFF8E1)
+    ),
+    TutorialStep(
         title = "Historial de pagos",
-        description = "Toca una cuenta recurrente para ver el historial de todos los pagos que has realizado.",
+        description = "Toca \"Ver historial\" en cualquier gasto recurrente para ver todos los pagos realizados. Los pagos se registran automáticamente al marcar como \"Pagado\" desde esta pantalla.",
         icon = Icons.Default.History,
         iconColor = Color(0xFF6A1B9A),
         iconBgColor = Color(0xFFF3E5F5)
     )
 )
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Hogar — ACTUALIZADO: diseño visual con tarjetas gradiente
+// ═══════════════════════════════════════════════════════════════════════════════
+
 val householdTutorialSteps = listOf(
     TutorialStep(
-        title = "Configuración del hogar ⚙️",
-        description = "Aquí puedes gestionar la configuración de tu hogar y tu cuenta personal.",
-        icon = Icons.Default.Settings,
+        title = "Selección de hogar 🏡",
+        description = "Aquí seleccionas el hogar con el que quieres trabajar. Cada hogar aparece como una tarjeta visual con un gradiente de color único.",
+        icon = Icons.Default.Home,
         iconColor = Color(0xFF1565C0),
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
+        title = "Tarjetas visuales",
+        description = "Las tarjetas muestran el nombre del hogar, los miembros que lo componen, y un ícono identificativo. Si tienes múltiples hogares, aparecen en una cuadrícula de 2 columnas.",
+        icon = Icons.Default.Dashboard,
+        iconColor = Color(0xFF6A1B9A),
+        iconBgColor = Color(0xFFF3E5F5)
+    ),
+    TutorialStep(
         title = "Miembros del hogar",
-        description = "Invita a los miembros de tu hogar para que todos puedan registrar movimientos y ver las finanzas.",
+        description = "Invita a los miembros de tu hogar para que todos puedan registrar movimientos y ver las finanzas compartidas.",
         icon = Icons.Default.Group,
         iconColor = Color(0xFF2E7D32),
         iconBgColor = Color(0xFFE8F5E9)
     ),
     TutorialStep(
         title = "Repetir tutoriales",
-        description = "Puedes volver a ver cualquier tutorial desde esta pantalla, en la sección de ayuda.",
+        description = "Puedes volver a ver cualquier tutorial desde Ajustes, en la sección de ayuda.",
         icon = Icons.Default.Help,
         iconColor = Color(0xFFF57F17),
         iconBgColor = Color(0xFFFFF8E1)
     )
 )
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Invitar miembro (sin cambios)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 val inviteMemberTutorialSteps = listOf(
     TutorialStep(
@@ -494,6 +583,9 @@ val inviteMemberTutorialSteps = listOf(
     )
 )
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Lista de deseos (sin cambios)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 val wishlistTutorialSteps = listOf(
     TutorialStep(
