@@ -1,9 +1,11 @@
 package com.nexohogar.presentation.household
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -37,13 +40,6 @@ fun HouseholdScreen(
             if (newHousehold != null) {
                 onHouseholdSelected(newHousehold.id)
             }
-        }
-    }
-
-    // Auto-navigate when only 1 household is available
-    LaunchedEffect(Unit) {
-        viewModel.autoSelectEvent.collect { householdId ->
-            onHouseholdSelected(householdId)
         }
     }
 
@@ -146,7 +142,7 @@ fun HouseholdScreen(
 }
 
 // ---------------------------------------------------------------------------
-// Lista de hogares
+// Lista de hogares (visual grid)
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -154,13 +150,31 @@ fun HouseholdList(
     households: List<Household>,
     onHouseholdClick: (Household) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(households) { household ->
-            HouseholdItem(household, onHouseholdClick)
+    if (households.size == 1) {
+        // Single household: large centered card
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            HouseholdItem(
+                household = households.first(),
+                onClick = onHouseholdClick
+            )
+        }
+    } else {
+        // Multiple: grid of 2 columns
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(households.size) { index ->
+                HouseholdItem(households[index], onHouseholdClick)
+            }
         }
     }
 }
@@ -170,36 +184,64 @@ fun HouseholdItem(
     household: Household,
     onClick: (Household) -> Unit
 ) {
+    val gradientColors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.tertiary
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(200.dp)
             .clickable { onClick(household) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background gradient (placeholder for future image via household.imageUri)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)
+                    )
+            )
+            // House icon centered
             Icon(
                 imageVector = Icons.Default.Home,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
+                tint = Color.White.copy(alpha = 0.3f),
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.Center)
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = household.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                household.description?.let { desc ->
-                    if (desc.isNotBlank()) {
-                        Text(
-                            text = desc,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Bottom scrim with name
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
                         )
+                    )
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Text(
+                        text = household.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    household.description?.let { desc ->
+                        if (desc.isNotBlank()) {
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
                     }
                 }
             }

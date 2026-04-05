@@ -75,7 +75,8 @@ fun DashboardScreen(
     onSeeAllClick: () -> Unit,
     onNavigateToCategoryExp: () -> Unit,
     onNavigateToPersonal: () -> Unit,
-    onAddMovement: () -> Unit = {}
+    onAddMovement: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val clpFormat = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
@@ -94,7 +95,23 @@ fun DashboardScreen(
     }
 
     // FAB removido — el botón "+" ahora está en la BottomNavBar global
-    Scaffold { scaffoldPadding ->
+    Scaffold(
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text("Dashboard") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    ) { scaffoldPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(scaffoldPadding)) {
             if (uiState.isLoading) LoadingOverlay()
 
@@ -135,7 +152,7 @@ fun DashboardScreen(
                 // ── Balance ────────────────────────────────────────────────────
                 item {
                     Box(modifier = Modifier.testTag("dashboard_balance")) {
-                        uiState.summary?.let { BalanceCard(summary = it, format = clpFormat) }
+                        uiState.summary?.let { BalanceCard(summary = it, format = clpFormat, uiState = uiState) }
                     }
                 }
 
@@ -279,7 +296,7 @@ fun CategoryExpensesButton(onClick: () -> Unit) {
 // BalanceCard
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
+fun BalanceCard(summary: DashboardSummary, format: NumberFormat, uiState: DashboardUiState = DashboardUiState()) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -294,7 +311,7 @@ fun BalanceCard(summary: DashboardSummary, format: NumberFormat) {
         ) {
             Text("Saldo Total", style = MaterialTheme.typography.labelMedium)
             Text(
-                text = format.format(summary.totalBalance),
+                text = format.format(uiState.computedTotalBalance ?: summary.totalBalance),
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )

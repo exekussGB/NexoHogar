@@ -11,5 +11,6 @@ data class DashboardUiState(
     val monthlyBalance: List<MonthlyBalance> = emptyList(),
     val hasPersonalAccounts: Boolean = false,
     val totalSavings: Long = 0L,    // 🆕 Feature 2: total de cuentas de ahorro
+    val computedTotalBalance: Double? = null,
     val error: String? = null
 )

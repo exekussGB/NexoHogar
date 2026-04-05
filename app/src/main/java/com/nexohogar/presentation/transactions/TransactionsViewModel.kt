@@ -46,6 +46,10 @@ class TransactionsViewModel(
     private val _selectedFilter = MutableStateFlow(TransactionFilter.ALL)
     val selectedFilter: StateFlow<TransactionFilter> = _selectedFilter.asStateFlow()
 
+    // ── Date range filter state ──────────────────────────────────────────────
+    private val _dateRange = MutableStateFlow<Pair<Long, Long>?>(null)
+    val dateRange: StateFlow<Pair<Long, Long>?> = _dateRange.asStateFlow()
+
     init {
         loadTransactions()
     }
@@ -59,15 +63,47 @@ class TransactionsViewModel(
     }
 
     /**
-     * Applies the current filter to the accumulated transactions list.
+     * Sets a date range filter and reloads the list.
+     */
+    fun setDateFilter(startMillis: Long, endMillis: Long) {
+        _dateRange.value = Pair(startMillis, endMillis)
+        applyFilter()
+    }
+
+    /**
+     * Clears the date range filter and reloads the list.
+     */
+    fun clearDateFilter() {
+        _dateRange.value = null
+        applyFilter()
+    }
+
+    /**
+     * Applies the current type filter and date range filter to the accumulated transactions list.
      */
     private fun applyFilter() {
-        val filtered = when (_selectedFilter.value) {
+        val range = _dateRange.value
+
+        // First apply type filter
+        val typeFiltered = when (_selectedFilter.value) {
             TransactionFilter.ALL -> _allTransactions.toList()
             TransactionFilter.EXPENSE -> _allTransactions.filter { it.type.lowercase() == "expense" }
             TransactionFilter.INCOME -> _allTransactions.filter { it.type.lowercase() == "income" }
             TransactionFilter.TRANSFER -> _allTransactions.filter { it.type.lowercase() == "transfer" }
         }
+
+        // Then apply date range filter (client-side)
+        val filtered = if (range != null) {
+            typeFiltered.filter { tx ->
+                try {
+                    val txDate = java.time.Instant.parse(tx.createdAt).toEpochMilli()
+                    txDate >= range.first && txDate <= range.second + 86400000L // include end day
+                } catch (_: Exception) { true }
+            }
+        } else {
+            typeFiltered
+        }
+
         _uiState.value = TransactionsUiState.Success(
             transactions = filtered,
             hasMoreData = hasMoreData

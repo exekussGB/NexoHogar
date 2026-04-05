@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -81,7 +88,6 @@ import com.nexohogar.presentation.wishlist.WishlistScreen
 import com.nexohogar.presentation.wishlist.WishlistViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.compose.material.icons.filled.Lock
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -110,8 +116,8 @@ sealed class Screen(val route: String) {
     object AddTransaction : Screen("add_transaction/{type}") {
         fun createRoute(type: String) = "add_transaction/$type"
     }
-    object TransactionDetail : Screen("transaction_detail/{transactionId}") {
-        fun createRoute(transactionId: String) = "transaction_detail/$transactionId"
+    object TransactionDetail : Screen("transaction_detail/{transactionId}?edit={edit}") {
+        fun createRoute(transactionId: String, edit: Boolean = false) = "transaction_detail/$transactionId?edit=$edit"
     }
 }
 
@@ -202,57 +208,152 @@ fun NavGraph(navController: NavHostController) {
             modifier = Modifier.padding(innerPadding)
         ) {
 
-            // ── Splash (session gate) ────────────────────────────────────────────
+            // ── Splash (session gate + biometric + refresh) ─────────────────────
             composable(Screen.Splash.route) {
-                // State for showing retry UI on network error
-                var showNetworkError by remember { mutableStateOf(false) }
+                val context = LocalContext.current
+                val biometricHelper = ServiceLocator.biometricHelper
+                val sessionRefresher = ServiceLocator.sessionRefresher
+
+                // UI states: loading, biometric, biometric_failed, refreshing, network_error, session_expired
+                var splashPhase by remember { mutableStateOf("loading") }
                 var isRetrying by remember { mutableStateOf(false) }
 
-                if (showNetworkError) {
-                    // Network error screen with retry button
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("😕", style = MaterialTheme.typography.displayMedium)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Sin conexión", style = MaterialTheme.typography.titleLarge)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "No se pudo verificar tu sesión.\nRevisa tu conexión a internet.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            androidx.compose.material3.Button(
-                                onClick = {
-                                    showNetworkError = false
-                                    isRetrying = true
-                                },
-                                enabled = !isRetrying
-                            ) {
-                                Text(if (isRetrying) "Reintentando..." else "Reintentar")
+                // Biometric callback handler
+                val biometricSuccess = remember { mutableStateOf(false) }
+                val biometricAttempted = remember { mutableStateOf(false) }
+
+                when (splashPhase) {
+                    "biometric" -> {
+                        // Show biometric prompt UI
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Verificación biométrica", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Verifica tu identidad para continuar",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
-                } else {
-                    // Loading spinner
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Cargando...", style = MaterialTheme.typography.bodyMedium)
+                    "biometric_failed" -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🔒", style = MaterialTheme.typography.displayMedium)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Verificación fallida", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(onClick = { splashPhase = "biometric"; biometricAttempted.value = false }) {
+                                    Text("Reintentar")
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                TextButton(onClick = {
+                                    sessionManager.clearSession()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(Screen.Splash.route) { inclusive = true }
+                                    }
+                                }) {
+                                    Text("Usar contraseña")
+                                }
+                            }
+                        }
+                    }
+                    "network_error" -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("😕", style = MaterialTheme.typography.displayMedium)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Sin conexión", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "No se pudo verificar tu sesión.\nRevisa tu conexión a internet.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(onClick = { splashPhase = "refreshing"; isRetrying = true }) {
+                                    Text("Reintentar")
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                TextButton(onClick = {
+                                    sessionManager.clearSession()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(Screen.Splash.route) { inclusive = true }
+                                    }
+                                }) {
+                                    Text("Iniciar sesión")
+                                }
+                            }
+                        }
+                    }
+                    "session_expired" -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("⏰", style = MaterialTheme.typography.displayMedium)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Tu sesión expiró", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Por seguridad, necesitas iniciar sesión nuevamente.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(onClick = { splashPhase = "refreshing"; isRetrying = true }) {
+                                    Text("Reintentar")
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                TextButton(onClick = {
+                                    sessionManager.clearSession()
+                                    navController.navigate(Screen.Login.route) {
+                                        popUpTo(Screen.Splash.route) { inclusive = true }
+                                    }
+                                }) {
+                                    Text("Iniciar sesión")
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        // loading / refreshing
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator()
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Cargando...", style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                     }
                 }
 
-                // Key on isRetrying to re-trigger the effect on retry
-                LaunchedEffect(isRetrying) {
-                    // Reset flag
+                // ── Main navigation logic ──
+                LaunchedEffect(splashPhase, isRetrying) {
+                    if (splashPhase == "biometric" || splashPhase == "biometric_failed" ||
+                        splashPhase == "network_error" || splashPhase == "session_expired") return@LaunchedEffect
+
                     if (isRetrying) isRetrying = false
 
                     val session = sessionManager.fetchSession()
@@ -264,6 +365,13 @@ fun NavGraph(navController: NavHostController) {
                         return@LaunchedEffect
                     }
 
+                    // Check biometric
+                    if (sessionManager.isBiometricEnabled() && !biometricSuccess.value && !biometricAttempted.value) {
+                        splashPhase = "biometric"
+                        return@LaunchedEffect
+                    }
+
+                    // Token still valid?
                     if (!sessionManager.isTokenExpired()) {
                         Log.d("Splash", "✅ Token still valid → Household")
                         navController.navigate(Screen.Household.route) {
@@ -274,6 +382,7 @@ fun NavGraph(navController: NavHostController) {
 
                     // Token expired — try to refresh with retries
                     Log.d("Splash", "⏰ Token expired — attempting refresh...")
+                    splashPhase = "refreshing"
                     var lastResult: RefreshResult? = null
                     val maxAttempts = 3
 
@@ -293,24 +402,43 @@ fun NavGraph(navController: NavHostController) {
                         }
 
                         if (result is RefreshResult.ServerRejected) {
-                            Log.d("Splash", "❌ Server rejected on attempt $attempt → Login")
-                            sessionManager.clearSession()
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(Screen.Splash.route) { inclusive = true }
-                            }
+                            Log.d("Splash", "❌ Server rejected on attempt $attempt")
+                            splashPhase = "session_expired"
                             return@LaunchedEffect
                         }
 
-                        // NetworkError — wait and retry
                         if (attempt < maxAttempts) {
                             Log.d("Splash", "⚠️ Network error on attempt $attempt — retrying in 2s...")
                             kotlinx.coroutines.delay(2000L)
                         }
                     }
 
-                    // All attempts failed with NetworkError — show retry UI (don't go to Login!)
                     Log.d("Splash", "⚠️ All $maxAttempts attempts failed — showing network error UI")
-                    showNetworkError = true
+                    splashPhase = "network_error"
+                }
+
+                // ── Biometric launcher ──
+                LaunchedEffect(splashPhase) {
+                    if (splashPhase == "biometric" && !biometricAttempted.value) {
+                        biometricAttempted.value = true
+                        val activity = context as? androidx.fragment.app.FragmentActivity
+                        if (activity != null && biometricHelper.isBiometricAvailable()) {
+                            biometricHelper.showBiometricPrompt(
+                                activity = activity,
+                                onSuccess = {
+                                    biometricSuccess.value = true
+                                    splashPhase = "loading" // re-trigger the main logic
+                                },
+                                onError = { _ ->
+                                    splashPhase = "biometric_failed"
+                                }
+                            )
+                        } else {
+                            // Biometric not available — skip
+                            biometricSuccess.value = true
+                            splashPhase = "loading"
+                        }
+                    }
                 }
             }
 
@@ -319,7 +447,7 @@ fun NavGraph(navController: NavHostController) {
                 val vm = LoginViewModel(authRepository, sessionManager)
                 val biometricHelper = ServiceLocator.biometricHelper
                 val offerBiometric = biometricHelper.isBiometricAvailable() && sessionManager.shouldOfferBiometric()
-                val context = androidx.compose.ui.platform.LocalContext.current
+                val context = LocalContext.current
                 var showBiometricDialog by remember { mutableStateOf(false) }
 
                 // ── Diálogo: ¿Activar biometría? ──
@@ -333,8 +461,8 @@ fun NavGraph(navController: NavHostController) {
                             }
                         },
                         icon = {
-                            androidx.compose.material3.Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                            Icon(
+                                imageVector = Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -347,7 +475,7 @@ fun NavGraph(navController: NavHostController) {
                             )
                         },
                         confirmButton = {
-                            androidx.compose.material3.TextButton(onClick = {
+                            TextButton(onClick = {
                                 showBiometricDialog = false
                                 val activity = context as? androidx.fragment.app.FragmentActivity
                                 if (activity != null) {
@@ -375,7 +503,7 @@ fun NavGraph(navController: NavHostController) {
                             }) { Text("Activar") }
                         },
                         dismissButton = {
-                            androidx.compose.material3.TextButton(onClick = {
+                            TextButton(onClick = {
                                 showBiometricDialog = false
                                 navController.navigate(Screen.Household.route) {
                                     popUpTo(Screen.Login.route) { inclusive = true }
@@ -573,7 +701,8 @@ fun NavGraph(navController: NavHostController) {
                     onTransactionClick = { id -> navController.navigate(Screen.TransactionDetail.createRoute(id)) },
                     onSeeAllClick = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToCategoryExp = { navController.navigate(Screen.CategoryExpenses.route) },
-                    onNavigateToPersonal = { navController.navigate(Screen.PersonalDashboard.route) }
+                    onNavigateToPersonal = { navController.navigate(Screen.PersonalDashboard.route) },
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -596,7 +725,8 @@ fun NavGraph(navController: NavHostController) {
                     onTransactionClick = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
                     onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) },
                     isSuperUser = tenantContext.isSuperUser(),
-                    onEditTransaction = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) }
+                    onEditTransaction = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id, edit = true)) },
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -628,10 +758,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── TransactionDetail ──────────────────────────────────────────────
             composable(
-                route = Screen.TransactionDetail.route,
-                arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
+                route = "transaction_detail/{transactionId}?edit={edit}",
+                arguments = listOf(
+                    navArgument("transactionId") { type = NavType.StringType },
+                    navArgument("edit") { type = NavType.BoolType; defaultValue = false }
+                )
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+                val openInEditMode = backStackEntry.arguments?.getBoolean("edit") ?: false
                 val vm: TransactionDetailViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -643,7 +777,8 @@ fun NavGraph(navController: NavHostController) {
                 TransactionDetailScreen(
                     transactionId = transactionId,
                     viewModel = vm,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    openInEditMode = openInEditMode
                 )
             }
 

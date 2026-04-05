@@ -9,12 +9,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 /**
  * Lifecycle-aware component that keeps the session alive automatically.
@@ -74,6 +76,24 @@ class SessionRefresher(
         // App went to background — cancel timer (useless in background)
         refreshTimerJob?.cancel()
         Log.d(TAG, "📱 App in background — timer cancelled")
+    }
+
+    // ── Immediate refresh for Splash screen ──────────────────────────────
+
+    /**
+     * Attempt an immediate token refresh. Used by Splash screen.
+     * Returns RefreshResult within the given timeout.
+     */
+    suspend fun refreshNow(timeoutMs: Long = 5000L): RefreshResult {
+        return try {
+            withTimeout(timeoutMs) {
+                TokenRefreshCoordinator.refresh(sessionManager)
+            }
+        } catch (e: TimeoutCancellationException) {
+            RefreshResult.NetworkError("Timeout al refrescar sesión")
+        } catch (e: Exception) {
+            RefreshResult.NetworkError(e.message ?: "Error desconocido")
+        }
     }
 
     // ── Core refresh logic ──────────────────────────────────────────────────
