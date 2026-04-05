@@ -55,6 +55,7 @@ import com.nexohogar.presentation.household.HouseholdScreen
 import com.nexohogar.presentation.household.HouseholdViewModel
 import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
 import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
+import com.nexohogar.presentation.hub.AddMovementDialog
 import com.nexohogar.presentation.hub.HubScreen
 import com.nexohogar.presentation.inventory.InventoryScreen
 import com.nexohogar.presentation.inventory.InventoryViewModel
@@ -155,25 +156,45 @@ fun NavGraph(navController: NavHostController) {
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute != null && currentRoute !in hiddenBarRoutes
 
+    // ── Estado del diálogo "Agregar Movimiento" del botón "+" ────────────
+    var showAddMovementDialog by remember { mutableStateOf(false) }
+
+    if (showAddMovementDialog) {
+        AddMovementDialog(
+            onDismiss = { showAddMovementDialog = false },
+            onSelect  = { type ->
+                showAddMovementDialog = false
+                navController.navigate(Screen.AddTransaction.createRoute(type))
+            }
+        )
+    }
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 NexoHogarBottomNavBar(
                     currentRoute = currentRoute,
                     onNavigate = { route ->
-                        navController.navigate(route) {
-                            launchSingleTop = true
-                            // Evitar apilar múltiples copias al cambiar entre tabs
-                            popUpTo(Screen.Dashboard.route) { saveState = true }
-                            restoreState = true
+                        if (route == Screen.Hub.route) {
+                            // "Más" SIEMPRE navega al Hub limpiamente
+                            navController.navigate(Screen.Hub.route) {
+                                launchSingleTop = true
+                                // Limpiar todo el back stack hasta Household
+                                popUpTo(Screen.Hub.route) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                                popUpTo(Screen.Hub.route) { saveState = true }
+                                restoreState = true
+                            }
                         }
                     },
-                    onAddExpense = { navController.navigate("add_transaction/expense") },
-                    onShowTransactionTypeDialog = { /* TODO: show type picker dialog */ }
+                    onAddMovement = { showAddMovementDialog = true },
+                    onShowTransactionTypeDialog = { showAddMovementDialog = true }
                 )
             }
         }
-        // FAB removido — el botón "+" ahora vive dentro de la BottomNavBar
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -507,7 +528,9 @@ fun NavGraph(navController: NavHostController) {
                 viewModel = vm,
                 tutorialManager = tutorialManager,
                 onTransactionClick = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) },
-                onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) }
+                onAddTransactionClick = { navController.navigate(Screen.AddTransaction.createRoute("expense")) },
+                isSuperUser = tenantContext.isSuperUser(),
+                onEditTransaction = { t -> navController.navigate(Screen.TransactionDetail.createRoute(t.id)) }
             )
         }
 

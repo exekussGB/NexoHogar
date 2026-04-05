@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
@@ -39,7 +40,9 @@ fun TransactionsScreen(
     viewModel: TransactionsViewModel,
     tutorialManager: TutorialManager,
     onTransactionClick: (Transaction) -> Unit,
-    onAddTransactionClick: () -> Unit
+    onAddTransactionClick: () -> Unit,
+    isSuperUser: Boolean = false,
+    onEditTransaction: (Transaction) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
@@ -101,7 +104,9 @@ fun TransactionsScreen(
                             hasMoreData = state.hasMoreData,
                             isLoadingMore = isLoadingMore,
                             onItemClick = onTransactionClick,
-                            onLoadMore = { viewModel.loadMoreTransactions() }
+                            onLoadMore = { viewModel.loadMoreTransactions() },
+                            isSuperUser = isSuperUser,
+                            onEditItem = onEditTransaction
                         )
                     }
                     is TransactionsUiState.Error -> {
@@ -136,7 +141,9 @@ fun TransactionsList(
     hasMoreData: Boolean,
     isLoadingMore: Boolean,
     onItemClick: (Transaction) -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    isSuperUser: Boolean = false,
+    onEditItem: (Transaction) -> Unit = {}
 ) {
     if (transactions.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -166,30 +173,66 @@ fun TransactionsList(
             items(transactions) { transaction ->
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
-                        if (value == SwipeToDismissBoxValue.EndToStart) {
-                            onItemClick(transaction)
-                            false  // no descartar visualmente, solo navegar
-                        } else false
+                        when (value) {
+                            // ← Swipe izquierda: ver detalle
+                            SwipeToDismissBoxValue.EndToStart -> {
+                                onItemClick(transaction)
+                                false  // no descartar visualmente, solo navegar
+                            }
+                            // → Swipe derecha: editar (solo super user)
+                            SwipeToDismissBoxValue.StartToEnd -> {
+                                if (isSuperUser) {
+                                    onEditItem(transaction)
+                                }
+                                false
+                            }
+                            else -> false
+                        }
                     },
                     positionalThreshold = { it * 0.5f }
                 )
                 SwipeToDismissBox(
                     state = dismissState,
                     backgroundContent = {
+                        val direction = dismissState.dismissDirection
+                        // ← Swipe izquierda: azul (detalle)
+                        // → Swipe derecha: naranja (editar) — solo si es super user
                         val color by animateColorAsState(
-                            if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
-                                Color(0xFF1565C0) else Color.Transparent,
+                            when (direction) {
+                                SwipeToDismissBoxValue.EndToStart -> Color(0xFF1565C0)
+                                SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Color(0xFFE65100) else Color.Transparent
+                                else -> Color.Transparent
+                            },
                             label = "swipe_tx_color"
                         )
                         Box(
-                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.CenterEnd
+                            Modifier.fillMaxSize().background(color, RoundedCornerShape(8.dp))
                         ) {
-                            Icon(Icons.Default.OpenInNew, contentDescription = "Ver detalle",
-                                tint = Color.White, modifier = Modifier.padding(end = 16.dp))
+                            // Ícono derecho: ver detalle
+                            if (direction == SwipeToDismissBoxValue.EndToStart) {
+                                Icon(
+                                    Icons.Default.OpenInNew,
+                                    contentDescription = "Ver detalle",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .padding(end = 16.dp)
+                                )
+                            }
+                            // Ícono izquierdo: editar (solo super user)
+                            if (direction == SwipeToDismissBoxValue.StartToEnd && isSuperUser) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Editar",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = 16.dp)
+                                )
+                            }
                         }
                     },
-                    enableDismissFromStartToEnd = false,
+                    enableDismissFromStartToEnd = isSuperUser,  // Solo super user puede swipe derecha
                     enableDismissFromEndToStart = true
                 ) {
                     TransactionItem(transaction, onItemClick)
