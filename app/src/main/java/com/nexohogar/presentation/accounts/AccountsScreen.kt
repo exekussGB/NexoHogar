@@ -1,6 +1,9 @@
 package com.nexohogar.presentation.accounts
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -157,86 +160,132 @@ fun IconPickerGrid(
     selectedIcon: String?,
     onIconSelected: (String?) -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedIconVector = getIconByName(selectedIcon)
+
     Column {
-        Text(
-            text = "Ícono personalizado",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
+        // ── Header colapsable ────────────────────────────────────────
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 220.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .clickable { expanded = !expanded },
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ) {
-            // "Sin ícono" option to clear
-            item {
-                val isSelected = selectedIcon == null
-                Surface(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable { onIconSelected(null) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected)
-                        MaterialTheme.colorScheme.primaryContainer
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Ícono seleccionado o placeholder
+                Icon(
+                    imageVector = selectedIconVector ?: Icons.Default.EmojiEmotions,
+                    contentDescription = null,
+                    tint = if (selectedIcon != null)
+                        MaterialTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = if (isSelected)
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    else null
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Block,
-                            contentDescription = "Sin ícono",
-                            tint = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                Color.Gray,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-            }
-            items(availableAccountIcons) { option ->
-                val isSelected = selectedIcon == option.name
-                Surface(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable { onIconSelected(option.name) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected)
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (selectedIcon != null) "Ícono: $selectedIcon" else "Ícono personalizado",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (selectedIcon != null)
+                        MaterialTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = if (isSelected)
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    else null
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            option.icon,
-                            contentDescription = option.name,
-                            tint = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Cerrar" else "Abrir",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-        if (selectedIcon != null) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = selectedIcon,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
+
+        // ── Grid expandible ──────────────────────────────────────────
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(6),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // "Sin ícono" option to clear
+                    item {
+                        val isSelected = selectedIcon == null
+                        Surface(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clickable {
+                                    onIconSelected(null)
+                                    expanded = false
+                                },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected)
+                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                            else null
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Block,
+                                    contentDescription = "Sin ícono",
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                    items(availableAccountIcons) { option ->
+                        val isSelected = selectedIcon == option.name
+                        Surface(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clickable {
+                                    onIconSelected(option.name)
+                                    expanded = false
+                                },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected)
+                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                            else null
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    option.icon,
+                                    contentDescription = option.name,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
