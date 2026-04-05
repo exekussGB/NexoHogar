@@ -15,14 +15,16 @@ interface AccountsRepository {
         isShared: Boolean = true,
         ownerUserId: String? = null,
         initialBalanceCLP: Double? = null,
-        isSavings: Boolean = false    // 🆕 Feature 2
+        isSavings: Boolean = false,    // 🆕 Feature 2
+        icon: String? = null           // 🆕 Custom icon
     ): AppResult<Account>
     suspend fun deleteAccount(accountId: String): AppResult<Unit>
     suspend fun updateAccount(
         accountId : String,
         name      : String,
         isSavings : Boolean,
-        isShared  : Boolean
+        isShared  : Boolean,
+        icon      : String? = null     // 🆕 Custom icon
     ): AppResult<Unit>
     suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean>
     suspend fun getPersonalAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>>

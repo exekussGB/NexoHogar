@@ -7,5 +7,6 @@ data class AccountBalance(
     val movementBalance: Long,
     val isShared: Boolean = true,
     val ownerUserId: String? = null,
-    val isSavings: Boolean = false    // 🆕 Feature 2
+    val isSavings: Boolean = false,    // 🆕 Feature 2
+    val icon: String? = null           // 🆕 Custom icon
 )
