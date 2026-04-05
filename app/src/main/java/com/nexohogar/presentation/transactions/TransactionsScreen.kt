@@ -58,14 +58,7 @@ fun TransactionsScreen(
                 )
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddTransactionClick,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar movimiento")
-            }
-        }
+        // FAB removido — el botón "+" ahora está en la BottomNavBar global
     ) { padding ->
         Column(
             modifier = Modifier

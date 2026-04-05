@@ -93,16 +93,8 @@ fun DashboardScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddMovement,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar movimiento")
-            }
-        }
-    ) { scaffoldPadding ->
+    // FAB removido — el botón "+" ahora está en la BottomNavBar global
+    Scaffold { scaffoldPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(scaffoldPadding)) {
             if (uiState.isLoading) LoadingOverlay()
 
