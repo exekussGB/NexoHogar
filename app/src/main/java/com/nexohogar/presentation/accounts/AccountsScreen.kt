@@ -37,8 +37,8 @@ import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 @Composable
 fun getAccountIcon(account: AccountBalance): Pair<ImageVector, Color> {
-    // Map by accountSubtype first (more specific), then fall back to accountType
-    val subtypeLower = (account.accountSubtype ?: "").lowercase()
+    // Map by accountType
+    val subtypeLower = account.accountType.lowercase()
     val typeLower = account.accountType.lowercase()
 
     return when {

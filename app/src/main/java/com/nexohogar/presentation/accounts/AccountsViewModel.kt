@@ -75,7 +75,7 @@ class AccountsViewModel(
                     val personal = result.data.filter { !it.isShared && it.ownerUserId == userId && !it.isSavings }
 
                     // Group all accounts by subtype for section display
-                    val bySubtype = result.data.groupBy { it.accountSubtype ?: it.accountType }
+                    val bySubtype = result.data.groupBy { it.accountType }
 
                     _uiState.update {
                         it.copy(
