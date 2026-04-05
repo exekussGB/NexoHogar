@@ -18,8 +18,7 @@ data class HouseholdUiState(
     val households: List<Household> = emptyList(),
     val error: String? = null,
 
-    // Sesión expirada — se activa cuando el servidor devuelve 401
-    // y el refresh también falla. La UI debe redirigir al login.
+    // Sesión expirada
     val sessionExpired: Boolean = false,
 
     // Crear hogar
@@ -33,7 +32,11 @@ data class HouseholdUiState(
     val isJoining: Boolean = false,
     val joinError: String? = null,
     val joinSuccess: Boolean = false,
-    val joinMessage: String? = null
+    val joinMessage: String? = null,
+
+    // Apariencia (imagen / gradiente)
+    val isUploadingImage: Boolean = false,
+    val uploadError: String? = null
 )
 
 class HouseholdViewModel(
@@ -58,9 +61,6 @@ class HouseholdViewModel(
                     }
                 }
                 is AppResult.Error -> {
-                    // Only match the SPECIFIC synthetic message from AuthInterceptor.
-                    // This prevents network errors (503) or other messages containing
-                    // "401" from being misinterpreted as irrecoverable session expiry.
                     val isAuthError = result.message?.contains("Unauthorized - session expired") == true
                     _uiState.update {
                         it.copy(
@@ -75,7 +75,6 @@ class HouseholdViewModel(
         }
     }
 
-    /** Llamar desde la UI después de haber navegado al login. */
     fun clearSessionExpired() {
         _uiState.update { it.copy(sessionExpired = false) }
     }
@@ -142,7 +141,6 @@ class HouseholdViewModel(
                             joinMessage = if (result.data) "¡Te uniste exitosamente!" else "Solicitud enviada, espera aprobación"
                         )
                     }
-                    // Recargar hogares por si fue aceptado automáticamente
                     loadHouseholds()
                 }
                 is AppResult.Error -> _uiState.update {
@@ -157,7 +155,6 @@ class HouseholdViewModel(
 
     fun selectHousehold(household: Household) {
         tenantContext.setHouseholdId(household.id)
-        // 🆕 Feature 1: Fetch and save user role for super_user check
         viewModelScope.launch {
             val userId = tenantContext.getCurrentUserId()
             if (userId != null) {
@@ -171,4 +168,60 @@ class HouseholdViewModel(
             }
         }
     }
+
+    // ── Apariencia: gradiente ────────────────────────────────────────────────
+
+    fun updateGradient(householdId: String, gradientIndex: Int) {
+        // Update locally immediately for instant feedback
+        _uiState.update { state ->
+            state.copy(
+                households = state.households.map { h ->
+                    if (h.id == householdId) h.copy(gradientIndex = gradientIndex, imageUri = null) else h
+                }
+            )
+        }
+        // Persist to Supabase
+        viewModelScope.launch {
+            householdRepository.updateHouseholdAppearance(
+                householdId = householdId,
+                imageUrl = "", // clear image when selecting gradient
+                gradientIndex = gradientIndex
+            )
+        }
+    }
+
+    // ── Apariencia: subir imagen ─────────────────────────────────────────────
+
+    fun uploadImage(householdId: String, imageBytes: ByteArray, mimeType: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingImage = true, uploadError = null) }
+
+            when (val uploadResult = householdRepository.uploadHouseholdImage(householdId, imageBytes, mimeType)) {
+                is AppResult.Success -> {
+                    val imageUrl = uploadResult.data
+                    // Update the appearance in Supabase
+                    householdRepository.updateHouseholdAppearance(
+                        householdId = householdId,
+                        imageUrl = imageUrl,
+                        gradientIndex = null
+                    )
+                    // Update local state
+                    _uiState.update { state ->
+                        state.copy(
+                            isUploadingImage = false,
+                            households = state.households.map { h ->
+                                if (h.id == householdId) h.copy(imageUri = imageUrl) else h
+                            }
+                        )
+                    }
+                }
+                is AppResult.Error -> {
+                    _uiState.update { it.copy(isUploadingImage = false, uploadError = uploadResult.message) }
+                }
+                else -> _uiState.update { it.copy(isUploadingImage = false) }
+            }
+        }
+    }
+
+    fun clearUploadError() { _uiState.update { it.copy(uploadError = null) } }
 }

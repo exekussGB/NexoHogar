@@ -8,9 +8,12 @@ import com.nexohogar.data.remote.dto.JoinHouseholdRequest
 import com.nexohogar.domain.model.Household
 import com.nexohogar.domain.model.HouseholdMember
 import com.nexohogar.domain.repository.HouseholdRepository
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.storage.storage
 
 class HouseholdRepositoryImpl(
-    private val authApi: AuthApi
+    private val authApi: AuthApi,
+    private val supabaseClient: SupabaseClient
 ) : HouseholdRepository {
 
     override suspend fun getHouseholds(): AppResult<List<Household>> {
@@ -21,12 +24,13 @@ class HouseholdRepositoryImpl(
                     Household(
                         id = dto.id,
                         name = dto.name,
-                        description = dto.description
+                        description = dto.description,
+                        imageUri = dto.imageUrl,
+                        gradientIndex = dto.gradientIndex ?: 0
                     )
                 } ?: emptyList()
                 AppResult.Success(households)
             } else {
-                // BUG 4 FIX: Propagate synthetic 401 message from AuthInterceptor
                 val msg = response.message()
                 if (response.code() == 401 && msg.contains("session expired", ignoreCase = true)) {
                     AppResult.Error("Unauthorized - session expired")
@@ -81,7 +85,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Siempre genera un código nuevo ───────────────────────────
     override suspend fun regenerateInviteCode(householdId: String): AppResult<String> {
         return try {
             val response = authApi.regenerateInviteCode(InviteCodeRequest(householdId))
@@ -100,9 +103,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    /**
-     * FIX: La función SQL retorna json_build_object con {success, message}.
-     */
     override suspend fun joinHouseholdByCode(inviteCode: String): AppResult<Boolean> {
         return try {
             val response = authApi.joinHouseholdByCode(
@@ -172,8 +172,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    // ── NUEVO: Eliminar miembro del hogar (solo super_user) ─────────────
-
     override suspend fun removeMember(
         householdId: String,
         memberUserId: String
@@ -211,8 +209,6 @@ class HouseholdRepositoryImpl(
         }
     }
 
-    // ── Eliminar hogar (llama a la RPC delete_household) ──────────
-
     override suspend fun deleteHousehold(
         householdId: String,
         confirmName: String
@@ -237,6 +233,57 @@ class HouseholdRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── Actualizar apariencia (gradiente y/o imagen URL) ────────────────
+    override suspend fun updateHouseholdAppearance(
+        householdId: String,
+        imageUrl: String?,
+        gradientIndex: Int?
+    ): AppResult<Boolean> {
+        return try {
+            val params = mutableMapOf<String, Any?>(
+                "p_household_id" to householdId
+            )
+            if (imageUrl != null) params["p_image_url"] = imageUrl
+            if (gradientIndex != null) params["p_gradient_index"] = gradientIndex
+
+            val response = authApi.updateHouseholdAppearance(params)
+            if (response.isSuccessful) {
+                val body = response.body()
+                val success = body?.get("success")?.asBoolean ?: false
+                if (success) AppResult.Success(true)
+                else AppResult.Error(body?.get("error")?.asString ?: "Error desconocido")
+            } else {
+                AppResult.Error("Error al actualizar apariencia: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    // ── Subir imagen a Supabase Storage ─────────────────────────────────
+    override suspend fun uploadHouseholdImage(
+        householdId: String,
+        imageBytes: ByteArray,
+        mimeType: String
+    ): AppResult<String> {
+        return try {
+            val extension = when (mimeType) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                else -> "jpg"
+            }
+            val fileName = "$householdId/${System.currentTimeMillis()}.$extension"
+            val bucket = supabaseClient.storage.from("household-images")
+
+            bucket.upload(fileName, imageBytes) { upsert = true }
+
+            val publicUrl = bucket.publicUrl(fileName)
+            AppResult.Success(publicUrl)
+        } catch (e: Exception) {
+            AppResult.Error("Error al subir imagen: ${e.message}")
         }
     }
 }

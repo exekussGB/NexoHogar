@@ -109,4 +109,10 @@ interface AuthApi {
     suspend fun deleteHousehold(
         @Body params: Map<String, String>
     ): Response<Void>
+
+    // ── Actualizar apariencia del hogar (imagen / gradiente) ────────────
+    @POST("rest/v1/rpc/rpc_update_household_appearance")
+    suspend fun updateHouseholdAppearance(
+        @Body params: Map<String, @JvmSuppressWildcards Any?>
+    ): Response<JsonObject>
 }

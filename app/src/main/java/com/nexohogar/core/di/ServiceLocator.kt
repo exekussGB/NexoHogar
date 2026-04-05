@@ -18,6 +18,7 @@ import com.nexohogar.domain.repository.*
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.storage.Storage
 import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -68,6 +69,7 @@ object ServiceLocator {
                 alwaysAutoRefresh = true
                 autoLoadFromStorage = true
             }
+            install(Storage)
         }
     }
 
@@ -160,7 +162,7 @@ object ServiceLocator {
     }
 
     val householdRepository: HouseholdRepository by lazy {
-        HouseholdRepositoryImpl(authApi)
+        HouseholdRepositoryImpl(authApi, supabaseClient)
     }
 
     val dashboardRepository: DashboardRepository by lazy {
