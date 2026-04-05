@@ -11,5 +11,6 @@ data class CreateAccountRequest(
     @SerializedName("is_shared") val isShared: Boolean = true,
     @SerializedName("owner_user_id") val ownerUserId: String? = null,
     @SerializedName("initial_balance_clp") val initialBalanceCLP: Double? = null,
-    @SerializedName("is_savings") val isSavings: Boolean = false    // 🆕 Feature 2
+    @SerializedName("is_savings") val isSavings: Boolean = false,    // 🆕 Feature 2
+    @SerializedName("icon") val icon: String? = null                 // 🆕 Custom icon
 )

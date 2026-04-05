@@ -56,7 +56,8 @@ class AccountsRepositoryImpl(
                         householdId = householdId,
                         isShared    = dto.isShared,
                         ownerUserId = dto.ownerUserId,
-                        isSavings   = dto.isSavings    // 🆕 Feature 2
+                        isSavings   = dto.isSavings,    // 🆕 Feature 2
+                        icon        = dto.icon           // 🆕 Custom icon
                     )
                 }
             AppResult.Success(accounts)
@@ -105,7 +106,8 @@ class AccountsRepositoryImpl(
         isShared      : Boolean,
         ownerUserId   : String?,
         initialBalanceCLP: Double?,
-        isSavings     : Boolean    // 🆕 Feature 2
+        isSavings     : Boolean,    // 🆕 Feature 2
+        icon          : String?     // 🆕 Custom icon
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
@@ -117,7 +119,8 @@ class AccountsRepositoryImpl(
                 isShared      = isShared,
                 ownerUserId   = ownerUserId,
                 initialBalanceCLP = initialBalanceCLP,
-                isSavings     = isSavings    // 🆕 Feature 2
+                isSavings     = isSavings,    // 🆕 Feature 2
+                icon          = icon           // 🆕 Custom icon
             )
             val response = accountsApi.createAccount(request)
             val created  = response.firstOrNull()
@@ -130,7 +133,8 @@ class AccountsRepositoryImpl(
                     type        = created.accountType ?: accountType,
                     balance     = created.balance?.toLong() ?: 0L,
                     householdId = householdId,
-                    isSavings   = created.isSavings ?: false    // 🆕 Feature 2
+                    isSavings   = created.isSavings ?: false,    // 🆕 Feature 2
+                    icon        = created.icon                    // 🆕 Custom icon
                 )
             )
         } catch (e: Exception) {
@@ -158,7 +162,8 @@ class AccountsRepositoryImpl(
         accountId : String,
         name      : String,
         isSavings : Boolean,
-        isShared  : Boolean
+        isShared  : Boolean,
+        icon      : String?     // 🆕 Custom icon
     ): AppResult<Unit> {
         return try {
             val response = accountsApi.updateAccount(
@@ -166,7 +171,8 @@ class AccountsRepositoryImpl(
                 body = UpdateAccountRequest(
                     name      = name,
                     isSavings = isSavings,
-                    isShared  = isShared
+                    isShared  = isShared,
+                    icon      = icon        // 🆕 Custom icon
                 )
             )
             if (response.isSuccessful) {

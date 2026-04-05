@@ -30,6 +30,7 @@ data class AccountsUiState(
     val isCreating: Boolean = false,
     val newAccountHasInitialBalance: Boolean = false,
     val newAccountInitialBalance: String = "",
+    val newAccountIcon: String? = null,              // 🆕 Custom icon for create dialog
     val showDeleteConfirm: String? = null, // accountId to delete
     val currentUserId: String? = null,
     val selectedAccount: AccountBalance? = null,
@@ -45,6 +46,7 @@ data class AccountsUiState(
     val editAccountName: String = "",
     val editAccountIsSavings: Boolean = false,
     val editAccountIsShared: Boolean = true,
+    val editAccountIcon: String? = null,             // 🆕 Custom icon for edit dialog
     val isSavingEdit: Boolean = false
 )
 
@@ -152,7 +154,7 @@ class AccountsViewModel(
     }
 
     // ── Create Dialog ────────────────────────────────────────────────────────
-    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountIsSavings = false, newAccountHasInitialBalance = false, newAccountInitialBalance = "") } }
+    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountIsSavings = false, newAccountHasInitialBalance = false, newAccountInitialBalance = "", newAccountIcon = null) } }
     fun dismissCreateDialog() { _uiState.update { it.copy(showCreateDialog = false) } }
     fun onNameChange(name: String) { _uiState.update { it.copy(newAccountName = name) } }
     fun onSubtypeChange(subtype: String) { _uiState.update { it.copy(newAccountSubtype = subtype) } }
@@ -160,6 +162,7 @@ class AccountsViewModel(
     fun onIsSavingsChange(savings: Boolean) { _uiState.update { it.copy(newAccountIsSavings = savings) } }
     fun onHasInitialBalanceChange(has: Boolean) { _uiState.update { it.copy(newAccountHasInitialBalance = has, newAccountInitialBalance = if (!has) "" else it.newAccountInitialBalance) } }
     fun onInitialBalanceChange(amount: String) { _uiState.update { it.copy(newAccountInitialBalance = amount) } }
+    fun onIconChange(icon: String?) { _uiState.update { it.copy(newAccountIcon = icon) } }                    // 🆕 Custom icon
 
     fun createAccount() {
         val state = _uiState.value
@@ -205,7 +208,8 @@ class AccountsViewModel(
                 isShared       = state.newAccountIsShared,
                 ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null,
                 initialBalanceCLP = initialBalance,
-                isSavings      = state.newAccountIsSavings
+                isSavings      = state.newAccountIsSavings,
+                icon           = state.newAccountIcon           // 🆕 Custom icon
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }
@@ -247,6 +251,7 @@ class AccountsViewModel(
                 editAccountName      = account?.accountName ?: "",
                 editAccountIsSavings = account?.isSavings  ?: false,
                 editAccountIsShared  = account?.isShared   ?: true,
+                editAccountIcon      = account?.icon,                // 🆕 Custom icon
                 error                = null
             )
         }
@@ -268,6 +273,10 @@ class AccountsViewModel(
         _uiState.update { it.copy(editAccountIsShared = isShared) }
     }
 
+    fun onEditIconChange(icon: String?) {                            // 🆕 Custom icon
+        _uiState.update { it.copy(editAccountIcon = icon) }
+    }
+
     fun saveEditAccount() {
         val state = _uiState.value
         val accountId = state.showEditDialog ?: return
@@ -282,7 +291,8 @@ class AccountsViewModel(
                 accountId = accountId,
                 name      = name,
                 isSavings = state.editAccountIsSavings,
-                isShared  = state.editAccountIsShared
+                isShared  = state.editAccountIsShared,
+                icon      = state.editAccountIcon              // 🆕 Custom icon
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isSavingEdit = false, showEditDialog = null) }

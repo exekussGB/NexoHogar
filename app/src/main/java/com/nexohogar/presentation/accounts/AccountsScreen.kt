@@ -9,9 +9,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexohogar.core.util.DateFormatter
@@ -33,12 +38,98 @@ import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
 
 // ---------------------------------------------------------------------------
-// Icon mapping by account subtype
+// Account icon option for the icon picker
+// ---------------------------------------------------------------------------
+
+data class AccountIconOption(
+    val name: String,
+    val icon: ImageVector
+)
+
+val availableAccountIcons: List<AccountIconOption> = listOf(
+    // Finance
+    AccountIconOption("Wallet", Icons.Default.Wallet),
+    AccountIconOption("CreditCard", Icons.Default.CreditCard),
+    AccountIconOption("AccountBalance", Icons.Default.AccountBalance),
+    AccountIconOption("AccountBalanceWallet", Icons.Default.AccountBalanceWallet),
+    AccountIconOption("Savings", Icons.Default.Savings),
+    AccountIconOption("AttachMoney", Icons.Default.AttachMoney),
+    AccountIconOption("Payments", Icons.Default.Payments),
+    // Home
+    AccountIconOption("Home", Icons.Default.Home),
+    AccountIconOption("Kitchen", Icons.Default.Kitchen),
+    AccountIconOption("Bed", Icons.Default.Bed),
+    AccountIconOption("Bathtub", Icons.Default.Bathtub),
+    AccountIconOption("Chair", Icons.Default.Chair),
+    AccountIconOption("Garage", Icons.Default.Garage),
+    // Transport
+    AccountIconOption("DirectionsCar", Icons.Default.DirectionsCar),
+    AccountIconOption("TwoWheeler", Icons.Default.TwoWheeler),
+    AccountIconOption("Flight", Icons.Default.Flight),
+    AccountIconOption("Train", Icons.Default.Train),
+    // Shopping
+    AccountIconOption("ShoppingCart", Icons.Default.ShoppingCart),
+    AccountIconOption("Store", Icons.Default.Store),
+    AccountIconOption("LocalMall", Icons.Default.LocalMall),
+    AccountIconOption("ShoppingBag", Icons.Default.ShoppingBag),
+    // Food
+    AccountIconOption("Restaurant", Icons.Default.Restaurant),
+    AccountIconOption("LocalCafe", Icons.Default.LocalCafe),
+    AccountIconOption("Fastfood", Icons.Default.Fastfood),
+    AccountIconOption("LocalGroceryStore", Icons.Default.LocalGroceryStore),
+    // Health
+    AccountIconOption("LocalHospital", Icons.Default.LocalHospital),
+    AccountIconOption("FitnessCenter", Icons.Default.FitnessCenter),
+    AccountIconOption("MedicalServices", Icons.Default.MedicalServices),
+    // Education
+    AccountIconOption("School", Icons.Default.School),
+    AccountIconOption("MenuBook", Icons.Default.MenuBook),
+    // Entertainment
+    AccountIconOption("SportsEsports", Icons.Default.SportsEsports),
+    AccountIconOption("Movie", Icons.Default.Movie),
+    AccountIconOption("MusicNote", Icons.Default.MusicNote),
+    // Services
+    AccountIconOption("Phone", Icons.Default.Phone),
+    AccountIconOption("Wifi", Icons.Default.Wifi),
+    AccountIconOption("ElectricBolt", Icons.Default.ElectricBolt),
+    AccountIconOption("WaterDrop", Icons.Default.WaterDrop),
+    // Other
+    AccountIconOption("Pets", Icons.Default.Pets),
+    AccountIconOption("ChildCare", Icons.Default.ChildCare),
+    AccountIconOption("Work", Icons.Default.Work),
+    AccountIconOption("Star", Icons.Default.Star),
+    AccountIconOption("Favorite", Icons.Default.Favorite)
+)
+
+/**
+ * Returns the ImageVector for a given icon name, or null if not found.
+ */
+fun getIconByName(name: String?): ImageVector? {
+    if (name == null) return null
+    return availableAccountIcons.firstOrNull { it.name == name }?.icon
+}
+
+// ---------------------------------------------------------------------------
+// Icon mapping by account subtype (with custom icon override)
 // ---------------------------------------------------------------------------
 
 @Composable
 fun getAccountIcon(account: AccountBalance): Pair<ImageVector, Color> {
-    // Map by accountType
+    // 🆕 If the account has a custom icon, use it
+    val customIcon = getIconByName(account.icon)
+    if (customIcon != null) {
+        // Use a neutral accent color for custom icons
+        val customColor = when (account.accountType.lowercase()) {
+            "asset"     -> Color(0xFF1565C0)
+            "liability" -> Color(0xFFC62828)
+            "income"    -> Color(0xFF2E7D32)
+            "expense"   -> Color(0xFFE65100)
+            else        -> Color(0xFF757575)
+        }
+        return customIcon to customColor
+    }
+
+    // Fall back to subtype-based mapping
     val subtypeLower = account.accountType.lowercase()
     val typeLower = account.accountType.lowercase()
 
@@ -56,6 +147,103 @@ fun getAccountIcon(account: AccountBalance): Pair<ImageVector, Color> {
         else -> Icons.Default.AccountBalanceWallet to Color(0xFF757575)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Icon Picker Grid composable
+// ---------------------------------------------------------------------------
+
+@Composable
+fun IconPickerGrid(
+    selectedIcon: String?,
+    onIconSelected: (String?) -> Unit
+) {
+    Column {
+        Text(
+            text = "Ícono personalizado",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(5),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 220.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // "Sin ícono" option to clear
+            item {
+                val isSelected = selectedIcon == null
+                Surface(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable { onIconSelected(null) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = if (isSelected)
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    else null
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Block,
+                            contentDescription = "Sin ícono",
+                            tint = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                Color.Gray,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+            items(availableAccountIcons) { option ->
+                val isSelected = selectedIcon == option.name
+                Surface(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable { onIconSelected(option.name) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = if (isSelected)
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    else null
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            option.icon,
+                            contentDescription = option.name,
+                            tint = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+        if (selectedIcon != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = selectedIcon,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,6 +313,7 @@ fun AccountsScreen(
             error       = uiState.error,
             hasInitialBalance = uiState.newAccountHasInitialBalance,
             initialBalance    = uiState.newAccountInitialBalance,
+            icon              = uiState.newAccountIcon,                    // 🆕
             onNameChange    = { viewModel.onNameChange(it) },
             onSubtypeChange = { viewModel.onSubtypeChange(it) },
             onIsSharedChange = { viewModel.onIsSharedChange(it) },
@@ -132,6 +321,7 @@ fun AccountsScreen(
             onIsSavingsChange         = { viewModel.onIsSavingsChange(it) },
             isSavings                 = uiState.newAccountIsSavings,
             onInitialBalanceChange    = { viewModel.onInitialBalanceChange(it) },
+            onIconChange              = { viewModel.onIconChange(it) },    // 🆕
             onDismiss   = { viewModel.dismissCreateDialog() },
             onCreate    = { viewModel.createAccount() }
         )
@@ -173,9 +363,11 @@ fun AccountsScreen(
             isShared       = uiState.editAccountIsShared,
             isSaving       = uiState.isSavingEdit,
             error          = uiState.error,
+            icon           = uiState.editAccountIcon,                      // 🆕
             onNameChange   = { viewModel.onEditNameChange(it) },
             onIsSavingsChange = { viewModel.onEditIsSavingsChange(it) },
             onIsSharedChange  = { viewModel.onEditIsSharedChange(it) },
+            onIconChange      = { viewModel.onEditIconChange(it) },        // 🆕
             onDismiss      = { viewModel.dismissEditDialog() },
             onSave         = { viewModel.saveEditAccount() }
         )
@@ -429,12 +621,14 @@ fun CreateAccountDialog(
     hasInitialBalance: Boolean = false,
     initialBalance  : String = "",
     isSavings       : Boolean = false,
+    icon            : String? = null,                    // 🆕 Custom icon
     onNameChange    : (String) -> Unit,
     onSubtypeChange : (String) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
     onIsSavingsChange: (Boolean) -> Unit = {},
     onHasInitialBalanceChange: (Boolean) -> Unit = {},
     onInitialBalanceChange   : (String) -> Unit = {},
+    onIconChange    : (String?) -> Unit = {},            // 🆕 Custom icon
     onDismiss       : () -> Unit,
     onCreate        : () -> Unit
 ) {
@@ -456,6 +650,12 @@ fun CreateAccountDialog(
                     singleLine    = true,
                     modifier      = Modifier.fillMaxWidth(),
                     enabled       = !isCreating
+                )
+
+                // 🆕 Icon picker (BEFORE account type selector)
+                IconPickerGrid(
+                    selectedIcon = icon,
+                    onIconSelected = onIconChange
                 )
 
                 // Tipo de cuenta — selector visual con íconos
@@ -629,9 +829,11 @@ fun EditAccountDialog(
     isShared        : Boolean,
     isSaving        : Boolean,
     error           : String?,
+    icon            : String? = null,                    // 🆕 Custom icon
     onNameChange    : (String) -> Unit,
     onIsSavingsChange: (Boolean) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
+    onIconChange    : (String?) -> Unit = {},            // 🆕 Custom icon
     onDismiss       : () -> Unit,
     onSave          : () -> Unit
 ) {
@@ -640,6 +842,13 @@ fun EditAccountDialog(
         title = { Text("Editar cuenta") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                // 🆕 Icon picker (BEFORE name field)
+                IconPickerGrid(
+                    selectedIcon = icon,
+                    onIconSelected = onIconChange
+                )
+
                 OutlinedTextField(
                     value         = name,
                     onValueChange = onNameChange,

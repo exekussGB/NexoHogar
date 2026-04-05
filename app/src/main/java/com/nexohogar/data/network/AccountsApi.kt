@@ -19,13 +19,13 @@ interface AccountsApi {
 
     /**
      * Consulta la VISTA account_balances para obtener saldos reales.
-     * La vista incluye is_shared y owner_user_id desde la tabla accounts.
+     * La vista incluye is_shared, owner_user_id e icon desde la tabla accounts.
      * householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
      */
     @GET("rest/v1/account_balances")
     suspend fun getBalances(
         @Query("household_id") householdId: String,
-        @Query("select")       select: String = "account_id,name,account_type,balance_clp,is_shared,owner_user_id",
+        @Query("select")       select: String = "account_id,name,account_type,balance_clp,is_shared,owner_user_id,is_savings,icon",
         @Query("order")        order: String  = "name.asc"
     ): List<AccountBalanceViewDto>
 
@@ -61,7 +61,7 @@ interface AccountsApi {
     ): Response<Unit>
 
     /**
-     * Edita una cuenta existente (nombre, is_savings, is_shared).
+     * Edita una cuenta existente (nombre, is_savings, is_shared, icon).
      */
     @Headers("Prefer: return=minimal")
     @PATCH("rest/v1/accounts")

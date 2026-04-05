@@ -13,5 +13,6 @@ data class AccountResponse(
     @SerializedName("owner_user_id") val ownerUserId: String?,
     @SerializedName("created_by") val createdBy: String?,
     @SerializedName("created_at") val createdAt: String,
-    @SerializedName("is_savings") val isSavings: Boolean? = false
+    @SerializedName("is_savings") val isSavings: Boolean? = false,
+    @SerializedName("icon") val icon: String? = null           // 🆕 Custom icon
 )
