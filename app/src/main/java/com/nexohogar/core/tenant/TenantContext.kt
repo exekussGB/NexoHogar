@@ -1,48 +1,43 @@
 package com.nexohogar.core.tenant
 
 import com.nexohogar.data.local.SessionManager
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 
 /**
  * Contexto centralizado para la gestión del "Tenant" (Household actual).
+ *
+ * userId y email se obtienen del SDK de Supabase (fuente de verdad del auth).
+ * El SessionManager se mantiene para: householdId, biometric, role y extras.
  */
-class TenantContext(private val sessionManager: SessionManager) {
+class TenantContext(
+    private val sessionManager: SessionManager,
+    private val supabaseClient: SupabaseClient
+) {
 
-    fun getCurrentHouseholdId(): String? {
-        return sessionManager.fetchSelectedHouseholdId()
-    }
+    fun getCurrentHouseholdId(): String? = sessionManager.fetchSelectedHouseholdId()
 
-    fun requireHouseholdId(): String {
-        return getCurrentHouseholdId()
+    fun requireHouseholdId(): String =
+        getCurrentHouseholdId()
             ?: throw IllegalStateException("Se intentó realizar una operación sin un Household seleccionado.")
-    }
 
-    fun setHouseholdId(id: String) {
-        sessionManager.saveSelectedHouseholdId(id)
-    }
+    fun setHouseholdId(id: String) = sessionManager.saveSelectedHouseholdId(id)
 
-    /** Returns the current user's ID from the stored session */
-    fun getCurrentUserId(): String? {
-        return sessionManager.fetchSession()?.userId
-    }
+    /** userId desde el SDK de Supabase (siempre actualizado) */
+    fun getCurrentUserId(): String? =
+        supabaseClient.auth.currentUserOrNull()?.id
+            ?: sessionManager.fetchSession()?.userId // fallback para compatibilidad
 
-    /** Returns the current user's display name from the stored session */
-    fun getCurrentUserDisplayName(): String? {
-        return sessionManager.fetchSession()?.email
-    }
+    /** Email del usuario */
+    fun getCurrentUserDisplayName(): String? =
+        supabaseClient.auth.currentUserOrNull()?.email
+            ?: sessionManager.fetchSession()?.email
 
-    // 🆕 Feature 1: Role management for super_user check
-    /** Returns the current user's role in the selected household */
-    fun getCurrentUserRole(): String? {
-        return sessionManager.getExtra("current_user_role")
-    }
+    // ── Role management ───────────────────────────────────────────────────
 
-    /** Saves the current user's role for the selected household */
-    fun setCurrentUserRole(role: String) {
-        sessionManager.saveExtra("current_user_role", role)
-    }
+    fun getCurrentUserRole(): String? = sessionManager.getExtra("current_user_role")
 
-    /** Returns true if the current user is a super_user in the selected household */
-    fun isSuperUser(): Boolean {
-        return getCurrentUserRole() == "super_user"
-    }
+    fun setCurrentUserRole(role: String) = sessionManager.saveExtra("current_user_role", role)
+
+    fun isSuperUser(): Boolean = getCurrentUserRole() == "super_user"
 }

@@ -9,6 +9,7 @@ import com.nexohogar.domain.model.Account
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.repository.AccountsRepository
 import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
+import com.nexohogar.data.remote.dto.UpdateAccountRequest
 
 class AccountsRepositoryImpl(
     private val accountsApi   : AccountsApi,
@@ -150,6 +151,31 @@ class AccountsRepositoryImpl(
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al eliminar cuenta")
+        }
+    }
+
+    override suspend fun updateAccount(
+        accountId : String,
+        name      : String,
+        isSavings : Boolean,
+        isShared  : Boolean
+    ): AppResult<Unit> {
+        return try {
+            val response = accountsApi.updateAccount(
+                id   = "eq.$accountId",
+                body = UpdateAccountRequest(
+                    name      = name,
+                    isSavings = isSavings,
+                    isShared  = isShared
+                )
+            )
+            if (response.isSuccessful) {
+                AppResult.Success(Unit)
+            } else {
+                AppResult.Error("Error al actualizar cuenta: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Error al actualizar cuenta")
         }
     }
 }

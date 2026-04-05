@@ -18,6 +18,12 @@ interface AccountsRepository {
         isSavings: Boolean = false    // 🆕 Feature 2
     ): AppResult<Account>
     suspend fun deleteAccount(accountId: String): AppResult<Unit>
+    suspend fun updateAccount(
+        accountId : String,
+        name      : String,
+        isSavings : Boolean,
+        isShared  : Boolean
+    ): AppResult<Unit>
     suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean>
     suspend fun getPersonalAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>>
 }

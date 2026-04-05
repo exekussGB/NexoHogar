@@ -12,6 +12,7 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.PATCH
 import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
+import com.nexohogar.data.remote.dto.UpdateAccountRequest
 import retrofit2.Response
 interface AccountsApi {
 
@@ -57,6 +58,16 @@ interface AccountsApi {
     suspend fun deleteAccount(
         @Query("id") id: String,
         @Body body: SoftDeleteAccountRequest
+    ): Response<Unit>
+
+    /**
+     * Edita una cuenta existente (nombre, is_savings, is_shared).
+     */
+    @Headers("Prefer: return=minimal")
+    @PATCH("rest/v1/accounts")
+    suspend fun updateAccount(
+        @Query("id") id: String,
+        @Body body: UpdateAccountRequest
     ): Response<Unit>
 
 }

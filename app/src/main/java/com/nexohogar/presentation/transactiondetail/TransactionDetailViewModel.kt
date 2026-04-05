@@ -123,14 +123,23 @@ class TransactionDetailViewModel(
             return
         }
 
+        val householdId = tenantContext.getCurrentHouseholdId()
+        if (householdId.isNullOrBlank()) {
+            _uiState.value = current.copy(editError = "No hay hogar seleccionado")
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = current.copy(isSaving = true, editError = null)
 
+            // Siempre enviamos todos los valores (la RPC los requiere todos no-nulos).
+            // Para campos sin cambios, se reutiliza el valor actual de la transacción.
             when (val result = repository.updateTransaction(
                 transactionId   = detail.id,
-                amountClp       = if (amountChanged) newAmount else null,
-                description     = if (descChanged) sanitizedDesc else null,
-                transactionDate = if (dateChanged) current.editDate else null
+                householdId     = householdId,
+                amountClp       = newAmount,
+                description     = sanitizedDesc,
+                transactionDate = current.editDate.ifBlank { detail.transactionDate ?: "" }
             )) {
                 is AppResult.Success -> {
                     loadTransactionDetail(detail.id)
