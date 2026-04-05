@@ -1,6 +1,7 @@
 package com.nexohogar.presentation.accounts
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -387,16 +388,18 @@ private fun AccountTransactionRow(transaction: Transaction) {
 data class AccountTypeOption(
     val label         : String,
     val accountType   : String,
-    val accountSubtype: String
+    val accountSubtype: String,
+    val icon          : ImageVector,
+    val iconColor     : Color
 )
 
 val accountTypeOptions = listOf(
-    AccountTypeOption("Billetera / Efectivo", "asset",     "cash"),
-    AccountTypeOption("Cuenta Bancaria",       "asset",     "bank"),
-    AccountTypeOption("Tarjeta de Crédito",    "liability", "credit_card"),
-    AccountTypeOption("Categoría de Gasto",    "expense",   "other"),
-    AccountTypeOption("Fuente de Ingreso",     "income",    "other"),
-    AccountTypeOption("Otro",                  "asset",     "other")
+    AccountTypeOption("Billetera / Efectivo", "asset",     "cash",        Icons.Default.Wallet,              Color(0xFF2E7D32)),
+    AccountTypeOption("Cuenta Bancaria",       "asset",     "bank",        Icons.Default.AccountBalance,      Color(0xFF1565C0)),
+    AccountTypeOption("Tarjeta de Crédito",    "liability", "credit_card", Icons.Default.CreditCard,          Color(0xFFC62828)),
+    AccountTypeOption("Categoría de Gasto",    "expense",   "other",       Icons.Default.TrendingDown,        Color(0xFFE65100)),
+    AccountTypeOption("Fuente de Ingreso",     "income",    "other",       Icons.Default.TrendingUp,          Color(0xFF2E7D32)),
+    AccountTypeOption("Otro",                  "asset",     "other",       Icons.Default.AccountBalanceWallet, Color(0xFF757575))
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -439,32 +442,58 @@ fun CreateAccountDialog(
                     enabled       = !isCreating
                 )
 
-                // Tipo de cuenta
-                ExposedDropdownMenuBox(
-                    expanded      = dropdownExpanded,
-                    onExpandedChange = { if (!isCreating) dropdownExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value         = selectedOption.label,
-                        onValueChange = {},
-                        readOnly      = true,
-                        label         = { Text("Tipo de cuenta") },
-                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
-                        modifier      = Modifier.menuAnchor().fillMaxWidth(),
-                        enabled       = !isCreating
-                    )
-                    ExposedDropdownMenu(
-                        expanded        = dropdownExpanded,
-                        onDismissRequest = { dropdownExpanded = false }
-                    ) {
-                        accountTypeOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text    = { Text(option.label) },
-                                onClick = {
+                // Tipo de cuenta — selector visual con íconos
+                Text(
+                    text = "Tipo de cuenta",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    accountTypeOptions.forEach { option ->
+                        val isSelected = selectedOption.accountSubtype == option.accountSubtype
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !isCreating) {
                                     onSubtypeChange(option.accountSubtype)
-                                    dropdownExpanded = false
+                                },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected)
+                                option.iconColor.copy(alpha = 0.12f)
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = if (isSelected)
+                                androidx.compose.foundation.BorderStroke(2.dp, option.iconColor)
+                            else null
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = option.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) option.iconColor else Color.Gray,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) option.iconColor else MaterialTheme.colorScheme.onSurface
+                                )
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = option.iconColor,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -690,13 +719,11 @@ fun SwipeableAccountItem(
                 SwipeToDismissBoxValue.EndToStart -> {
                     // Swipe left → Delete
                     onDeleteClick(account.accountId)
-                    false // Don't actually dismiss; let the dialog handle it
+                    false
                 }
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    // Swipe right → Edit (super user only)
-                    if (isSuperUser) {
-                        onEditClick(account.accountId)
-                    }
+                    // Swipe right → Edit (todos los usuarios)
+                    onEditClick(account.accountId)
                     false
                 }
                 else -> false
@@ -711,8 +738,8 @@ fun SwipeableAccountItem(
 
             val backgroundColor by animateColorAsState(
                 when (direction) {
-                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFF44336) // Red for delete
-                    SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Color(0xFFFF9800) else Color.Transparent // Orange for edit
+                    SwipeToDismissBoxValue.EndToStart -> Color(0xFFF44336)
+                    SwipeToDismissBoxValue.StartToEnd -> Color(0xFFFF9800)
                     else -> Color.Transparent
                 },
                 label = "swipeBgColor"
@@ -720,7 +747,7 @@ fun SwipeableAccountItem(
 
             val iconVector = when (direction) {
                 SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
-                SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Icons.Default.Edit else null
+                SwipeToDismissBoxValue.StartToEnd -> Icons.Default.Edit
                 else -> null
             }
 
@@ -747,7 +774,7 @@ fun SwipeableAccountItem(
                 }
             }
         },
-        enableDismissFromStartToEnd = isSuperUser,
+        enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true
     ) {
         AccountItem(

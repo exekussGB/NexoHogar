@@ -245,12 +245,10 @@ fun TransactionsList(
                                 onItemClick(transaction)
                                 false  // no descartar visualmente, solo navegar
                             }
-                            // → Swipe derecha: editar (solo super user)
+                            // → Swipe derecha: editar (todos los usuarios)
                             SwipeToDismissBoxValue.StartToEnd -> {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                if (isSuperUser) {
-                                    onEditItem(transaction)
-                                }
+                                onEditItem(transaction)
                                 false
                             }
                             else -> false
@@ -267,7 +265,7 @@ fun TransactionsList(
                         val color by animateColorAsState(
                             when (direction) {
                                 SwipeToDismissBoxValue.EndToStart -> Color(0xFF1565C0)
-                                SwipeToDismissBoxValue.StartToEnd -> if (isSuperUser) Color(0xFFE65100) else Color.Transparent
+                                SwipeToDismissBoxValue.StartToEnd -> Color(0xFFE65100)
                                 else -> Color.Transparent
                             },
                             label = "swipe_tx_color"
@@ -286,8 +284,8 @@ fun TransactionsList(
                                         .padding(end = 16.dp)
                                 )
                             }
-                            // Ícono izquierdo: editar (solo super user)
-                            if (direction == SwipeToDismissBoxValue.StartToEnd && isSuperUser) {
+                            // Ícono izquierdo: editar
+                            if (direction == SwipeToDismissBoxValue.StartToEnd) {
                                 Icon(
                                     Icons.Default.Edit,
                                     contentDescription = "Editar",
@@ -299,7 +297,7 @@ fun TransactionsList(
                             }
                         }
                     },
-                    enableDismissFromStartToEnd = isSuperUser,  // Solo super user puede swipe derecha
+                    enableDismissFromStartToEnd = true,  // Todos pueden editar con swipe derecha
                     enableDismissFromEndToStart = true
                 ) {
                     TransactionItem(transaction, onItemClick)

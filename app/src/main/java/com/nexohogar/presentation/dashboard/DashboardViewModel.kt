@@ -61,9 +61,11 @@ class DashboardViewModel(
                     .sumOf { it.movementBalance }
             } else 0L
 
-            // 🆕 Fix #3: Compute total balance client-side from account balances
-            val computedTotalBalance = if (balancesResult is AppResult.Success) {
-                balancesResult.data.sumOf { it.movementBalance }.toDouble()
+            // 🆕 Fix #4: Balance real = ingresos - gastos (descuenta gastos generados)
+            // El totalBalance del summary a veces solo refleja saldos iniciales.
+            // Calculamos el balance neto: ingresos totales menos gastos totales.
+            val computedTotalBalance = if (summaryResult is AppResult.Success) {
+                summaryResult.data.totalIncome - summaryResult.data.totalExpense
             } else null
 
             _uiState.update {
