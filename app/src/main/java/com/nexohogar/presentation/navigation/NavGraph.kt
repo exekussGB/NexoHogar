@@ -526,7 +526,7 @@ fun NavGraph(navController: NavHostController) {
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
                         @Suppress("UNCHECKED_CAST")
-                        return TransactionDetailViewModel(transactionDetailRepository) as T
+                        return TransactionDetailViewModel(transactionDetailRepository, tenantContext) as T
                     }
                 }
             )

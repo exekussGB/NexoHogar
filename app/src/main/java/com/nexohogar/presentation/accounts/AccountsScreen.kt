@@ -76,6 +76,7 @@ fun AccountsScreen(
                 else -> AccountsList(
                     sharedAccounts   = uiState.sharedAccounts,
                     personalAccounts = uiState.personalAccounts,
+                    savingsAccounts  = uiState.savingsAccounts,
                     onDeleteClick    = { accountId -> viewModel.showDeleteConfirm(accountId) },
                     // ✅ NUEVO: callback para click en cuenta
                     onAccountClick   = { account -> viewModel.selectAccount(account) }
@@ -98,6 +99,8 @@ fun AccountsScreen(
             onSubtypeChange = { viewModel.onSubtypeChange(it) },
             onIsSharedChange = { viewModel.onIsSharedChange(it) },
             onHasInitialBalanceChange = { viewModel.onHasInitialBalanceChange(it) },
+            onIsSavingsChange         = { viewModel.onIsSavingsChange(it) },
+            isSavings                 = uiState.newAccountIsSavings,
             onInitialBalanceChange    = { viewModel.onInitialBalanceChange(it) },
             onDismiss   = { viewModel.dismissCreateDialog() },
             onCreate    = { viewModel.createAccount() }
@@ -383,9 +386,11 @@ fun CreateAccountDialog(
     error           : String?,
     hasInitialBalance: Boolean = false,
     initialBalance  : String = "",
+    isSavings       : Boolean = false,    // 🆕 Feature 2
     onNameChange    : (String) -> Unit,
     onSubtypeChange : (String) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
+    onIsSavingsChange: (Boolean) -> Unit = {},    // 🆕 Feature 2
     onHasInitialBalanceChange: (Boolean) -> Unit = {},
     onInitialBalanceChange   : (String) -> Unit = {},
     onDismiss       : () -> Unit,
@@ -454,6 +459,30 @@ fun CreateAccountDialog(
                     Switch(
                         checked         = isShared,
                         onCheckedChange = onIsSharedChange,
+                        enabled         = !isCreating
+                    )
+                }
+
+
+                // 🆕 Feature 2: Toggle de cuenta de ahorro
+                Row(
+                    modifier          = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text  = if (isSavings) "Cuenta de ahorro" else "Cuenta normal",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text  = "Las cuentas de ahorro no suman en el balance del hogar",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked         = isSavings,
+                        onCheckedChange = onIsSavingsChange,
                         enabled         = !isCreating
                     )
                 }
@@ -529,10 +558,11 @@ fun CreateAccountDialog(
 fun AccountsList(
     sharedAccounts  : List<AccountBalance>,
     personalAccounts: List<AccountBalance>,
+    savingsAccounts : List<AccountBalance> = emptyList(),    // 🆕 Feature 2
     onDeleteClick   : (String) -> Unit,
-    onAccountClick  : (AccountBalance) -> Unit   // ✅ NUEVO
+    onAccountClick  : (AccountBalance) -> Unit
 ) {
-    if (sharedAccounts.isEmpty() && personalAccounts.isEmpty()) {
+    if (sharedAccounts.isEmpty() && personalAccounts.isEmpty() && savingsAccounts.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("No tienes cuentas registradas.", style = MaterialTheme.typography.bodyLarge)
@@ -578,7 +608,31 @@ fun AccountsList(
                     AccountItem(
                         account = account,
                         onDeleteClick = onDeleteClick,
-                        onAccountClick = onAccountClick   // ✅ NUEVO
+                        onAccountClick = onAccountClick
+                    )
+                }
+            }
+            if (savingsAccounts.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text  = "🐷 Cuentas de ahorro",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF6A1B9A),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text  = "No suman en el balance del hogar",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                items(savingsAccounts) { account ->
+                    AccountItem(
+                        account = account,
+                        onDeleteClick = onDeleteClick,
+                        onAccountClick = onAccountClick
                     )
                 }
             }

@@ -29,7 +29,10 @@ data class AccountDto(
     val ownerUserId: String?,
 
     @SerializedName("is_system")
-    val isSystem: Boolean?
+    val isSystem: Boolean?,
+
+    @SerializedName("is_savings")
+    val isSavings: Boolean? = false    // 🆕 Feature 2
 )
 
 fun AccountDto.toDomain(): Account {
@@ -41,7 +44,8 @@ fun AccountDto.toDomain(): Account {
         balance = (balance ?: 0.0).toLong(),
         householdId = householdId,
         isShared = isShared ?: true,
-        ownerUserId = ownerUserId
+        ownerUserId = ownerUserId,
+        isSavings = isSavings ?: false    // 🆕 Feature 2
     )
 }
 

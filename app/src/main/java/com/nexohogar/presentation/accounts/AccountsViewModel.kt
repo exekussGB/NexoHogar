@@ -19,12 +19,14 @@ import kotlin.math.abs
 data class AccountsUiState(
     val sharedAccounts: List<AccountBalance> = emptyList(),
     val personalAccounts: List<AccountBalance> = emptyList(),
+    val savingsAccounts: List<AccountBalance> = emptyList(),    // 🆕 Feature 2
     val isLoading: Boolean = false,
     val error: String? = null,
     val showCreateDialog: Boolean = false,
     val newAccountName: String = "",
     val newAccountSubtype: String = "cash",
     val newAccountIsShared: Boolean = true,
+    val newAccountIsSavings: Boolean = false,    // 🆕 Feature 2
     val isCreating: Boolean = false,
     val newAccountHasInitialBalance: Boolean = false,
     val newAccountInitialBalance: String = "",
@@ -56,12 +58,15 @@ class AccountsViewModel(
         viewModelScope.launch {
             when (val result = accountsRepository.getAccountBalances(householdId)) {
                 is AppResult.Success -> {
-                    val shared = result.data.filter { it.isShared }
-                    val personal = result.data.filter { !it.isShared && it.ownerUserId == userId }
+                    // 🆕 Feature 2: Separar cuentas de ahorro
+                    val savings = result.data.filter { it.isSavings }
+                    val shared = result.data.filter { it.isShared && !it.isSavings }
+                    val personal = result.data.filter { !it.isShared && it.ownerUserId == userId && !it.isSavings }
                     _uiState.update {
                         it.copy(
                             sharedAccounts   = shared,
                             personalAccounts = personal,
+                            savingsAccounts  = savings,    // 🆕 Feature 2
                             isLoading        = false
                         )
                     }
@@ -74,7 +79,7 @@ class AccountsViewModel(
         }
     }
 
-    // ── ✅ NUEVO: Seleccionar cuenta y cargar sus movimientos ──────────────
+    // ── ✅ Seleccionar cuenta y cargar sus movimientos ──────────────────
     fun selectAccount(account: AccountBalance) {
         _uiState.update {
             it.copy(
@@ -103,7 +108,7 @@ class AccountsViewModel(
             when (val result = transactionsRepository.getTransactionsByAccount(
                 householdId = householdId,
                 accountId = accountId,
-                limit = 10 // Últimos 10 movimientos
+                limit = 10
             )) {
                 is AppResult.Success -> {
                     _uiState.update {
@@ -126,11 +131,12 @@ class AccountsViewModel(
     }
 
     // ── Create Dialog ────────────────────────────────────────────────────────
-    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountHasInitialBalance = false, newAccountInitialBalance = "") } }
+    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountIsSavings = false, newAccountHasInitialBalance = false, newAccountInitialBalance = "") } }
     fun dismissCreateDialog() { _uiState.update { it.copy(showCreateDialog = false) } }
     fun onNameChange(name: String) { _uiState.update { it.copy(newAccountName = name) } }
     fun onSubtypeChange(subtype: String) { _uiState.update { it.copy(newAccountSubtype = subtype) } }
     fun onIsSharedChange(shared: Boolean) { _uiState.update { it.copy(newAccountIsShared = shared) } }
+    fun onIsSavingsChange(savings: Boolean) { _uiState.update { it.copy(newAccountIsSavings = savings) } }    // 🆕 Feature 2
     fun onHasInitialBalanceChange(has: Boolean) { _uiState.update { it.copy(newAccountHasInitialBalance = has, newAccountInitialBalance = if (!has) "" else it.newAccountInitialBalance) } }
     fun onInitialBalanceChange(amount: String) { _uiState.update { it.copy(newAccountInitialBalance = amount) } }
 
@@ -177,7 +183,8 @@ class AccountsViewModel(
                 accountSubtype = state.newAccountSubtype,
                 isShared       = state.newAccountIsShared,
                 ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null,
-                initialBalanceCLP = initialBalance
+                initialBalanceCLP = initialBalance,
+                isSavings      = state.newAccountIsSavings    // 🆕 Feature 2
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }

@@ -6,7 +6,7 @@ import com.nexohogar.domain.model.AccountBalance
 /**
  * DTO para la VISTA account_balances de Supabase.
  * balance_clp = initial_balance_clp + movimientos de transaction_entries (double-entry).
- * La vista ahora incluye is_shared y owner_user_id.
+ * La vista ahora incluye is_shared, owner_user_id y is_savings.
  */
 data class AccountBalanceViewDto(
     @SerializedName("account_id")    val accountId:    String,
@@ -14,7 +14,8 @@ data class AccountBalanceViewDto(
     @SerializedName("account_type")  val accountType:  String,
     @SerializedName("balance_clp")   val balanceClp:   Double,
     @SerializedName("is_shared")     val isShared:     Boolean = true,
-    @SerializedName("owner_user_id") val ownerUserId:  String? = null
+    @SerializedName("owner_user_id") val ownerUserId:  String? = null,
+    @SerializedName("is_savings")    val isSavings:    Boolean = false    // 🆕 Feature 2
 )
 
 fun AccountBalanceViewDto.toDomain() = AccountBalance(
@@ -23,7 +24,8 @@ fun AccountBalanceViewDto.toDomain() = AccountBalance(
     accountType     = accountType,
     movementBalance = balanceClp.toLong(),
     isShared        = isShared,
-    ownerUserId     = ownerUserId
+    ownerUserId     = ownerUserId,
+    isSavings       = isSavings    // 🆕 Feature 2
 )
 
 fun List<AccountBalanceViewDto>.toDomain() = map { it.toDomain() }

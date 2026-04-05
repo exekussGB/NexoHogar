@@ -15,10 +15,6 @@ class AccountsRepositoryImpl(
     private val sessionManager: SessionManager
 ) : AccountsRepository {
 
-    /**
-     * Obtiene los saldos reales desde la VISTA account_balances.
-     * balance_clp = initial_balance_clp + suma de transaction_entries.
-     */
     override suspend fun getAccountBalances(
         householdId: String
     ): AppResult<List<AccountBalance>> {
@@ -30,7 +26,6 @@ class AccountsRepositoryImpl(
                 .filter { dto ->
                     !dto.accountName.lowercase().contains("system") &&
                             !dto.accountName.startsWith("_")
-
                 }
                 .map { it.toDomain() }
             AppResult.Success(domain)
@@ -39,10 +34,6 @@ class AccountsRepositoryImpl(
         }
     }
 
-    /**
-     * Obtiene las cuentas como List<Account> para selectores (ej: popup de pago).
-     * Reutiliza la vista account_balances y mapea a Account.
-     */
     override suspend fun getAccounts(
         householdId: String
     ): AppResult<List<Account>> {
@@ -63,7 +54,8 @@ class AccountsRepositoryImpl(
                         balance     = dto.balanceClp.toLong(),
                         householdId = householdId,
                         isShared    = dto.isShared,
-                        ownerUserId = dto.ownerUserId
+                        ownerUserId = dto.ownerUserId,
+                        isSavings   = dto.isSavings    // 🆕 Feature 2
                     )
                 }
             AppResult.Success(accounts)
@@ -72,9 +64,6 @@ class AccountsRepositoryImpl(
         }
     }
 
-    /**
-     * Retorna true si el usuario tiene al menos una cuenta personal (is_shared = false).
-     */
     override suspend fun hasPersonalAccounts(
         householdId: String,
         userId: String
@@ -90,9 +79,6 @@ class AccountsRepositoryImpl(
         }
     }
 
-    /**
-     * Retorna los saldos de cuentas personales del usuario (is_shared = false).
-     */
     override suspend fun getPersonalAccountBalances(
         householdId: String,
         userId: String
@@ -110,10 +96,6 @@ class AccountsRepositoryImpl(
         }
     }
 
-    /**
-     * Crea una nueva cuenta.
-     * account_type debe ir en MAYÚSCULAS — CHECK constraint: ASSET, LIABILITY, EXPENSE, INCOME
-     */
     override suspend fun createAccount(
         householdId   : String,
         name          : String,
@@ -121,7 +103,8 @@ class AccountsRepositoryImpl(
         accountSubtype: String,
         isShared      : Boolean,
         ownerUserId   : String?,
-        initialBalanceCLP: Double?
+        initialBalanceCLP: Double?,
+        isSavings     : Boolean    // 🆕 Feature 2
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
@@ -132,7 +115,8 @@ class AccountsRepositoryImpl(
                 accountSubtype = accountSubtype,
                 isShared      = isShared,
                 ownerUserId   = ownerUserId,
-                initialBalanceCLP = initialBalanceCLP
+                initialBalanceCLP = initialBalanceCLP,
+                isSavings     = isSavings    // 🆕 Feature 2
             )
             val response = accountsApi.createAccount(request)
             val created  = response.firstOrNull()
@@ -144,7 +128,8 @@ class AccountsRepositoryImpl(
                     name        = created.name,
                     type        = created.accountType ?: accountType,
                     balance     = created.balance?.toLong() ?: 0L,
-                    householdId = householdId
+                    householdId = householdId,
+                    isSavings   = created.isSavings ?: false    // 🆕 Feature 2
                 )
             )
         } catch (e: Exception) {
@@ -152,9 +137,6 @@ class AccountsRepositoryImpl(
         }
     }
 
-    /**
-     * Elimina una cuenta por ID (DELETE en Supabase).
-     */
     override suspend fun deleteAccount(accountId: String): AppResult<Unit> {
         return try {
             val response = accountsApi.deleteAccount(
