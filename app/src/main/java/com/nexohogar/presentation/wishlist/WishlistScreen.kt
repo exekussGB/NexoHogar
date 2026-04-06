@@ -142,11 +142,11 @@ fun WishlistScreen(
                     val lowItems    = pending.filter { it.priority != "HIGH" && it.priority != "MEDIUM" }
 
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 80.dp),
+                        columns = GridCells.Adaptive(minSize = 92.dp),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement   = Arrangement.spacedBy(4.dp)
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement   = Arrangement.spacedBy(6.dp)
                     ) {
                         // ── Alta Prioridad ───────────────────────────────────
                         if (highItems.isNotEmpty()) {
@@ -183,12 +183,12 @@ fun WishlistScreen(
                                     enableDismissFromEndToStart = true
                                 ) {
                                     WishlistSquareCard(
-                                        item         = item,
-                                        format       = clpFormat,
-                                        canAfford    = item.price != null && item.price > 0 && availableBalance >= item.price,
-                                        onEdit       = { viewModel.onShowEditDialog(item) },
-                                        onMarkBought = { viewModel.markAsPurchased(item) },
-                                        onDelete     = { viewModel.deleteItem(item) }
+                                        item             = item,
+                                        format           = clpFormat,
+                                        availableBalance = availableBalance,
+                                        onEdit           = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought     = { viewModel.markAsPurchased(item) },
+                                        onDelete         = { viewModel.deleteItem(item) }
                                     )
                                 }
                             }
@@ -229,11 +229,12 @@ fun WishlistScreen(
                                     enableDismissFromEndToStart = true
                                 ) {
                                     WishlistSquareCard(
-                                        item         = item,
-                                        format       = clpFormat,
-                                        onEdit       = { viewModel.onShowEditDialog(item) },
-                                        onMarkBought = { viewModel.markAsPurchased(item) },
-                                        onDelete     = { viewModel.deleteItem(item) }
+                                        item             = item,
+                                        format           = clpFormat,
+                                        availableBalance = availableBalance,
+                                        onEdit           = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought     = { viewModel.markAsPurchased(item) },
+                                        onDelete         = { viewModel.deleteItem(item) }
                                     )
                                 }
                             }
@@ -274,11 +275,12 @@ fun WishlistScreen(
                                     enableDismissFromEndToStart = true
                                 ) {
                                     WishlistSquareCard(
-                                        item         = item,
-                                        format       = clpFormat,
-                                        onEdit       = { viewModel.onShowEditDialog(item) },
-                                        onMarkBought = { viewModel.markAsPurchased(item) },
-                                        onDelete     = { viewModel.deleteItem(item) }
+                                        item             = item,
+                                        format           = clpFormat,
+                                        availableBalance = availableBalance,
+                                        onEdit           = { viewModel.onShowEditDialog(item) },
+                                        onMarkBought     = { viewModel.markAsPurchased(item) },
+                                        onDelete         = { viewModel.deleteItem(item) }
                                     )
                                 }
                             }
@@ -291,11 +293,12 @@ fun WishlistScreen(
                             }
                             items(purchased) { item ->
                                 WishlistSquareCard(
-                                    item         = item,
-                                    format       = clpFormat,
-                                    onEdit       = {},
-                                    onMarkBought = {},
-                                    onDelete     = { viewModel.deleteItem(item) }
+                                    item             = item,
+                                    format           = clpFormat,
+                                    availableBalance = 0.0,
+                                    onEdit           = {},
+                                    onMarkBought     = {},
+                                    onDelete         = { viewModel.deleteItem(item) }
                                 )
                             }
                         }
@@ -384,10 +387,10 @@ private fun PriorityHeader(label: String, color: Color) {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WishlistSquareCard(
-    item        : WishlistItem,
-    format      : NumberFormat,
-    canAfford   : Boolean = false,
-    onEdit      : () -> Unit,
+    item            : WishlistItem,
+    format          : NumberFormat,
+    availableBalance: Double = 0.0,
+    onEdit          : () -> Unit,
     onMarkBought: () -> Unit,
     onDelete    : () -> Unit
 ) {
@@ -429,30 +432,14 @@ private fun WishlistSquareCard(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 5.dp, vertical = 4.dp)
+                    .padding(horizontal = 6.dp, vertical = 5.dp)
             ) {
                 // Espacio para la barra de color
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // ── Chip "Puedes comprarlo" cuando hay saldo disponible ──
-                if (canAfford && !item.isPurchased) {
-                    Surface(
-                        color = Color(0xFF2E7D32).copy(alpha = 0.13f),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
-                    ) {
-                        Text(
-                            text = "💰 Alcanza!",
-                            fontSize = 7.sp,
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-                }
-
                 Text(
                     text     = item.name,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -463,7 +450,7 @@ private fun WishlistSquareCard(
                 if (price != null && price > 0) {
                     Text(
                         text  = format.format(price.toLong()),
-                        fontSize = 7.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (item.isPurchased)
                             Color(0xFF9E9E9E)
@@ -471,6 +458,25 @@ private fun WishlistSquareCard(
                             MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Chip "💰 Alcanza!" para alta prioridad asequibles
+                if (!item.isPurchased && item.priority == "HIGH" &&
+                    price != null && price > 0 && availableBalance >= price) {
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = "💰 Alcanza!",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        modifier = Modifier.height(18.dp),
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFF4CAF50).copy(alpha = 0.14f)
+                        )
                     )
                 }
             }
@@ -484,18 +490,18 @@ private fun WishlistSquareCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(3.dp)
-                        .size(9.dp)
+                        .size(11.dp)
                 )
             } else {
                 Box(modifier = Modifier.align(Alignment.TopEnd)) {
                     IconButton(
                         onClick  = { expanded = true },
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(21.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = "Opciones",
-                            modifier = Modifier.size(9.dp),
+                            modifier = Modifier.size(11.dp),
                             tint     = Color(0xFF757575)
                         )
                     }

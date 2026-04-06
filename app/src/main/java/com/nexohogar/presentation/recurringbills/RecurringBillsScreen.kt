@@ -24,16 +24,10 @@ import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,68 +145,20 @@ fun RecurringBillsScreen(
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
-                            items(active, key = { it.id }) { bill ->
-                                val isPaid = bill.status() == RecurringBillStatus.PAID
-                                if (!isPaid) {
-                                    val dismissState = rememberSwipeToDismissBoxState(
-                                        confirmValueChange = { value ->
-                                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                                statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
-                                                    ?: viewModel.confirmMarkAsPaid(bill)
-                                            }
-                                            false // keep item (dialog handles state)
-                                        }
-                                    )
-                                    SwipeToDismissBox(
-                                        state = dismissState,
-                                        backgroundContent = {
-                                            val bgColor by animateColorAsState(
-                                                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
-                                                    Color(0xFF2E7D32) else Color.Transparent,
-                                                label = "swipe_bg"
-                                            )
-                                            Box(
-                                                modifier = Modifier.fillMaxSize().background(bgColor),
-                                                contentAlignment = Alignment.CenterEnd
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.padding(end = 20.dp),
-                                                    horizontalAlignment = Alignment.CenterHorizontally
-                                                ) {
-                                                    Icon(Icons.Default.Payment, contentDescription = "Pagar", tint = Color.White)
-                                                    Text("Pagar", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                                                }
-                                            }
-                                        },
-                                        enableDismissFromStartToEnd = false,
-                                        enableDismissFromEndToStart = true
-                                    ) {
-                                        RecurringBillItem(
-                                            bill = bill,
-                                            statusDto = statusMap[bill.id],
-                                            format = clpFormat,
-                                            onMarkAsPaid   = {
-                                                statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
-                                                    ?: viewModel.confirmMarkAsPaid(bill)
-                                            },
-                                            onToggleActive = { viewModel.toggleActive(bill) },
-                                            onDelete       = { viewModel.deleteBill(bill) },
-                                            onShowHistory  = { statusMap[bill.id]?.let { viewModel.showHistory(it) } },
-                                            onEdit         = { viewModel.onShowEditDialog(bill) }
-                                        )
-                                    }
-                                } else {
-                                    RecurringBillItem(
-                                        bill = bill,
-                                        statusDto = statusMap[bill.id],
-                                        format = clpFormat,
-                                        onMarkAsPaid   = {},
-                                        onToggleActive = { viewModel.toggleActive(bill) },
-                                        onDelete       = { viewModel.deleteBill(bill) },
-                                        onShowHistory  = { statusMap[bill.id]?.let { viewModel.showHistory(it) } },
-                                        onEdit         = { viewModel.onShowEditDialog(bill) }
-                                    )
-                                }
+                            items(active) { bill ->
+                                RecurringBillItem(
+                                    bill = bill,
+                                    statusDto = statusMap[bill.id],
+                                    format = clpFormat,
+                                    onMarkAsPaid   = {
+                                        statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
+                                            ?: viewModel.confirmMarkAsPaid(bill)
+                                    },
+                                    onToggleActive = { viewModel.toggleActive(bill) },
+                                    onDelete       = { viewModel.deleteBill(bill) },
+                                    onShowHistory  = { statusMap[bill.id]?.let { viewModel.showHistory(it) } },
+                                    onEdit         = { viewModel.onShowEditDialog(bill) }
+                                )
                             }
                         }
 
@@ -672,6 +618,29 @@ private fun RecurringBillItem(
                             onClick = { expanded = false; onDelete() }
                         )
                     }
+                }
+            }
+
+            // Chip de alerta visible en la tarjeta
+            if (status == RecurringBillStatus.OVERDUE || status == RecurringBillStatus.DUE_SOON) {
+                Row(modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp)) {
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = if (status == RecurringBillStatus.OVERDUE)
+                                    "⚠️ Cuenta vencida"
+                                else
+                                    "⏰ Vence pronto",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = statusColor
+                            )
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = statusColor.copy(alpha = 0.10f)
+                        )
+                    )
                 }
             }
 
