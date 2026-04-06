@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -76,6 +79,8 @@ fun DashboardScreen(
     onNavigateToCategoryExp: () -> Unit,
     onNavigateToPersonal: () -> Unit,
     onAddMovement: () -> Unit = {},
+    onAddExpense: () -> Unit = {},
+    onAddIncome: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -99,7 +104,7 @@ fun DashboardScreen(
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
-                title = { Text("Dashboard") },
+                title = { Text("Resumen Financiero") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -150,6 +155,33 @@ fun DashboardScreen(
                     }
                 }
                 // ── Balance ────────────────────────────────────────────────────
+                // Acciones rapidas
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AssistChip(
+                            onClick = onAddExpense,
+                            label = { Text("Gasto rapido") },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = Color(0xFFF44336).copy(alpha = 0.12f),
+                                labelColor     = Color(0xFFB71C1C)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        AssistChip(
+                            onClick = onAddIncome,
+                            label = { Text("Ingreso rapido") },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.12f),
+                                labelColor     = Color(0xFF1B5E20)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
                 item {
                     Box(modifier = Modifier.testTag("dashboard_balance")) {
                         uiState.summary?.let { BalanceCard(summary = it, format = clpFormat, uiState = uiState) }
