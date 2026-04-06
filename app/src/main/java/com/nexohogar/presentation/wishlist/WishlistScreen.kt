@@ -37,6 +37,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 fun WishlistScreen(
     viewModel: WishlistViewModel,
     tutorialManager: TutorialManager,
+    availableBalance: Double = 0.0,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -184,6 +185,7 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
+                                        canAfford    = item.price != null && item.price > 0 && availableBalance >= item.price,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -384,6 +386,7 @@ private fun PriorityHeader(label: String, color: Color) {
 private fun WishlistSquareCard(
     item        : WishlistItem,
     format      : NumberFormat,
+    canAfford   : Boolean = false,
     onEdit      : () -> Unit,
     onMarkBought: () -> Unit,
     onDelete    : () -> Unit
@@ -430,6 +433,22 @@ private fun WishlistSquareCard(
             ) {
                 // Espacio para la barra de color
                 Spacer(modifier = Modifier.height(2.dp))
+
+                // ── Chip "Puedes comprarlo" cuando hay saldo disponible ──
+                if (canAfford && !item.isPurchased) {
+                    Surface(
+                        color = Color(0xFF2E7D32).copy(alpha = 0.13f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
+                    ) {
+                        Text(
+                            text = "💰 Alcanza!",
+                            fontSize = 7.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
 
                 Text(
                     text     = item.name,

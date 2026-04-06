@@ -171,6 +171,7 @@ fun NavGraph(navController: NavHostController) {
     var budgetAlertCount   by remember { mutableIntStateOf(0) }
     var lowStockCount      by remember { mutableIntStateOf(0) }
     var wishlistHighCount  by remember { mutableIntStateOf(0) }
+    var availableBalance   by remember { mutableStateOf(0.0) }
     var hubAlertCount      by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(currentRoute) {
@@ -211,6 +212,13 @@ fun NavGraph(navController: NavHostController) {
                 is AppResult.Success -> wishlistHighCount = r.data.count {
                     it.priority == "HIGH" && !it.isPurchased
                 }
+                else -> {}
+            }
+        } catch (_: Exception) {}
+        // Balance disponible (para chip en Wishlist)
+        try {
+            when (val r = accountsRepository.getAccountBalances(householdId)) {
+                is AppResult.Success -> availableBalance = r.data.sumOf { it.movementBalance.toDouble() }
                 else -> {}
             }
         } catch (_: Exception) {}
@@ -858,6 +866,7 @@ fun NavGraph(navController: NavHostController) {
                 WishlistScreen(
                     viewModel = vm,
                     tutorialManager = ServiceLocator.tutorialManager,
+                    availableBalance = availableBalance,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

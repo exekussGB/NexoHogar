@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -255,6 +256,34 @@ fun BudgetScreen(
                                                     contentDescription = "Eliminar",
                                                     modifier = Modifier.size(18.dp),
                                                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // ── Chip de alerta (≥80%) ──────────────────────
+                                    if (pct >= 80.0) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Surface(
+                                            color = color.copy(alpha = 0.12f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                        ) {
+                                            androidx.compose.foundation.layout.Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                androidx.compose.material3.Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = color,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Text(
+                                                    text = if (isExceeded) "Presupuesto agotado" else "Cerca del límite",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = color
                                                 )
                                             }
                                         }
