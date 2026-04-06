@@ -28,6 +28,7 @@ private data class HubAction(
     val backgroundColor: Color,
     val iconColor      : Color,
     val enabled        : Boolean = true,
+    val badge          : Int = 0,
     val onClick        : () -> Unit
 )
 
@@ -48,7 +49,12 @@ fun HubScreen(
     onNavigateToBudget        : () -> Unit,
     onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
-    onNavigateToWishlist      : () -> Unit
+    onNavigateToWishlist      : () -> Unit,
+    overdueCount              : Int = 0,
+    budgetAlertCount          : Int = 0,
+    lowStockCount             : Int = 0,
+    wishlistHighCount         : Int = 0,
+    hubAlertCount             : Int = 0
 ) {
     // Todos los módulos de la app
     val actions = listOf(
@@ -74,6 +80,7 @@ fun HubScreen(
             icon            = Icons.Default.AccountBalanceWallet,
             backgroundColor = Color(0xFFE8EAF6),
             iconColor       = Color(0xFF283593),
+            badge           = budgetAlertCount,
             onClick         = onNavigateToBudget
         ),
         HubAction(
@@ -82,6 +89,7 @@ fun HubScreen(
             icon            = Icons.Default.Inventory2,
             backgroundColor = Color(0xFFFFF3E0),
             iconColor       = Color(0xFFE65100),
+            badge           = lowStockCount,
             onClick         = onNavigateToInventory
         ),
         HubAction(
@@ -90,6 +98,7 @@ fun HubScreen(
             icon            = Icons.Default.Repeat,
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
+            badge           = overdueCount,
             onClick         = onNavigateToRecurringBills
         ),
         HubAction(
@@ -106,6 +115,7 @@ fun HubScreen(
             icon            = Icons.Default.Favorite,
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
+            badge           = wishlistHighCount,
             onClick         = onNavigateToWishlist
         ),
         HubAction(
@@ -122,6 +132,7 @@ fun HubScreen(
             icon            = Icons.Default.Settings,
             backgroundColor = Color(0xFFF5F5F5),
             iconColor       = Color(0xFF424242),
+            badge           = hubAlertCount,
             onClick         = onNavigateToOptions
         )
     )
@@ -342,19 +353,29 @@ private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
                 .padding(18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier         = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(action.backgroundColor),
-                contentAlignment = Alignment.Center
+            BadgedBox(
+                badge = {
+                    if (action.badge > 0) {
+                        Badge {
+                            Text(if (action.badge > 9) "9+" else action.badge.toString())
+                        }
+                    }
+                }
             ) {
-                Icon(
-                    imageVector        = action.icon,
-                    contentDescription = action.title,
-                    tint               = action.iconColor,
-                    modifier           = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier         = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(action.backgroundColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector        = action.icon,
+                        contentDescription = action.title,
+                        tint               = action.iconColor,
+                        modifier           = Modifier.size(24.dp)
+                    )
+                }
             }
             Column {
                 Text(

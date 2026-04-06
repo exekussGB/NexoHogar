@@ -38,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.nexohogar.core.di.ServiceLocator
+import androidx.compose.runtime.mutableIntStateOf
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tutorial.TutorialModule
 import io.github.jan.supabase.auth.auth
@@ -156,6 +157,7 @@ fun NavGraph(navController: NavHostController) {
     val personalDashboardRepository = ServiceLocator.personalDashboardRepository
     val tenantContext = ServiceLocator.tenantContext
     val tutorialManager = ServiceLocator.tutorialManager
+    val wishlistRepository = ServiceLocator.wishlistRepository
 
     // Determine if BottomBar should be shown based on current route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -164,6 +166,61 @@ fun NavGraph(navController: NavHostController) {
 
     // ── Estado del diálogo "Agregar Movimiento" del botón "+" ────────────
     var showAddMovementDialog by remember { mutableStateOf(false) }
+    // Badge counts para BottomBar y HubScreen
+    var overdueCount       by remember { mutableIntStateOf(0) }
+    var budgetAlertCount   by remember { mutableIntStateOf(0) }
+    var lowStockCount      by remember { mutableIntStateOf(0) }
+    var wishlistHighCount  by remember { mutableIntStateOf(0) }
+    var hubAlertCount      by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(currentRoute) {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return@LaunchedEffect
+        // Facturas vencidas o por vencer en 3 dias
+        try {
+            when (val r = recurringBillsRepository.getBillsWithStatus(householdId)) {
+                is AppResult.Success -> overdueCount = r.data.count {
+                    it.isActive && !it.isPaidThisMonth &&
+                    (it.isOverdue || (it.daysUntilDue != null && it.daysUntilDue <= 3))
+                }
+                else -> {}
+            }
+        } catch (_: Exception) {}
+        // Presupuestos al 80% o mas
+        try {
+            when (val r = budgetRepository.getBudgetConsumption(householdId)) {
+                is AppResult.Success -> budgetAlertCount = r.data.count { item ->
+                    item.budgetedAmount > 0 &&
+                    item.spentAmount.toDouble() / item.budgetedAmount >= 0.8
+                }
+                else -> {}
+            }
+        } catch (_: Exception) {}
+        // Productos con stock bajo o en minimo
+        try {
+            when (val r = inventoryRepository.getProducts(householdId)) {
+                is AppResult.Success -> lowStockCount = r.data.count { p ->
+                    val min = (p.minStock?.toDouble()) ?: 1.0
+                    p.currentStock in 0.0..min
+                }
+                else -> {}
+            }
+        } catch (_: Exception) {}
+        // Items de alta prioridad pendientes en wishlist
+        try {
+            when (val r = wishlistRepository.getWishlistItems(householdId)) {
+                is AppResult.Success -> wishlistHighCount = r.data.count {
+                    it.priority == "HIGH" && !it.isPurchased
+                }
+                else -> {}
+            }
+        } catch (_: Exception) {}
+        // Tutoriales pendientes
+        hubAlertCount = try {
+            com.nexohogar.core.tutorial.TutorialModule.values()
+                .count { !tutorialManager.isTutorialCompleted(it) }
+        } catch (_: Exception) { 0 }
+    }
+
 
     if (showAddMovementDialog) {
         AddMovementDialog(
@@ -180,6 +237,8 @@ fun NavGraph(navController: NavHostController) {
             if (showBottomBar) {
                 NexoHogarBottomNavBar(
                     currentRoute = currentRoute,
+                    lowStockCount = lowStockCount,
+                    hubTotalAlerts = overdueCount + budgetAlertCount + wishlistHighCount + hubAlertCount,
                     onNavigate = { route ->
                         if (route == Screen.Hub.route) {
                             // "Más" SIEMPRE navega al Hub limpiamente
@@ -631,6 +690,11 @@ fun NavGraph(navController: NavHostController) {
                 }
                 HubScreen(
                     householdName = hubHouseholdName,
+                    overdueCount = overdueCount,
+                    budgetAlertCount = budgetAlertCount,
+                    lowStockCount = lowStockCount,
+                    wishlistHighCount = wishlistHighCount,
+                    hubAlertCount = hubAlertCount,
                     onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
                     onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToAddMovement = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
@@ -666,6 +730,8 @@ fun NavGraph(navController: NavHostController) {
                     onSeeAllClick = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToCategoryExp = { navController.navigate(Screen.CategoryExpenses.route) },
                     onNavigateToPersonal = { navController.navigate(Screen.PersonalDashboard.route) },
+                    onAddExpense = { navController.navigate(Screen.AddTransaction.createRoute("expense")) },
+                    onAddIncome = { navController.navigate(Screen.AddTransaction.createRoute("income")) },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

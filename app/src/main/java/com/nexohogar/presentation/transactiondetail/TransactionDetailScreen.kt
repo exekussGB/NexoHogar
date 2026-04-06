@@ -39,9 +39,15 @@ fun TransactionDetailScreen(
         viewModel.loadTransactionDetail(transactionId)
     }
 
-    // Auto-start editing if navigated with edit=true
-    LaunchedEffect(uiState, openInEditMode) {
-        if (openInEditMode && uiState is TransactionDetailUiState.Success && !(uiState as TransactionDetailUiState.Success).isEditing) {
+    // Auto-start editing if navigated with edit=true.
+    // IMPORTANT: uses a one-shot flag to avoid re-triggering when cancelEditing()
+    // sets isEditing=false (which would cause a blink and re-open the editor).
+    var autoStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState) {
+        if (!autoStarted && openInEditMode &&
+            uiState is TransactionDetailUiState.Success &&
+            !(uiState as TransactionDetailUiState.Success).isEditing) {
+            autoStarted = true
             viewModel.startEditing()
         }
     }
