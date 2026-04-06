@@ -30,6 +30,8 @@ import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import androidx.compose.material.icons.automirrored.filled.Info
+
 // Semáforo colors
 private val SemaforoBlue   = Color(0xFF42A5F5)
 private val SemaforoGreen  = Color(0xFF66BB6A)
@@ -284,7 +286,7 @@ fun BudgetScreen(
                                             },
                                             leadingIcon = {
                                                 Icon(
-                                                    imageVector = Icons.Default.Info,
+                                                    imageVector = Icons.AutoMirrored.Filled.Info,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(14.dp)
                                                 )
