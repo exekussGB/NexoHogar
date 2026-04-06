@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
@@ -543,12 +544,33 @@ private fun RecurringBillItem(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = statusLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = statusColor,
-                            fontWeight = FontWeight.Bold
-                        )
+                        // Chip para estados críticos, texto plano para el resto
+                        if (status == RecurringBillStatus.OVERDUE || status == RecurringBillStatus.DUE_SOON) {
+                            AssistChip(
+                                onClick = {},
+                                label   = { Text(statusLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                leadingIcon = {
+                                    Icon(statusIcon, contentDescription = null, modifier = Modifier.size(12.dp))
+                                },
+                                colors  = AssistChipDefaults.assistChipColors(
+                                    containerColor          = statusColor.copy(alpha = 0.12f),
+                                    labelColor              = statusColor,
+                                    leadingIconContentColor = statusColor
+                                ),
+                                border   = AssistChipDefaults.assistChipBorder(
+                                    enabled     = true,
+                                    borderColor = statusColor.copy(alpha = 0.35f)
+                                ),
+                                modifier = Modifier.height(24.dp)
+                            )
+                        } else {
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         if (bill.amountClp > 0) {
                             Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                             Text(
@@ -618,29 +640,6 @@ private fun RecurringBillItem(
                             onClick = { expanded = false; onDelete() }
                         )
                     }
-                }
-            }
-
-            // Chip de alerta visible en la tarjeta
-            if (status == RecurringBillStatus.OVERDUE || status == RecurringBillStatus.DUE_SOON) {
-                Row(modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp)) {
-                    SuggestionChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                text = if (status == RecurringBillStatus.OVERDUE)
-                                    "⚠️ Cuenta vencida"
-                                else
-                                    "⏰ Vence pronto",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = statusColor
-                            )
-                        },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = statusColor.copy(alpha = 0.10f)
-                        )
-                    )
                 }
             }
 

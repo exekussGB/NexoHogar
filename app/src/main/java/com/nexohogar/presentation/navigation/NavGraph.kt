@@ -410,9 +410,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Login.route) {
                 val vm: LoginViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            LoginViewModel(authRepository, sessionManager) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return LoginViewModel(authRepository, sessionManager) as T
+                        }
                     }
                 )
                 val biometricHelper = ServiceLocator.biometricHelper
@@ -522,9 +523,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.ForgotPassword.route) {
                 val vm: ForgotPasswordViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            ForgotPasswordViewModel(authRepository) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return ForgotPasswordViewModel(authRepository) as T
+                        }
                     }
                 )
                 ForgotPasswordScreen(
@@ -539,9 +541,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Register.route) {
                 val vm: RegisterViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            RegisterViewModel(authRepository, sessionManager) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return RegisterViewModel(authRepository, sessionManager) as T
+                        }
                     }
                 )
                 RegisterScreen(
@@ -556,13 +559,9 @@ fun NavGraph(navController: NavHostController) {
             }
             // ── Settings ───────────────────────────────────────────────────────
             composable(Screen.Settings.route) {
-                val deleteHouseholdViewModel: DeleteHouseholdViewModel = viewModel(
-                    factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            DeleteHouseholdViewModel(householdRepository) as T
-                    }
-                )
+                val deleteHouseholdViewModel = remember {
+                    DeleteHouseholdViewModel(householdRepository)
+                }
                 SettingsScreen(
                     sessionManager = sessionManager,
                     deleteHouseholdViewModel = deleteHouseholdViewModel,
@@ -619,9 +618,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Household.route) {
                 val vm: HouseholdViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            HouseholdViewModel(householdRepository, tenantContext) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HouseholdViewModel(householdRepository, tenantContext) as T
+                        }
                     }
                 )
                 HouseholdScreen(
@@ -702,9 +702,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Accounts.route) {
                 val vm: AccountsViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            AccountsViewModel(accountsRepository, transactionsRepository, tenantContext) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return AccountsViewModel(accountsRepository, transactionsRepository, tenantContext) as T
+                        }
                     }
                 )
                 AccountsScreen(
@@ -718,9 +719,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.Transactions.route) {
                 val vm: TransactionsViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            TransactionsViewModel(transactionsRepository, tenantContext) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return TransactionsViewModel(transactionsRepository, tenantContext) as T
+                        }
                     }
                 )
                 TransactionsScreen(
@@ -790,9 +792,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.InviteMember.route) {
                 val vm: InviteMemberViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            InviteMemberViewModel(householdRepository, tenantContext) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return InviteMemberViewModel(householdRepository, tenantContext) as T
+                        }
                     }
                 )
                 InviteMemberScreen(
@@ -823,9 +826,10 @@ fun NavGraph(navController: NavHostController) {
             composable(Screen.HouseholdMembers.route) {
                 val vm: HouseholdMembersViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            HouseholdMembersViewModel(householdRepository, tenantContext) as T
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HouseholdMembersViewModel(householdRepository, tenantContext) as T
+                        }
                     }
                 )
                 HouseholdMembersScreen(
@@ -836,21 +840,32 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Wishlist ───────────────────────────────────────────────────────
             composable(Screen.Wishlist.route) {
+                var availableBalance by remember { mutableStateOf(0.0) }
+                LaunchedEffect(Unit) {
+                    when (val result = accountsRepository.getAccounts(tenantContext.getCurrentHouseholdId() ?: "")) {
+                        is AppResult.Success -> {
+                            availableBalance = result.data.sumOf { it.balance.toDouble() }
+                        }
+                        else -> {}
+                    }
+                }
                 val vm: WishlistViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                            WishlistViewModel(
-                                repository = ServiceLocator.wishlistRepository,
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return WishlistViewModel(
+                                repository    = ServiceLocator.wishlistRepository,
                                 tenantContext = ServiceLocator.tenantContext,
                                 sessionManager = ServiceLocator.sessionManager
                             ) as T
+                        }
                     }
                 )
                 WishlistScreen(
-                    viewModel = vm,
-                    tutorialManager = ServiceLocator.tutorialManager,
-                    onNavigateBack = { navController.popBackStack() }
+                    viewModel        = vm,
+                    tutorialManager  = ServiceLocator.tutorialManager,
+                    availableBalance = availableBalance,
+                    onNavigateBack   = { navController.popBackStack() }
                 )
             }
 
