@@ -11,8 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -261,34 +261,6 @@ fun BudgetScreen(
                                         }
                                     }
 
-                                    // ── Chip de alerta (≥80%) ──────────────────────
-                                    if (pct >= 80.0) {
-                                        Spacer(Modifier.height(4.dp))
-                                        Surface(
-                                            color = color.copy(alpha = 0.12f),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-                                        ) {
-                                            androidx.compose.foundation.layout.Row(
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                androidx.compose.material3.Icon(
-                                                    imageVector = androidx.compose.material.icons.Icons.Default.Warning,
-                                                    contentDescription = null,
-                                                    tint = color,
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                                Text(
-                                                    text = if (isExceeded) "Presupuesto agotado" else "Cerca del límite",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = color
-                                                )
-                                            }
-                                        }
-                                    }
-
                                     Spacer(Modifier.height(8.dp))
                                     LinearProgressIndicator(
                                         progress = { (pct / 100.0).toFloat().coerceIn(0f, 1f) },
@@ -299,6 +271,32 @@ fun BudgetScreen(
                                         color = color,
                                         trackColor = color.copy(alpha = 0.15f)
                                     )
+                                    // ── Chip de alerta ─────────────────────────────
+                                    if (pct >= 80) {
+                                        Spacer(Modifier.height(4.dp))
+                                        AssistChip(
+                                            onClick = {},
+                                            label   = {
+                                                Text(
+                                                    text     = if (pct >= 100) "Presupuesto agotado" else "Cerca del límite",
+                                                    fontSize = 11.sp
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Info,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            },
+                                            colors = AssistChipDefaults.assistChipColors(
+                                                containerColor          = (if (pct >= 100) SemaforoRed else SemaforoYellow).copy(alpha = 0.12f),
+                                                labelColor              = if (pct >= 100) SemaforoRed else SemaforoYellow,
+                                                leadingIconContentColor = if (pct >= 100) SemaforoRed else SemaforoYellow
+                                            ),
+                                            modifier = Modifier.height(28.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
