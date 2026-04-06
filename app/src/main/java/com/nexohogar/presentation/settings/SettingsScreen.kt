@@ -32,6 +32,8 @@ import com.nexohogar.data.local.NotificationPreferences
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
+import androidx.work.WorkManager
+import com.nexohogar.worker.NotificationScheduler
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -252,6 +254,22 @@ fun SettingsScreen(
                 },
                 onClick   = { showNotificationsDialog = true }
             )
+            val notifContext = LocalContext.current
+            OutlinedButton(
+                onClick = { NotificationScheduler.testNotification(notifContext) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp, vertical = 2.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Probar notificación ahora", style = MaterialTheme.typography.bodySmall)
+            }
 
             // ── Sección: Acerca de ───────────────────────────────────────────
             SectionLabel("Acerca de")
