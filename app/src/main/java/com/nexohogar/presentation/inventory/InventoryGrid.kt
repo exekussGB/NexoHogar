@@ -12,8 +12,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +44,41 @@ internal fun ProductsTab(
     val products = uiState.filteredProducts
     val categories = uiState.availableCategories
 
+    var searchQuery by remember { mutableStateOf("") }
+    val displayedProducts = if (searchQuery.isBlank()) products
+        else products.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+            it.category?.contains(searchQuery, ignoreCase = true) == true ||
+            it.brand?.contains(searchQuery, ignoreCase = true) == true
+        }
+
     Column(Modifier.fillMaxSize()) {
+        // ── Barra de búsqueda ──────────────────────────────────────────────
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            placeholder = { Text("Buscar producto...", fontSize = 14.sp) },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = PrimaryBlue)
+            },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Limpiar", modifier = Modifier.size(18.dp))
+                    }
+                }
+            },
+            singleLine = true,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryBlue,
+                unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.3f)
+            )
+        )
+
         // Filtros de categoría
         if (categories.isNotEmpty()) {
             Row(
@@ -64,7 +107,7 @@ internal fun ProductsTab(
             HorizontalDivider()
         }
 
-        if (products.isEmpty()) {
+        if (displayedProducts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Icon(Icons.Default.Inventory2, contentDescription = null,
@@ -109,7 +152,7 @@ internal fun ProductsTab(
                         Text("Agregar a despensa", color = GreenIn, fontWeight = FontWeight.SemiBold)
                     }
                 }
-                items(products, key = { it.id }) { product ->
+                items(displayedProducts, key = { it.id }) { product ->
                     ProductGridCard(
                         product = product,
                         onClick = { onProductAction(product) }
@@ -136,13 +179,17 @@ internal fun ProductGridCard(
         else -> String.format("%.1f", product.currentStock).trimEnd('0').trimEnd('.')
     }
 
+    val minS = product.minStock
+    val isLowStock = minS != null && product.currentStock <= minS
+    val cardBg = if (isLowStock) Color(0xFFFFF3E0) else Color.White
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
         Column(
             modifier = Modifier.padding(6.dp),
@@ -176,6 +223,43 @@ internal fun ProductGridCard(
                     )
                 }
             }
+
+            // ── Barra de stock (solo si hay minStock configurado) ──────────
+            if (minS != null && minS > 0) {
+                val barProgress = (product.currentStock / (minS * 2.0)).toFloat().coerceIn(0f, 1f)
+                val barColor = when {
+                    product.currentStock <= 0          -> Color(0xFFC62828)
+                    product.currentStock <= minS        -> Color(0xFFE65100)
+                    product.currentStock <= minS * 1.5  -> Color(0xFFFFA726)
+                    else                                -> Color(0xFF4CAF50)
+                }
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { barProgress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = barColor,
+                    trackColor = barColor.copy(alpha = 0.18f)
+                )
+            }
+
+            // ── Chip "Bajo mínimo" ─────────────────────────────────────────
+            if (isLowStock) {
+                Surface(
+                    color = Color(0xFFC62828).copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(3.dp)
+                ) {
+                    Text(
+                        text = "↓ Bajo mínimo",
+                        fontSize = 7.sp,
+                        color = Color(0xFFC62828),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
+
             if (!product.category.isNullOrBlank()) {
                 Surface(
                     color = PrimaryBlue.copy(alpha = 0.1f),
