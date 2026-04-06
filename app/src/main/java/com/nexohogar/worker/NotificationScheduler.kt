@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.Calendar
@@ -24,7 +25,8 @@ object NotificationScheduler {
      * Programa la verificación de cuentas recurrentes cada 24 horas.
      * Requiere conexión a red para consultar Supabase.
      *
-     * ExistingPeriodicWorkPolicy.KEEP → si ya existe, no lo reemplaza.
+     * ExistingPeriodicWorkPolicy.UPDATE → reemplaza si ya existe (reinicia timer
+     * en cada actualización de la app para garantizar ejecución fresca).
      */
     fun schedule(context: Context) {
         val constraints = Constraints.Builder()
@@ -40,7 +42,7 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
@@ -70,13 +72,29 @@ object NotificationScheduler {
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             RECURRING_BILL_CHECK_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             workRequest
         )
     }
 
+    /**
+     * Ejecuta UNA verificación inmediata de cuentas recurrentes.
+     * Usar desde Settings → "Probar notificación ahora" para confirmar que el
+     * sistema funciona sin esperar el ciclo de 24 horas.
+     */
+    fun testNotification(context: Context) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val oneTimeRequest = OneTimeWorkRequestBuilder<RecurringBillsNotificationWorker>()
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(context).enqueue(oneTimeRequest)
+    }
+
     private fun calculateInitialDelay(): Long {
-        // Schedule for 9:00 AM next day
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 9)
