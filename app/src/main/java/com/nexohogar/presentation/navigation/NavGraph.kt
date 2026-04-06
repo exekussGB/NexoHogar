@@ -64,6 +64,7 @@ import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
 import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.AddMovementDialog
 import com.nexohogar.presentation.hub.HubScreen
+import com.nexohogar.presentation.hub.HubViewModel
 import com.nexohogar.presentation.inventory.InventoryScreen
 import com.nexohogar.presentation.inventory.InventoryViewModel
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
@@ -87,6 +88,7 @@ import com.nexohogar.presentation.tutorial.TutorialListScreen
 import com.nexohogar.presentation.wishlist.WishlistScreen
 import com.nexohogar.presentation.wishlist.WishlistViewModel
 import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.collectAsState
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -657,18 +659,41 @@ fun NavGraph(navController: NavHostController) {
                         }
                     }
                 }
+
+                // ── HubViewModel: calcula badges de alerta ─────────────────
+                val hubVm: HubViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HubViewModel(
+                                recurringBillsRepository = recurringBillsRepository,
+                                budgetRepository         = budgetRepository,
+                                inventoryRepository      = inventoryRepository,
+                                wishlistRepository       = ServiceLocator.wishlistRepository,
+                                accountsRepository       = accountsRepository,
+                                tenantContext            = tenantContext
+                            ) as T
+                        }
+                    }
+                )
+                val hubAlerts by hubVm.alerts.collectAsState()
+
                 HubScreen(
-                    householdName = hubHouseholdName,
-                    onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
-                    onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
-                    onNavigateToAddMovement = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
-                    onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
-                    onNavigateToInviteMember = { navController.navigate(Screen.InviteMember.route) },
-                    onNavigateToRecurringBills = { navController.navigate(Screen.RecurringBills.route) },
-                    onNavigateToBudget = { navController.navigate(Screen.Budget.route) },
-                    onNavigateToInventory = { navController.navigate(Screen.Inventory.route) },
-                    onNavigateToWishlist = { navController.navigate(Screen.Wishlist.route) },
-                    onNavigateToOptions = { navController.navigate(Screen.Settings.route) }
+                    householdName             = hubHouseholdName,
+                    onNavigateToDashboard     = { navController.navigate(Screen.Dashboard.route) },
+                    onNavigateToTransactions  = { navController.navigate(Screen.Transactions.route) },
+                    onNavigateToAddMovement   = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
+                    onNavigateToAccounts      = { navController.navigate(Screen.Accounts.route) },
+                    onNavigateToInviteMember  = { navController.navigate(Screen.InviteMember.route) },
+                    onNavigateToRecurringBills= { navController.navigate(Screen.RecurringBills.route) },
+                    onNavigateToBudget        = { navController.navigate(Screen.Budget.route) },
+                    onNavigateToInventory     = { navController.navigate(Screen.Inventory.route) },
+                    onNavigateToWishlist      = { navController.navigate(Screen.Wishlist.route) },
+                    onNavigateToOptions       = { navController.navigate(Screen.Settings.route) },
+                    overdueCount              = hubAlerts.overdueCount,
+                    budgetAlertCount          = hubAlerts.budgetAlertCount,
+                    lowStockCount             = hubAlerts.lowStockCount,
+                    wishlistHighCount         = hubAlerts.wishlistAffordCount
                 )
             }
 
