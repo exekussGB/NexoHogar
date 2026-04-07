@@ -157,6 +157,7 @@ fun NavGraph(navController: NavHostController) {
     val categoryExpensesRepository = ServiceLocator.categoryExpensesRepository
     val personalDashboardRepository = ServiceLocator.personalDashboardRepository
     val tenantContext = ServiceLocator.tenantContext
+    val wishlistRepository = ServiceLocator.wishlistRepository
     val tutorialManager = ServiceLocator.tutorialManager
 
     // Determine if BottomBar should be shown based on current route
@@ -640,6 +641,7 @@ fun NavGraph(navController: NavHostController) {
                                 budgetRepository,
                                 inventoryRepository,
                                 wishlistRepository,
+                                accountsRepository,
                                 tenantContext
                             ) as T
                         }
@@ -649,10 +651,6 @@ fun NavGraph(navController: NavHostController) {
 
                 HubScreen(
                     householdName = hubHouseholdName,
-                    overdueCount = hubAlerts.overdueCount,
-                    budgetAlertCount = hubAlerts.budgetAlertCount,
-                    lowStockCount = hubAlerts.lowStockCount,
-                    wishlistAffordCount = hubAlerts.wishlistAffordCount,
                     onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
                     onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToAddMovement = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
