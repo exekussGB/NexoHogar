@@ -50,7 +50,11 @@ fun HubScreen(
     onNavigateToBudget        : () -> Unit,
     onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
-    onNavigateToWishlist      : () -> Unit
+    onNavigateToWishlist      : () -> Unit,
+    overdueCount              : Int = 0,
+    budgetAlertCount           : Int = 0,
+    lowStockCount              : Int = 0,
+    wishlistHighCount          : Int = 0
 ) {
     // Todos los módulos de la app
     val actions = listOf(
