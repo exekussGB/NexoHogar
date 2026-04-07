@@ -42,6 +42,11 @@ fun WishlistScreen(
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.WISHLIST))
     }
 
+    // ── Recargar items cada vez que la pantalla se muestra ───────────────────
+    LaunchedEffect(Unit) {
+        viewModel.refreshItems()
+    }
+
     val wishlistTutorialSteps = remember {
         listOf(
             TutorialStep(
