@@ -17,7 +17,8 @@ interface InventoryRepository {
         name: String,
         unit: String,
         brand: String? = null,
-        category: String? = null
+        category: String? = null,
+        minStock: Int? = null         // ✅ NUEVO: stock mínimo de alerta
     ): AppResult<Product>
     suspend fun getMovements(householdId: String, itemId: String? = null): AppResult<List<InventoryMovement>>
     suspend fun addPurchase(
@@ -52,4 +53,14 @@ interface InventoryRepository {
         receiptDate: String,
         items: List<ScannedReceiptItem>
     ): AppResult<Map<String, Any>>
+
+    // ✅ NUEVO: actualizar producto existente
+    suspend fun updateProduct(
+        productId: String,
+        name: String,
+        unit: String,
+        brand: String?,
+        category: String?,
+        minStock: Int?
+    ): AppResult<Product>
 }
