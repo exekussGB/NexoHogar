@@ -61,6 +61,11 @@ class WishlistViewModel(
         }
     }
 
+    // ── Refresco (cuando vuelve a la pantalla) ─────────────────────────────────
+    fun refreshItems() {
+        loadItems()
+    }
+
     // ── Crear ────────────────────────────────────────────────────────────────
 
     fun onShowCreateDialog() {
