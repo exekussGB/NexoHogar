@@ -28,7 +28,8 @@ private data class HubAction(
     val backgroundColor: Color,
     val iconColor      : Color,
     val enabled        : Boolean = true,
-    val badge          : Int = 0,
+    val hasAlert       : Boolean = false,
+    val alertLabel     : String = "",
     val onClick        : () -> Unit
 )
 
@@ -49,12 +50,7 @@ fun HubScreen(
     onNavigateToBudget        : () -> Unit,
     onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
-    onNavigateToWishlist      : () -> Unit,
-    overdueCount              : Int = 0,
-    budgetAlertCount          : Int = 0,
-    lowStockCount             : Int = 0,
-    wishlistHighCount         : Int = 0,
-    hubAlertCount             : Int = 0
+    onNavigateToWishlist      : () -> Unit
 ) {
     // Todos los módulos de la app
     val actions = listOf(
@@ -80,7 +76,6 @@ fun HubScreen(
             icon            = Icons.Default.AccountBalanceWallet,
             backgroundColor = Color(0xFFE8EAF6),
             iconColor       = Color(0xFF283593),
-            badge           = budgetAlertCount,
             onClick         = onNavigateToBudget
         ),
         HubAction(
@@ -89,7 +84,6 @@ fun HubScreen(
             icon            = Icons.Default.Inventory2,
             backgroundColor = Color(0xFFFFF3E0),
             iconColor       = Color(0xFFE65100),
-            badge           = lowStockCount,
             onClick         = onNavigateToInventory
         ),
         HubAction(
@@ -98,7 +92,6 @@ fun HubScreen(
             icon            = Icons.Default.Repeat,
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
-            badge           = overdueCount,
             onClick         = onNavigateToRecurringBills
         ),
         HubAction(
@@ -115,7 +108,6 @@ fun HubScreen(
             icon            = Icons.Default.Favorite,
             backgroundColor = Color(0xFFFCE4EC),
             iconColor       = Color(0xFFC62828),
-            badge           = wishlistHighCount,
             onClick         = onNavigateToWishlist
         ),
         HubAction(
@@ -132,7 +124,6 @@ fun HubScreen(
             icon            = Icons.Default.Settings,
             backgroundColor = Color(0xFFF5F5F5),
             iconColor       = Color(0xFF424242),
-            badge           = hubAlertCount,
             onClick         = onNavigateToOptions
         )
     )
@@ -338,29 +329,22 @@ fun AddMovementDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
-    Card(
-        modifier  = modifier
-            .height(130.dp)
-            .alpha(if (action.enabled) 1f else 0.45f)
-            .clickable(enabled = action.enabled) { action.onClick() },
-        shape     = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (action.enabled) 2.dp else 0.dp),
-        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier            = Modifier
+    Box(modifier = modifier) {
+        Card(
+            modifier  = Modifier
                 .fillMaxSize()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .height(130.dp)
+                .alpha(if (action.enabled) 1f else 0.45f)
+                .clickable(enabled = action.enabled) { action.onClick() },
+            shape     = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (action.enabled) 2.dp else 0.dp),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            BadgedBox(
-                badge = {
-                    if (action.badge > 0) {
-                        Badge {
-                            Text(if (action.badge > 9) "9+" else action.badge.toString())
-                        }
-                    }
-                }
+            Column(
+                modifier            = Modifier
+                    .fillMaxSize()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier         = Modifier
@@ -376,20 +360,51 @@ private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
                         modifier           = Modifier.size(24.dp)
                     )
                 }
+                Column {
+                    Text(
+                        text       = action.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 15.sp,
+                        color      = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text     = action.subtitle,
+                        fontSize = 12.sp,
+                        color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
             }
-            Column {
-                Text(
-                    text       = action.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 15.sp,
-                    color      = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text     = action.subtitle,
-                    fontSize = 12.sp,
-                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                )
-            }
+        }
+
+        // Chip de alerta si existe
+        if (action.hasAlert) {
+            AssistChip(
+                onClick = { action.onClick() },
+                label = {
+                    Text(
+                        text = action.alertLabel,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Alerta",
+                        modifier = Modifier.size(14.dp),
+                        tint = Color.White
+                    )
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = Color(0xFFE53935),
+                    labelColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp)
+            )
         }
     }
 }

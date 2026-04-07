@@ -542,35 +542,28 @@ private fun RecurringBillItem(
                     Text(bill.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Chip para estados críticos, texto plano para el resto
-                        if (status == RecurringBillStatus.OVERDUE || status == RecurringBillStatus.DUE_SOON) {
-                            AssistChip(
-                                onClick = {},
-                                label   = { Text(statusLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                leadingIcon = {
-                                    Icon(statusIcon, contentDescription = null, modifier = Modifier.size(12.dp))
-                                },
-                                colors  = AssistChipDefaults.assistChipColors(
-                                    containerColor          = statusColor.copy(alpha = 0.12f),
-                                    labelColor              = statusColor,
-                                    leadingIconContentColor = statusColor
-                                ),
-                                border   = AssistChipDefaults.assistChipBorder(
-                                    enabled     = true,
-                                    borderColor = statusColor.copy(alpha = 0.35f)
-                                ),
-                                modifier = Modifier.height(24.dp)
-                            )
-                        } else {
-                            Text(
-                                text = statusLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = statusColor,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        // Chip de estado
+                        AssistChip(
+                            onClick = { /* No action */ },
+                            label = {
+                                Text(
+                                    text = statusLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(statusIcon, contentDescription = null, modifier = Modifier.size(14.dp))
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = statusColor.copy(alpha = 0.15f),
+                                labelColor = statusColor
+                            ),
+                            modifier = Modifier.height(28.dp)
+                        )
                         if (bill.amountClp > 0) {
                             Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                             Text(
