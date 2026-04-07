@@ -104,9 +104,10 @@ fun InventoryScreen(
                     }
                 }
             )
-        }
-                floatingActionButton = {
-            if (uiState.products.any { (it.suggestedQuantity ?: 0) > 0 }) {
+        },
+        floatingActionButton = {
+            // Mostrar FAB si hay productos para comprar (currentStock < minStock)
+            if (uiState.products.any { it.minStock != null && it.currentStock < it.minStock!! }) {
                 FloatingActionButton(
                     onClick = { showShoppingModal = true },
                     containerColor = PrimaryBlue,
@@ -145,7 +146,7 @@ fun InventoryScreen(
                 }
                 uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadData() }
                 else -> when (selectedTab) {
-                    0 -> ProductsTab(onShowShoppingList = { showShoppingModal = true },
+                    0 -> ProductsTab(
                         uiState = uiState,
                         onProductClick = { p ->
                             selectedProductForHistory = p
@@ -167,7 +168,11 @@ fun InventoryScreen(
                         categories = uiState.categories,
                         stats = uiState.categoryStats
                     )
-                    3 -> SuggestionsTab(suggestions = uiState.suggestions)
+                    3 -> SuggestionsTab(
+                        suggestions = uiState.suggestions,
+                        isLoading = uiState.isLoading,
+                        onAddToWishlist = { suggestion -> viewModel.addSuggestionToWishlist(suggestion) }
+                    )
                 }
             }
         }
@@ -192,6 +197,74 @@ fun InventoryScreen(
                 viewModel.loadMovementsForProduct(p)
             },
             onQuickConsume = { p -> productToConsume = p }
+        )
+    }
+
+    // ─── Modal: Lista de Compras ───────────────────────────────────────────────
+    if (showShoppingModal) {
+        AlertDialog(
+            onDismissRequest = { showShoppingModal = false },
+            title = {
+                Text(
+                    "Lista de Compras",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                ) {
+                    // Filtrar productos que necesitan reposición: currentStock < minStock
+                    val itemsToCompra = uiState.products.filter { it.minStock != null && it.currentStock < it.minStock!! }
+                    items(itemsToCompra) { product ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF5F5F5)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    product.name,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                                        color = Color.Red,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        "Comprar: ${(product.minStock!! - product.currentStock).toInt()} ${product.unit}",
+                                        color = PrimaryBlue,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showShoppingModal = false }) {
+                    Text("Cerrar")
+                }
+            }
         )
     }
 
@@ -774,72 +847,4 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
             }
         }
     }
-
-    // ─── Modal de Lista de Compras ──────────────────────────────────
-    if (showShoppingModal) {
-        AlertDialog(
-            onDismissRequest = { showShoppingModal = false },
-            title = {
-                Text(
-                    "Lista de Compras",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-            },
-            text = {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                ) {
-                    val itemsToCompra = uiState.products.filter { it.suggestedQuantity ?: 0 > 0 }
-                    items(itemsToCompra) { product ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFF5F5F5)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp)
-                            ) {
-                                Text(
-                                    product.name,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        "Stock: ${product.quantity} ${product.unit}",
-                                        color = Color.Red,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        "Comprar: ${product.suggestedQuantity ?: 0} ${product.unit}",
-                                        color = PrimaryBlue,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showShoppingModal = false }) {
-                    Text("Cerrar")
-                }
-            }
-        )
-    }
-
 }
