@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexohogar.domain.model.InventoryCategory
@@ -171,7 +172,7 @@ fun InventoryScreen(
                     3 -> SuggestionsTab(
                         suggestions = uiState.suggestions,
                         isLoading = uiState.isLoading,
-                        onAddToWishlist = { suggestion -> viewModel.addSuggestionToWishlist(suggestion) }
+                        onAddToWishlist = { suggestion: PurchaseSuggestion -> viewModel.addSuggestionToWishlist(suggestion) }
                     )
                 }
             }
@@ -202,6 +203,10 @@ fun InventoryScreen(
 
     // ─── Modal: Lista de Compras ───────────────────────────────────────────────
     if (showShoppingModal) {
+        var itemsToCompra by remember {
+            mutableStateOf(uiState.products.filter { it.minStock != null && it.currentStock < it.minStock!! })
+        }
+
         AlertDialog(
             onDismissRequest = { showShoppingModal = false },
             title = {
@@ -212,48 +217,88 @@ fun InventoryScreen(
                 )
             },
             text = {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp)
-                ) {
-                    // Filtrar productos que necesitan reposición: currentStock < minStock
-                    val itemsToCompra = uiState.products.filter { it.minStock != null && it.currentStock < it.minStock!! }
-                    items(itemsToCompra) { product ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFF5F5F5)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp)
-                            ) {
-                                Text(
-                                    product.name,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
+                if (itemsToCompra.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = Color(0xFF4CAF50)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "¡Todos los productos tienen stock!",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(itemsToCompra) { product ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFFAFAFA)
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp, Color(0xFFEEEEEE)
                                 )
+                            ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
-                                        color = Color.Red,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        "Comprar: ${(product.minStock!! - product.currentStock).toInt()} ${product.unit}",
-                                        color = PrimaryBlue,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp
-                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            product.name,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF212121)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            "Stock: ${String.format("%.2f", product.currentStock)} ${product.unit}",
+                                            color = Color(0xFFD32F2F),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            "Comprar: ${(product.minStock!! - product.currentStock).toInt()} ${product.unit}",
+                                            color = Color(0xFF1565C0),
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            itemsToCompra = itemsToCompra.filter { it.id != product.id }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Eliminar",
+                                            tint = Color(0xFFC62828),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -829,6 +874,181 @@ private fun RegisterTab(
                 }
             }
         )
+    }
+}
+
+// ─── Card para cada sugerencia ─────────────────────────────────────────────────
+@Composable
+private fun SuggestionCard(
+    suggestion: PurchaseSuggestion,
+    onAddToWishlist: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, Color(0xFFE0E0E0)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Encabezado: nombre y categoría
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        suggestion.productName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF212121),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!suggestion.category.isNullOrBlank()) {
+                        Text(
+                            suggestion.category,
+                            fontSize = 11.sp,
+                            color = Color(0xFF757575),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Información: Stock actual y cantidad sugerida
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Stock actual
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF3E0)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Stock Actual",
+                            fontSize = 10.sp,
+                            color = Color(0xFFE65100),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            String.format("%.1f", suggestion.currentStock),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE65100)
+                        )
+                        Text(
+                            suggestion.unit,
+                            fontSize = 9.sp,
+                            color = Color(0xFFE65100)
+                        )
+                    }
+                }
+
+                // Cantidad sugerida
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFE8F5E9)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Comprar",
+                            fontSize = 10.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            String.format("%.1f", suggestion.suggestedQuantity),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2E7D32)
+                        )
+                        Text(
+                            suggestion.unit,
+                            fontSize = 9.sp,
+                            color = Color(0xFF2E7D32)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Razón de la sugerencia
+            Text(
+                "Motivo: ${suggestion.reason}",
+                fontSize = 11.sp,
+                color = Color(0xFF9E9E9E),
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            // Costo estimado (si aplica)
+            if (suggestion.estimatedCost != null && suggestion.estimatedCost > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Costo estimado: ${"$"}${String.format("%.0f", suggestion.estimatedCost)}",
+                    fontSize = 11.sp,
+                    color = Color(0xFF1565C0),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Botón: Agregar a Wishlist
+            Button(
+                onClick = onAddToWishlist,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryBlue
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "Agregar a Lista de Deseos",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+        }
     }
 }
 
