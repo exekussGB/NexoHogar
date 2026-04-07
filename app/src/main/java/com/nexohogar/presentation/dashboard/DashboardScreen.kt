@@ -155,33 +155,6 @@ fun DashboardScreen(
                     }
                 }
                 // ── Balance ────────────────────────────────────────────────────
-                // Acciones rapidas
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        AssistChip(
-                            onClick = onAddExpense,
-                            label = { Text("Gasto rapido") },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = Color(0xFFF44336).copy(alpha = 0.12f),
-                                labelColor     = Color(0xFFB71C1C)
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        AssistChip(
-                            onClick = onAddIncome,
-                            label = { Text("Ingreso rapido") },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.12f),
-                                labelColor     = Color(0xFF1B5E20)
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
                 item {
                     Box(modifier = Modifier.testTag("dashboard_balance")) {
                         uiState.summary?.let { BalanceCard(summary = it, format = clpFormat, uiState = uiState) }

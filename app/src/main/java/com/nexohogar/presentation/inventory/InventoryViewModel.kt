@@ -43,7 +43,7 @@ data class InventoryUiState(
 ) {
     val filteredProducts: List<Product>
         get() = if (selectedCategory == null) products
-                else products.filter { it.category == selectedCategory }
+        else products.filter { it.category == selectedCategory }
 
     val availableCategories: List<String>
         get() = categories.map { it.name }
@@ -261,9 +261,15 @@ class InventoryViewModel(
 
     // ─── Añadir sugerencia a wishlist ────────────────────────────────────────────
     fun addSuggestionToWishlist(suggestion: PurchaseSuggestion) {
-        val repo = wishlistRepository ?: return
+        android.util.Log.d("InventoryVM", "➤ addSuggestionToWishlist: '${suggestion.productName}', repo=${wishlistRepository != null}")
+        val repo = wishlistRepository ?: run {
+            android.util.Log.e("InventoryVM", "❌ WishlistRepository es null!")
+            _uiState.update { it.copy(error = "Error: WishlistRepository no inicializado") }
+            return
+        }
         viewModelScope.launch {
             try {
+                android.util.Log.d("InventoryVM", "📝 Creando item en wishlist: '${suggestion.productName}'")
                 repo.createWishlistItem(
                     householdId = householdId,
                     name = suggestion.productName,
@@ -272,8 +278,13 @@ class InventoryViewModel(
                     priority = "medium",
                     createdBy = tenantContext.getCurrentUserId() ?: ""
                 )
+                android.util.Log.d("InventoryVM", "✅ Agregado exitosamente a wishlist: '${suggestion.productName}'")
                 _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la wishlist") }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryVM", "❌ Error al agregar a wishlist: ${e.message}", e)
+                e.printStackTrace()
+                _uiState.update { it.copy(error = "Error al agregar: ${e.message}") }
+            }
         }
     }
 
