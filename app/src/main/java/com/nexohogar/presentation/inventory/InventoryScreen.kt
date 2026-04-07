@@ -170,8 +170,7 @@ fun InventoryScreen(
                         allProducts = uiState.products,
                         categories = uiState.categories,
                         onRegistered = { selectedTab = 0 }
-                    )
-                    2 -> CategoriesTab(
+                    )2 -> CategoriesTab(
                         viewModel = viewModel,
                         categories = uiState.categories,
                         stats = uiState.categoryStats
