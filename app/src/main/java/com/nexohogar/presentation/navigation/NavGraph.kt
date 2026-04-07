@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +65,7 @@ import com.nexohogar.presentation.householdmembers.HouseholdMembersScreen
 import com.nexohogar.presentation.householdmembers.HouseholdMembersViewModel
 import com.nexohogar.presentation.hub.AddMovementDialog
 import com.nexohogar.presentation.hub.HubScreen
+import com.nexohogar.presentation.hub.HubViewModel
 import com.nexohogar.presentation.inventory.InventoryScreen
 import com.nexohogar.presentation.inventory.InventoryViewModel
 import com.nexohogar.presentation.invitemember.InviteMemberScreen
@@ -629,8 +631,28 @@ fun NavGraph(navController: NavHostController) {
                         }
                     }
                 }
+                val hubVm: HubViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HubViewModel(
+                                recurringBillsRepository,
+                                budgetRepository,
+                                inventoryRepository,
+                                wishlistRepository,
+                                tenantContext
+                            ) as T
+                        }
+                    }
+                )
+                val hubAlerts by hubVm.alerts.collectAsState()
+
                 HubScreen(
                     householdName = hubHouseholdName,
+                    overdueCount = hubAlerts.overdueCount,
+                    budgetAlertCount = hubAlerts.budgetAlertCount,
+                    lowStockCount = hubAlerts.lowStockCount,
+                    wishlistAffordCount = hubAlerts.wishlistAffordCount,
                     onNavigateToDashboard = { navController.navigate(Screen.Dashboard.route) },
                     onNavigateToTransactions = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToAddMovement = { type -> navController.navigate(Screen.AddTransaction.createRoute(type)) },
