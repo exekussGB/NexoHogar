@@ -36,9 +36,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
-import kotlin.compareTo
-import kotlin.text.category
-
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.FloatingActionButton
 
 /** Returns user-friendly price label based on unit, e.g. "Precio por kg", "Precio por unidad" */
 private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
@@ -77,6 +77,9 @@ fun InventoryScreen(
 
     var selectedProductForHistory by remember { mutableStateOf<Product?>(null) }
     var productToConsume by remember { mutableStateOf<Product?>(null) }
+    var productToEdit by remember { mutableStateOf<Product?>(null) }
+    var showShoppingList by remember { mutableStateOf(false) }
+    val editForm by viewModel.editProductForm.collectAsState()
 
     Scaffold(
         topBar = {
@@ -103,8 +106,26 @@ fun InventoryScreen(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            if (selectedTab == 0 && !uiState.isLoading) {
+                val shoppingCount = uiState.shoppingListProducts.size
+                if (shoppingCount > 0) {
+                    BadgedBox(badge = {
+                        Badge(containerColor = Color(0xFFC62828)) {
+                            Text(shoppingCount.toString(), color = Color.White)
+                        }
+                    }) {
+                        FloatingActionButton(
+                            onClick = { showShoppingList = true },
+                            containerColor = PrimaryBlue
+                        ) {
+                            Icon(Icons.Default.ShoppingCart, contentDescription = "Lista de compras", tint = Color.White)
+                        }
+                    }
+                }
+            }
         }
-        // Sin floatingActionButton — todo el ingreso es desde la pestaña Registrar
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             ScrollableTabRow(
@@ -119,8 +140,8 @@ fun InventoryScreen(
                         onClick = { selectedTab = i },
                         text = { Text(title, fontSize = 13.sp) },
                         modifier = when (i) {
-                            1 -> Modifier.testTag("inventory_add_button")   // Registrar
-                            2 -> Modifier.testTag("inventory_movements")    // Categorías
+                            1 -> Modifier.testTag("inventory_add_button") // Registrar
+                            2 -> Modifier.testTag("inventory_movements") // Categorías
                             else -> Modifier
                         }
                     )
@@ -155,7 +176,11 @@ fun InventoryScreen(
                         categories = uiState.categories,
                         stats = uiState.categoryStats
                     )
-                    3 -> SuggestionsTab(suggestions = uiState.suggestions)
+                    3 -> SuggestionsTab(
+                        suggestions = uiState.suggestions,
+                        isLoading = uiState.isLoading,
+                        onAddToWishlist = { viewModel.addSuggestionToWishlist(it) }
+                    )
                 }
             }
         }
@@ -170,7 +195,7 @@ fun InventoryScreen(
         )
     }
 
-        // ─── Popup de acciones de producto ──────────────────────────────────────────
+    // ─── Popup de acciones de producto ──────────────────────────────────────────
     productForAction?.let { product ->
         ProductActionPopup(
             product = product,
@@ -179,7 +204,56 @@ fun InventoryScreen(
                 selectedProductForHistory = p
                 viewModel.loadMovementsForProduct(p)
             },
-            onQuickConsume = { p -> productToConsume = p }
+            onQuickConsume = { p -> productToConsume = p },
+            onEditProduct = { p ->
+                viewModel.startEditProduct(p)
+                productToEdit = p
+                productForAction = null
+            }
+        )
+    }
+
+    // ─── Diálogo de edición de producto ─────────────────────────────────────
+    productToEdit?.let { _ ->
+        if (editForm.success) {
+            viewModel.resetEditProductForm()
+            productToEdit = null
+        } else {
+            EditProductDialog(
+                form = editForm,
+                categories = uiState.availableCategories,
+                onDismiss = {
+                    viewModel.resetEditProductForm()
+                    productToEdit = null
+                },
+                onNameChange     = viewModel::onEditNameChange,
+                onUnitChange     = viewModel::onEditUnitChange,
+                onBrandChange    = viewModel::onEditBrandChange,
+                onCategoryChange = viewModel::onEditCategoryChange,
+                onMinStockChange = viewModel::onEditMinStockChange,
+                onConfirm        = viewModel::submitEditProduct
+            )
+        }
+    }
+
+    // ─── Diálogo: lista de compras automática ──────────────────────────────
+    if (showShoppingList) {
+        ShoppingListDialog(
+            products = uiState.shoppingListProducts,
+            listText = viewModel.generateShoppingListText(),
+            onDismiss = { showShoppingList = false }
+        )
+    }
+
+    // ─── Diálogo: consumo rápido ─────────────────────────────────────────────
+    productToConsume?.let { product ->
+        QuickConsumeDialog(
+            product = product,
+            onConfirm = { qty ->
+                viewModel.quickConsume(product.id, qty)
+                productToConsume = null
+            },
+            onDismiss = { productToConsume = null }
         )
     }
 
@@ -578,6 +652,17 @@ private fun RegisterTab(
                 value = prodForm.brand,
                 onValueChange = viewModel::onProductBrandChange,
                 label = { Text("Marca (opcional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Stock mínimo de alerta
+            OutlinedTextField(
+                value = prodForm.minStock,
+                onValueChange = viewModel::onProductMinStockChange,
+                label = { Text("Stock mínimo de alerta (opcional)") },
+                placeholder = { Text("ej: 2") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 

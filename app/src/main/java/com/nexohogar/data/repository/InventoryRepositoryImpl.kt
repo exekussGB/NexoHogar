@@ -18,6 +18,8 @@ import java.time.LocalDate
 
 /**
  * COH-03: Migrado a AppResult para consistencia con los demás repositorios.
+ * v1.2.8→HEAD: Agrega minStock en createProduct, implementa updateProduct,
+ *              actualiza getSuggestions a PurchaseSuggestion plano.
  */
 class InventoryRepositoryImpl(
     private val api: InventoryApi
@@ -55,7 +57,8 @@ class InventoryRepositoryImpl(
         name: String,
         unit: String,
         brand: String?,
-        category: String?
+        category: String?,
+        minStock: Int?
     ): AppResult<Product> {
         return try {
             val response = api.createProduct(
@@ -64,7 +67,8 @@ class InventoryRepositoryImpl(
                     name = name,
                     unit = unit,
                     brand = brand,
-                    category = category
+                    category = category,
+                    minStock = minStock
                 )
             )
             if (!response.isSuccessful) {
@@ -72,6 +76,37 @@ class InventoryRepositoryImpl(
             }
             val product = response.body()?.firstOrNull()?.toDomain()
                 ?: return AppResult.Error("Respuesta vacía al crear producto")
+            AppResult.Success(product)
+        } catch (e: Exception) {
+            AppResult.Error("Fallo de red: ${e.message}", e)
+        }
+    }
+
+    override suspend fun updateProduct(
+        productId: String,
+        name: String,
+        unit: String,
+        brand: String?,
+        category: String?,
+        minStock: Int?
+    ): AppResult<Product> {
+        return try {
+            val body = buildMap<String, Any?> {
+                put("name", name)
+                put("unit", unit)
+                brand?.let { put("brand", it) } ?: put("brand", null)
+                category?.let { put("category", it) } ?: put("category", null)
+                minStock?.let { put("min_stock", it) } ?: put("min_stock", null)
+            }
+            val response = api.updateProduct(
+                id = "eq.$productId",
+                request = body
+            )
+            if (!response.isSuccessful) {
+                return AppResult.Error("Error al actualizar producto: ${response.code()} ${response.errorBody()?.string()}")
+            }
+            val product = response.body()?.firstOrNull()?.toDomain()
+                ?: return AppResult.Error("Respuesta vacía al actualizar producto")
             AppResult.Success(product)
         } catch (e: Exception) {
             AppResult.Error("Fallo de red: ${e.message}", e)
@@ -172,8 +207,9 @@ class InventoryRepositoryImpl(
                 if (recentConsumptions.isEmpty()) continue
 
                 val monthlyConsumption = recentConsumptions.sumOf { it.quantity }
+                val minStockThreshold = product.minStock?.toDouble() ?: (monthlyConsumption * 0.5)
 
-                if (product.currentStock < monthlyConsumption * 0.5) {
+                if (product.currentStock < minStockThreshold) {
                     val needed = monthlyConsumption - product.currentStock
                     val lastPrice = productMovements
                         .filter { it.movementType == "in" && it.pricePerUnit != null }
@@ -183,7 +219,11 @@ class InventoryRepositoryImpl(
 
                     suggestions.add(
                         PurchaseSuggestion(
-                            product = product,
+                            productId = product.id,
+                            productName = product.name,
+                            unit = product.unit,
+                            category = product.category,
+                            currentStock = product.currentStock,
                             suggestedQuantity = needed,
                             estimatedCost = estimatedCost,
                             reason = "Consumo mensual: ${String.format("%.1f", monthlyConsumption)} ${product.unit}, stock actual: ${String.format("%.1f", product.currentStock)} ${product.unit}"

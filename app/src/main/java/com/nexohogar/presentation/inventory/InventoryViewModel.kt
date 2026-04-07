@@ -2,24 +2,30 @@ package com.nexohogar.presentation.inventory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nexohogar.core.result.getOrThrow
+import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
-import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.domain.repository.InventoryRepository
+import com.nexohogar.domain.repository.WishlistRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.nexohogar.core.result.getOrThrow
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 // ─── Estadística por categoría ─────────────────────────────────────────────────
 data class CategoryStat(
     val category: String,
     val totalSpent: Double,
-    val productCount: Int
+    val productCount: Int,
+    val lowStockCount: Int = 0,
+    val avgConsumption: Double = 0.0
 )
 
 // ─── Estado de la pantalla principal ───────────────────────────────────────────
@@ -28,32 +34,46 @@ data class InventoryUiState(
     val suggestions: List<PurchaseSuggestion> = emptyList(),
     val categoryStats: List<CategoryStat> = emptyList(),
     val categories: List<InventoryCategory> = emptyList(),
-    val selectedCategory: String? = null,      // null = "Todos"
+    val selectedCategory: String? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val successMessage: String? = null,
+    val suggestionThreshold: Double = 0.5,
+    val shoppingListProducts: List<Product> = emptyList()
 ) {
-    // Productos filtrados por categoría seleccionada
     val filteredProducts: List<Product>
         get() = if (selectedCategory == null) products
                 else products.filter { it.category == selectedCategory }
 
-    // Categorías disponibles: se derivan de las categorías cargadas del backend
     val availableCategories: List<String>
         get() = categories.map { it.name }
 }
 
 // ─── Estado del formulario de producto ─────────────────────────────────────────
-// v8: registerAsPurchase permite crear producto con stock pero sin registrar gasto
 data class ProductFormState(
     val name: String = "",
     val unit: String = "kg",
     val brand: String = "",
     val category: String = "",
-    val initialQuantity: String = "",   // stock inicial opcional
-    val registerAsPurchase: Boolean = false, // si true, los precios cuentan como gasto
-    val store: String = "",             // tienda de la compra inicial
-    val pricePerUnit: String = "",      // precio por unidad de la compra inicial
-    val priceTotal: String = "",        // precio total de la compra inicial
+    val minStock: String = "",
+    val initialQuantity: String = "",
+    val registerAsPurchase: Boolean = false,
+    val store: String = "",
+    val pricePerUnit: String = "",
+    val priceTotal: String = "",
+    val isSubmitting: Boolean = false,
+    val error: String? = null,
+    val success: Boolean = false
+)
+
+// ─── Estado del formulario de edición de producto ──────────────────────────────
+data class EditProductFormState(
+    val productId: String = "",
+    val name: String = "",
+    val unit: String = "kg",
+    val brand: String = "",
+    val category: String = "",
+    val minStock: String = "",
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val success: Boolean = false
@@ -71,7 +91,7 @@ data class CategoryFormState(
 // ─── Estado del formulario de movimiento ───────────────────────────────────────
 data class MovementFormState(
     val selectedProduct: Product? = null,
-    val movementType: String = "in",   // "in" o "out"
+    val movementType: String = "in",
     val quantity: String = "",
     val pricePerUnit: String = "",
     val priceTotal: String = "",
@@ -93,7 +113,8 @@ data class MovementsUiState(
 
 class InventoryViewModel(
     private val repository: InventoryRepository,
-    private val tenantContext: TenantContext
+    private val tenantContext: TenantContext,
+    private val wishlistRepository: WishlistRepository? = null
 ) : ViewModel() {
 
     private val householdId: String get() = tenantContext.getCurrentHouseholdId() ?: ""
@@ -104,6 +125,9 @@ class InventoryViewModel(
     private val _productForm = MutableStateFlow(ProductFormState())
     val productForm: StateFlow<ProductFormState> = _productForm.asStateFlow()
 
+    private val _editProductForm = MutableStateFlow(EditProductFormState())
+    val editProductForm: StateFlow<EditProductFormState> = _editProductForm.asStateFlow()
+
     private val _movementForm = MutableStateFlow(MovementFormState())
     val movementForm: StateFlow<MovementFormState> = _movementForm.asStateFlow()
 
@@ -113,7 +137,6 @@ class InventoryViewModel(
     private val _categoryForm = MutableStateFlow(CategoryFormState())
     val categoryForm: StateFlow<CategoryFormState> = _categoryForm.asStateFlow()
 
-    // ─── Tracking de última edición de precio (para auto-cálculo) ──────────────
     private var _productPriceEditSource: String? = null
     private var _movementPriceEditSource: String? = null
 
@@ -121,30 +144,49 @@ class InventoryViewModel(
 
     fun loadData() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val products = repository.getProducts(householdId).getOrThrow()
-                val movements = try { repository.getMovements(householdId).getOrThrow() } catch (e: Exception) { emptyList() }
-                val categories = try { repository.getCategories(householdId).getOrThrow() } catch (e: Exception) { emptyList() }
-                val suggestions = calcSuggestions(products, movements)
-                val stats = calcCategoryStats(products, movements)
-                _uiState.value = _uiState.value.copy(
-                    products = products,
-                    suggestions = suggestions,
-                    categoryStats = stats,
-                    categories = categories,
-                    isLoading = false
-                )
+                val movements = try {
+                    repository.getMovements(householdId).getOrThrow()
+                } catch (e: Exception) { emptyList() }
+                val categories = try {
+                    repository.getCategories(householdId).getOrThrow()
+                } catch (e: Exception) { emptyList() }
+
+                val threshold = _uiState.value.suggestionThreshold
+                val suggestions = withContext(Dispatchers.Default) {
+                    calcSuggestions(products, movements, threshold)
+                }
+                val stats = withContext(Dispatchers.Default) {
+                    calcCategoryStats(products, movements)
+                }
+                val shoppingList = products.filter { p ->
+                    suggestions.any { it.productId == p.id }
+                }
+
+                _uiState.update {
+                    it.copy(
+                        products = products,
+                        suggestions = suggestions,
+                        categoryStats = stats,
+                        categories = categories,
+                        shoppingListProducts = shoppingList,
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Error al cargar datos"
-                )
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Error al cargar datos")
+                }
             }
         }
     }
 
-    private fun calcCategoryStats(products: List<Product>, movements: List<InventoryMovement>): List<CategoryStat> {
+    private fun calcCategoryStats(
+        products: List<Product>,
+        movements: List<InventoryMovement>
+    ): List<CategoryStat> {
         val productCategory = products.associate { it.id to (it.category ?: "Sin categoría") }
         val purchasesByCategory = movements
             .filter { it.movementType == "in" }
@@ -158,23 +200,42 @@ class InventoryViewModel(
                 }
             }
             val productCount = movs.map { it.itemId }.distinct().size
-            CategoryStat(category = cat, totalSpent = total, productCount = productCount)
+            val lowStockCount = products.count { p ->
+                p.category == cat && p.currentStock < 1.0
+            }
+            CategoryStat(
+                category = cat,
+                totalSpent = total,
+                productCount = productCount,
+                lowStockCount = lowStockCount
+            )
         }.sortedByDescending { it.totalSpent }
     }
 
-    private fun calcSuggestions(products: List<Product>, movements: List<InventoryMovement>): List<PurchaseSuggestion> {
+    private fun calcSuggestions(
+        products: List<Product>,
+        movements: List<InventoryMovement>,
+        threshold: Double = 0.5
+    ): List<PurchaseSuggestion> {
         val cutoff = LocalDate.now().minusMonths(1).toString()
         return products.mapNotNull { product ->
-            val recentOut = movements.filter { it.itemId == product.id && it.movementType == "out" && it.movementDate >= cutoff }
+            val recentOut = movements.filter {
+                it.itemId == product.id && it.movementType == "out" && it.movementDate >= cutoff
+            }
             val monthlyConsumption = recentOut.sumOf { it.quantity }
-            if (monthlyConsumption > 0 && product.currentStock < monthlyConsumption * 0.5) {
+            val minStockThreshold = product.minStock?.toDouble() ?: (monthlyConsumption * threshold)
+            if (monthlyConsumption > 0 && product.currentStock < minStockThreshold) {
                 val suggested = monthlyConsumption - product.currentStock
                 val avgPrice = movements
                     .filter { it.itemId == product.id && it.movementType == "in" && it.pricePerUnit != null }
                     .map { it.pricePerUnit!! }
                     .average().takeIf { !it.isNaN() }
                 PurchaseSuggestion(
-                    product = product,
+                    productId = product.id,
+                    productName = product.name,
+                    unit = product.unit,
+                    category = product.category,
+                    currentStock = product.currentStock,
                     suggestedQuantity = suggested,
                     estimatedCost = avgPrice?.let { it * suggested },
                     reason = "Consumiste ${String.format("%.1f", monthlyConsumption)} ${product.unit} el último mes"
@@ -183,31 +244,104 @@ class InventoryViewModel(
         }
     }
 
-    fun selectCategory(category: String?) {
-        _uiState.value = _uiState.value.copy(selectedCategory = category)
+    // ─── Generar texto lista de compras ─────────────────────────────────────────
+    fun generateShoppingListText(): String {
+        val products = _uiState.value.shoppingListProducts
+        if (products.isEmpty()) return ""
+        val sb = StringBuilder("🛒 Lista de compras NexoHogar\n\n")
+        products.forEach { p ->
+            val suggestion = _uiState.value.suggestions.find { it.productId == p.id }
+            val qty = suggestion?.suggestedQuantity?.let {
+                " - ${String.format("%.1f", it)} ${p.unit}"
+            } ?: ""
+            sb.appendLine("• ${p.name}$qty")
+        }
+        return sb.toString().trim()
     }
+
+    // ─── Añadir sugerencia a wishlist ────────────────────────────────────────────
+    fun addSuggestionToWishlist(suggestion: PurchaseSuggestion) {
+        val repo = wishlistRepository ?: return
+        viewModelScope.launch {
+            try {
+                repo.createWishlistItem(
+                    householdId = householdId,
+                    name = suggestion.productName,
+                    description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
+                    price = suggestion.estimatedCost,
+                    priority = "medium",
+                    createdBy = tenantContext.getCurrentUserId() ?: ""
+                )
+                _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la wishlist") }
+            } catch (_: Exception) { }
+        }
+    }
+
+    fun selectCategory(category: String?) {
+        _uiState.update { it.copy(selectedCategory = category) }
+    }
+
+    // ─── Editar producto ────────────────────────────────────────────────────────
+    fun startEditProduct(product: Product) {
+        _editProductForm.value = EditProductFormState(
+            productId = product.id,
+            name = product.name,
+            unit = product.unit,
+            brand = product.brand ?: "",
+            category = product.category ?: "",
+            minStock = product.minStock?.toString() ?: ""
+        )
+    }
+
+    fun onEditNameChange(v: String) { _editProductForm.update { it.copy(name = v) } }
+    fun onEditUnitChange(v: String) { _editProductForm.update { it.copy(unit = v) } }
+    fun onEditBrandChange(v: String) { _editProductForm.update { it.copy(brand = v) } }
+    fun onEditCategoryChange(v: String) { _editProductForm.update { it.copy(category = v) } }
+    fun onEditMinStockChange(v: String) { _editProductForm.update { it.copy(minStock = v) } }
+
+    fun submitEditProduct() {
+        val form = _editProductForm.value
+        if (form.name.isBlank()) {
+            _editProductForm.update { it.copy(error = "El nombre es obligatorio") }
+            return
+        }
+        viewModelScope.launch {
+            _editProductForm.update { it.copy(isSubmitting = true, error = null) }
+            try {
+                repository.updateProduct(
+                    productId = form.productId,
+                    name = form.name.trim(),
+                    unit = form.unit,
+                    brand = form.brand.takeIf { it.isNotBlank() },
+                    category = form.category.takeIf { it.isNotBlank() },
+                    minStock = form.minStock.toIntOrNull()
+                ).getOrThrow()
+                _editProductForm.update { it.copy(isSubmitting = false, success = true) }
+                loadData()
+            } catch (e: Exception) {
+                _editProductForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al editar") }
+            }
+        }
+    }
+
+    fun resetEditProductForm() { _editProductForm.value = EditProductFormState() }
 
     // ─── Product form setters ───────────────────────────────────────────────────
-    fun onProductNameChange(v: String)     { _productForm.value = _productForm.value.copy(name = v) }
-    fun onProductUnitChange(v: String)     { _productForm.value = _productForm.value.copy(unit = v) }
-    fun onProductBrandChange(v: String)    { _productForm.value = _productForm.value.copy(brand = v) }
-    fun onProductCategoryChange(v: String) { _productForm.value = _productForm.value.copy(category = v) }
-    fun onProductStoreChange(v: String)    { _productForm.value = _productForm.value.copy(store = v) }
+    fun onProductNameChange(v: String) { _productForm.update { it.copy(name = v) } }
+    fun onProductUnitChange(v: String) { _productForm.update { it.copy(unit = v) } }
+    fun onProductBrandChange(v: String) { _productForm.update { it.copy(brand = v) } }
+    fun onProductCategoryChange(v: String) { _productForm.update { it.copy(category = v) } }
+    fun onProductStoreChange(v: String) { _productForm.update { it.copy(store = v) } }
+    fun onProductMinStockChange(v: String) { _productForm.update { it.copy(minStock = v) } }
+    fun onProductRegisterAsPurchaseChange(v: Boolean) { _productForm.update { it.copy(registerAsPurchase = v) } }
 
-    fun onProductRegisterAsPurchaseChange(v: Boolean) {
-        _productForm.value = _productForm.value.copy(registerAsPurchase = v)
-    }
-
-    // ─── Product form: auto-cálculo bidireccional de precios ────────────────────
     fun onProductPricePerUnitChange(v: String) {
         _productPriceEditSource = "perUnit"
         val form = _productForm.value
         val perUnit = v.toDoubleOrNull()
         val qty = form.initialQuantity.toDoubleOrNull()
-        val newTotal = if (perUnit != null && qty != null && qty > 0) {
-            String.format("%.0f", perUnit * qty)
-        } else ""
-        _productForm.value = form.copy(pricePerUnit = v, priceTotal = newTotal)
+        val newTotal = if (perUnit != null && qty != null && qty > 0) String.format("%.0f", perUnit * qty) else ""
+        _productForm.update { it.copy(pricePerUnit = v, priceTotal = newTotal) }
     }
 
     fun onProductPriceTotalChange(v: String) {
@@ -215,32 +349,23 @@ class InventoryViewModel(
         val form = _productForm.value
         val total = v.toDoubleOrNull()
         val qty = form.initialQuantity.toDoubleOrNull()
-        val newPerUnit = if (total != null && qty != null && qty > 0) {
-            String.format("%.0f", total / qty)
-        } else ""
-        _productForm.value = form.copy(priceTotal = v, pricePerUnit = newPerUnit)
+        val newPerUnit = if (total != null && qty != null && qty > 0) String.format("%.0f", total / qty) else ""
+        _productForm.update { it.copy(priceTotal = v, pricePerUnit = newPerUnit) }
     }
 
     fun onProductInitialQuantityChange(v: String) {
         val form = _productForm.value
         val qty = v.toDoubleOrNull()
         val updatedForm = form.copy(initialQuantity = v)
-
         if (qty != null && qty > 0) {
             when (_productPriceEditSource) {
                 "perUnit" -> {
                     val perUnit = form.pricePerUnit.toDoubleOrNull()
-                    if (perUnit != null) {
-                        _productForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty))
-                        return
-                    }
+                    if (perUnit != null) { _productForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty)); return }
                 }
                 "total" -> {
                     val total = form.priceTotal.toDoubleOrNull()
-                    if (total != null) {
-                        _productForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty))
-                        return
-                    }
+                    if (total != null) { _productForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty)); return }
                 }
             }
         }
@@ -249,76 +374,59 @@ class InventoryViewModel(
 
     fun submitProduct() {
         val form = _productForm.value
-        if (form.name.isBlank()) {
-            _productForm.value = form.copy(error = "El nombre es obligatorio")
-            return
-        }
+        if (form.name.isBlank()) { _productForm.update { it.copy(error = "El nombre es obligatorio") }; return }
         val initialQty = form.initialQuantity.toDoubleOrNull()
         if (form.initialQuantity.isNotBlank() && initialQty == null) {
-            _productForm.value = form.copy(error = "La cantidad inicial debe ser un número válido")
-            return
+            _productForm.update { it.copy(error = "La cantidad inicial debe ser un número válido") }; return
         }
         viewModelScope.launch {
-            _productForm.value = form.copy(isSubmitting = true, error = null)
+            _productForm.update { it.copy(isSubmitting = true, error = null) }
             try {
                 val product = repository.createProduct(
                     householdId = householdId,
-                    name        = form.name.trim(),
-                    unit        = form.unit,
-                    brand       = form.brand.takeIf { it.isNotBlank() },
-                    category    = form.category.takeIf { it.isNotBlank() }
+                    name = form.name.trim(),
+                    unit = form.unit,
+                    brand = form.brand.takeIf { it.isNotBlank() },
+                    category = form.category.takeIf { it.isNotBlank() },
+                    minStock = form.minStock.toIntOrNull()
                 ).getOrThrow()
-                // Si hay cantidad inicial, registrar movimiento de entrada
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
-                        householdId  = householdId,
-                        itemId       = product.id,
-                        quantity     = initialQty,
+                        householdId = householdId,
+                        itemId = product.id,
+                        quantity = initialQty,
                         movementDate = LocalDate.now().toString(),
                         pricePerUnit = if (form.registerAsPurchase) form.pricePerUnit.toDoubleOrNull() else null,
-                        priceTotal   = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
-                        brand        = form.brand.takeIf { it.isNotBlank() },
-                        store        = if (form.registerAsPurchase) form.store.takeIf { it.isNotBlank() } else null
+                        priceTotal = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
+                        brand = form.brand.takeIf { it.isNotBlank() },
+                        store = if (form.registerAsPurchase) form.store.takeIf { it.isNotBlank() } else null
                     ).getOrThrow()
                 }
                 _productForm.value = ProductFormState(success = true)
                 loadData()
             } catch (e: Exception) {
-                _productForm.value = _productForm.value.copy(
-                    isSubmitting = false,
-                    error = e.message ?: "Error al crear producto"
-                )
+                _productForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al crear producto") }
             }
         }
     }
 
     fun resetProductForm() { _productForm.value = ProductFormState() }
 
-    // ─── Category form setters ──────────────────────────────────────────────────
-    fun onCategoryNameChange(v: String) { _categoryForm.value = _categoryForm.value.copy(name = v) }
-    fun onCategoryIconChange(v: String) { _categoryForm.value = _categoryForm.value.copy(icon = v) }
+    // ─── Category form ──────────────────────────────────────────────────────────
+    fun onCategoryNameChange(v: String) { _categoryForm.update { it.copy(name = v) } }
+    fun onCategoryIconChange(v: String) { _categoryForm.update { it.copy(icon = v) } }
 
     fun submitCategory() {
         val form = _categoryForm.value
-        if (form.name.isBlank()) {
-            _categoryForm.value = form.copy(error = "El nombre es obligatorio")
-            return
-        }
+        if (form.name.isBlank()) { _categoryForm.update { it.copy(error = "El nombre es obligatorio") }; return }
         viewModelScope.launch {
-            _categoryForm.value = form.copy(isSubmitting = true, error = null)
+            _categoryForm.update { it.copy(isSubmitting = true, error = null) }
             try {
-                repository.createCategory(
-                    householdId = householdId,
-                    name = form.name.trim(),
-                    icon = form.icon.takeIf { it.isNotBlank() }
-                ).getOrThrow()
+                repository.createCategory(householdId = householdId, name = form.name.trim(), icon = form.icon.takeIf { it.isNotBlank() }).getOrThrow()
                 _categoryForm.value = CategoryFormState(success = true)
                 loadData()
             } catch (e: Exception) {
-                _categoryForm.value = _categoryForm.value.copy(
-                    isSubmitting = false,
-                    error = e.message ?: "Error al crear categoría"
-                )
+                _categoryForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al crear categoría") }
             }
         }
     }
@@ -329,32 +437,27 @@ class InventoryViewModel(
                 repository.deleteCategory(categoryId).getOrThrow()
                 loadData()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Error al eliminar categoría: ${e.message}"
-                )
+                _uiState.update { it.copy(error = "Error al eliminar categoría: ${e.message}") }
             }
         }
     }
 
     fun resetCategoryForm() { _categoryForm.value = CategoryFormState() }
 
-    // ─── Movement form setters ──────────────────────────────────────────────────
-    fun onMovementProductSelect(p: Product) { _movementForm.value = _movementForm.value.copy(selectedProduct = p) }
-    fun onMovementTypeChange(t: String)     { _movementForm.value = _movementForm.value.copy(movementType = t) }
-    fun onMovementBrandChange(v: String)    { _movementForm.value = _movementForm.value.copy(brand = v) }
-    fun onMovementStoreChange(v: String)    { _movementForm.value = _movementForm.value.copy(store = v) }
-    fun onMovementDateChange(v: String)     { _movementForm.value = _movementForm.value.copy(movementDate = v) }
+    // ─── Movement form ──────────────────────────────────────────────────────────
+    fun onMovementProductSelect(p: Product) { _movementForm.update { it.copy(selectedProduct = p) } }
+    fun onMovementTypeChange(t: String) { _movementForm.update { it.copy(movementType = t) } }
+    fun onMovementBrandChange(v: String) { _movementForm.update { it.copy(brand = v) } }
+    fun onMovementStoreChange(v: String) { _movementForm.update { it.copy(store = v) } }
+    fun onMovementDateChange(v: String) { _movementForm.update { it.copy(movementDate = v) } }
 
-    // ─── Movement form: auto-cálculo bidireccional de precios ───────────────────
     fun onMovementPricePerUnitChange(v: String) {
         _movementPriceEditSource = "perUnit"
         val form = _movementForm.value
         val perUnit = v.toDoubleOrNull()
         val qty = form.quantity.toDoubleOrNull()
-        val newTotal = if (perUnit != null && qty != null && qty > 0) {
-            String.format("%.0f", perUnit * qty)
-        } else ""
-        _movementForm.value = form.copy(pricePerUnit = v, priceTotal = newTotal)
+        val newTotal = if (perUnit != null && qty != null && qty > 0) String.format("%.0f", perUnit * qty) else ""
+        _movementForm.update { it.copy(pricePerUnit = v, priceTotal = newTotal) }
     }
 
     fun onMovementPriceTotalChange(v: String) {
@@ -362,32 +465,23 @@ class InventoryViewModel(
         val form = _movementForm.value
         val total = v.toDoubleOrNull()
         val qty = form.quantity.toDoubleOrNull()
-        val newPerUnit = if (total != null && qty != null && qty > 0) {
-            String.format("%.0f", total / qty)
-        } else ""
-        _movementForm.value = form.copy(priceTotal = v, pricePerUnit = newPerUnit)
+        val newPerUnit = if (total != null && qty != null && qty > 0) String.format("%.0f", total / qty) else ""
+        _movementForm.update { it.copy(priceTotal = v, pricePerUnit = newPerUnit) }
     }
 
     fun onMovementQuantityChange(v: String) {
         val form = _movementForm.value
         val qty = v.toDoubleOrNull()
         val updatedForm = form.copy(quantity = v)
-
         if (qty != null && qty > 0) {
             when (_movementPriceEditSource) {
                 "perUnit" -> {
                     val perUnit = form.pricePerUnit.toDoubleOrNull()
-                    if (perUnit != null) {
-                        _movementForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty))
-                        return
-                    }
+                    if (perUnit != null) { _movementForm.value = updatedForm.copy(priceTotal = String.format("%.0f", perUnit * qty)); return }
                 }
                 "total" -> {
                     val total = form.priceTotal.toDoubleOrNull()
-                    if (total != null) {
-                        _movementForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty))
-                        return
-                    }
+                    if (total != null) { _movementForm.value = updatedForm.copy(pricePerUnit = String.format("%.0f", total / qty)); return }
                 }
             }
         }
@@ -397,86 +491,61 @@ class InventoryViewModel(
     fun submitMovement() {
         val form = _movementForm.value
         val product = form.selectedProduct
-        if (product == null) {
-            _movementForm.value = form.copy(error = "Selecciona un producto")
-            return
-        }
+        if (product == null) { _movementForm.update { it.copy(error = "Selecciona un producto") }; return }
         val qty = form.quantity.toDoubleOrNull()
-        if (qty == null || qty <= 0) {
-            _movementForm.value = form.copy(error = "Cantidad inválida")
-            return
-        }
-
+        if (qty == null || qty <= 0) { _movementForm.update { it.copy(error = "Cantidad inválida") }; return }
         viewModelScope.launch {
-            _movementForm.value = form.copy(isSubmitting = true, error = null)
+            _movementForm.update { it.copy(isSubmitting = true, error = null) }
             try {
                 if (form.movementType == "in") {
                     repository.addPurchase(
-                        householdId  = householdId,
-                        itemId       = product.id,
-                        quantity     = qty,
+                        householdId = householdId, itemId = product.id, quantity = qty,
                         movementDate = form.movementDate,
                         pricePerUnit = form.pricePerUnit.toDoubleOrNull(),
-                        priceTotal   = form.priceTotal.toDoubleOrNull(),
-                        brand        = form.brand.takeIf { it.isNotBlank() },
-                        store        = form.store.takeIf { it.isNotBlank() }
+                        priceTotal = form.priceTotal.toDoubleOrNull(),
+                        brand = form.brand.takeIf { it.isNotBlank() },
+                        store = form.store.takeIf { it.isNotBlank() }
                     ).getOrThrow()
                 } else {
                     repository.addConsumption(
-                        householdId  = householdId,
-                        itemId       = product.id,
-                        quantity     = qty,
-                        movementDate = form.movementDate
+                        householdId = householdId, itemId = product.id,
+                        quantity = qty, movementDate = form.movementDate
                     ).getOrThrow()
                 }
                 _movementForm.value = MovementFormState(success = true)
                 loadData()
             } catch (e: Exception) {
-                _movementForm.value = _movementForm.value.copy(
-                    isSubmitting = false,
-                    error = e.message ?: "Error al registrar movimiento"
-                )
+                _movementForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al registrar") }
             }
         }
     }
 
     fun resetMovementForm() { _movementForm.value = MovementFormState() }
 
-    // ─── Consumo rápido desde la tarjeta de producto ────────────────────────────
+    // ─── Consumo rápido ─────────────────────────────────────────────────────────
     fun quickConsume(itemId: String, quantity: Double) {
         viewModelScope.launch {
             try {
                 repository.addConsumption(
-                    householdId  = householdId,
-                    itemId       = itemId,
-                    quantity     = quantity,
-                    movementDate = LocalDate.now().toString()
+                    householdId = householdId, itemId = itemId,
+                    quantity = quantity, movementDate = LocalDate.now().toString()
                 ).getOrThrow()
                 loadData()
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Error al registrar consumo: ${e.message}"
-                )
+                _uiState.update { it.copy(error = "Error al registrar consumo: ${e.message}") }
             }
         }
     }
 
-    // ─── Historial de movimientos de un producto ────────────────────────────────
+    // ─── Historial de movimientos ────────────────────────────────────────────────
     fun loadMovementsForProduct(product: Product) {
         viewModelScope.launch {
             _movementsState.value = MovementsUiState(isLoading = true, product = product)
             try {
                 val movements = repository.getMovements(householdId, product.id).getOrThrow()
-                _movementsState.value = MovementsUiState(
-                    movements = movements,
-                    product   = product,
-                    isLoading = false
-                )
+                _movementsState.value = MovementsUiState(movements = movements, product = product, isLoading = false)
             } catch (e: Exception) {
-                _movementsState.value = _movementsState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Error al cargar movimientos"
-                )
+                _movementsState.update { it.copy(isLoading = false, error = e.message ?: "Error al cargar movimientos") }
             }
         }
     }

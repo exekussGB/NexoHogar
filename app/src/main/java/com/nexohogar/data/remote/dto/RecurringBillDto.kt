@@ -14,7 +14,8 @@ data class RecurringBillDto(
     @SerializedName("notes")               val notes: String? = null,
     @SerializedName("created_at")          val createdAt: String = "",
     @SerializedName("total_installments")  val totalInstallments: Int? = null,
-    @SerializedName("paid_installments")   val paidInstallments: Int = 0
+    @SerializedName("paid_installments")   val paidInstallments: Int = 0,
+    @SerializedName("category_id")         val categoryId: String? = null
 ) {
     fun toDomain() = RecurringBill(
         id                = id,
@@ -27,7 +28,8 @@ data class RecurringBillDto(
         notes             = notes,
         createdAt         = createdAt,
         totalInstallments = totalInstallments,
-        paidInstallments  = paidInstallments
+        paidInstallments  = paidInstallments,
+        categoryId        = categoryId
     )
 }
 
@@ -39,7 +41,8 @@ data class CreateRecurringBillRequest(
     @SerializedName("notes")               val notes: String? = null,
     @SerializedName("is_active")           val isActive: Boolean = true,
     @SerializedName("total_installments")  val totalInstallments: Int? = null,
-    @SerializedName("paid_installments")   val paidInstallments: Int? = null
+    @SerializedName("paid_installments")   val paidInstallments: Int? = null,
+    @SerializedName("category_id")         val categoryId: String? = null
 )
 
 data class UpdateRecurringBillRequest(
@@ -49,7 +52,8 @@ data class UpdateRecurringBillRequest(
     @SerializedName("notes")               val notes: String? = null,
     @SerializedName("is_active")           val isActive: Boolean? = null,
     @SerializedName("total_installments")  val totalInstallments: Int? = null,
-    @SerializedName("paid_installments")   val paidInstallments: Int? = null
+    @SerializedName("paid_installments")   val paidInstallments: Int? = null,
+    @SerializedName("category_id")         val categoryId: String? = null
 )
 
 data class UpdateLastPaidRequest(
