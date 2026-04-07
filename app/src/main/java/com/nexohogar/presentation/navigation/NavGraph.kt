@@ -353,13 +353,10 @@ fun NavGraph(navController: NavHostController) {
                 }
 
                 // ── Main navigation logic ──
-                // supabase-kt carga la sesión desde DataStore y la refresca automáticamente.
-                // Solo esperamos a que el SDK termine de inicializar, luego decidimos la ruta.
                 LaunchedEffect(splashPhase, isRetrying) {
                     if (splashPhase == "biometric" || splashPhase == "biometric_failed") return@LaunchedEffect
                     if (isRetrying) isRetrying = false
 
-                    // Esperar a que el SDK cargue la sesión guardada (DataStore)
                     val status = supabaseClient.auth.sessionStatus
                         .first { it !is SessionStatus.Initializing }
 
@@ -373,7 +370,6 @@ fun NavGraph(navController: NavHostController) {
 
                     Log.d("Splash", "✅ Sesión activa restaurada por supabase-kt")
 
-                    // Verificación biométrica si está habilitada
                     if (sessionManager.isBiometricEnabled() && !biometricSuccess.value && !biometricAttempted.value) {
                         splashPhase = "biometric"
                         return@LaunchedEffect
@@ -394,14 +390,13 @@ fun NavGraph(navController: NavHostController) {
                                 activity = activity,
                                 onSuccess = {
                                     biometricSuccess.value = true
-                                    splashPhase = "loading" // re-trigger the main logic
+                                    splashPhase = "loading"
                                 },
                                 onError = { _ ->
                                     splashPhase = "biometric_failed"
                                 }
                             )
                         } else {
-                            // Biometric not available — skip
                             biometricSuccess.value = true
                             splashPhase = "loading"
                         }
@@ -411,7 +406,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Login ──────────────────────────────────────────────────────────
             composable(Screen.Login.route) {
-                val vm = LoginViewModel(authRepository, sessionManager)
+                val vm: LoginViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return LoginViewModel(authRepository, sessionManager) as T
+                        }
+                    }
+                )
                 val biometricHelper = ServiceLocator.biometricHelper
                 val offerBiometric = biometricHelper.isBiometricAvailable() && sessionManager.shouldOfferBiometric()
                 val context = LocalContext.current
@@ -421,7 +423,6 @@ fun NavGraph(navController: NavHostController) {
                 if (showBiometricDialog) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = {
-                            // Si descarta el diálogo, continúa sin biometría
                             showBiometricDialog = false
                             navController.navigate(Screen.Household.route) {
                                 popUpTo(Screen.Login.route) { inclusive = true }
@@ -449,14 +450,12 @@ fun NavGraph(navController: NavHostController) {
                                     biometricHelper.showBiometricPrompt(
                                         activity = activity,
                                         onSuccess = {
-                                            // Biometría confirmada → habilitar y continuar
                                             sessionManager.setBiometricEnabled(true)
                                             navController.navigate(Screen.Household.route) {
                                                 popUpTo(Screen.Login.route) { inclusive = true }
                                             }
                                         },
                                         onError = { _ ->
-                                            // Falló la verificación → continuar sin habilitar
                                             navController.navigate(Screen.Household.route) {
                                                 popUpTo(Screen.Login.route) { inclusive = true }
                                             }
@@ -486,10 +485,8 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
                     onLoginSuccess = {
                         if (biometricHelper.isBiometricAvailable() && !sessionManager.isBiometricEnabled()) {
-                            // Primera vez con biometría disponible → preguntar al usuario
                             showBiometricDialog = true
                         } else {
-                            // Ya tiene biometría habilitada o no disponible → continuar directo
                             navController.navigate(Screen.Household.route) {
                                 popUpTo(Screen.Login.route) { inclusive = true }
                             }
@@ -502,7 +499,6 @@ fun NavGraph(navController: NavHostController) {
                             biometricHelper.showBiometricPrompt(
                                 activity = activity,
                                 onSuccess = {
-                                    // Biometric OK → navigate to household selection
                                     navController.navigate(Screen.Household.route) {
                                         popUpTo(Screen.Login.route) { inclusive = true }
                                     }
@@ -515,9 +511,17 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
+
             // ── Forgot Password ───────────────────────────────────────────────────
             composable(Screen.ForgotPassword.route) {
-                val vm = ForgotPasswordViewModel(authRepository)
+                val vm: ForgotPasswordViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return ForgotPasswordViewModel(authRepository) as T
+                        }
+                    }
+                )
                 ForgotPasswordScreen(
                     viewModel = vm,
                     onNavigateBack = { navController.popBackStack() },
@@ -526,9 +530,17 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
+
             // ── Register ───────────────────────────────────────────────────────
             composable(Screen.Register.route) {
-                val vm = RegisterViewModel(authRepository, sessionManager)
+                val vm: RegisterViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return RegisterViewModel(authRepository, sessionManager) as T
+                        }
+                    }
+                )
                 RegisterScreen(
                     viewModel = vm,
                     onNavigateToLogin = { navController.popBackStack() },
@@ -539,11 +551,17 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
+
             // ── Settings ───────────────────────────────────────────────────────
             composable(Screen.Settings.route) {
-                val deleteHouseholdViewModel = remember {
-                    DeleteHouseholdViewModel(householdRepository)
-                }
+                val deleteHouseholdViewModel: DeleteHouseholdViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return DeleteHouseholdViewModel(householdRepository) as T
+                        }
+                    }
+                )
                 SettingsScreen(
                     sessionManager = sessionManager,
                     deleteHouseholdViewModel = deleteHouseholdViewModel,
@@ -574,6 +592,7 @@ fun NavGraph(navController: NavHostController) {
                     }
                 )
             }
+
             // ── Tutorial List ──────────────────────────────────────────────────
             composable(Screen.TutorialList.route) {
                 TutorialListScreen(
@@ -598,18 +617,23 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Household ──────────────────────────────────────────────────────
             composable(Screen.Household.route) {
-                val vm = HouseholdViewModel(householdRepository, tenantContext)
+                val vm: HouseholdViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HouseholdViewModel(householdRepository, tenantContext) as T
+                        }
+                    }
+                )
                 HouseholdScreen(
                     viewModel = vm,
                     onHouseholdSelected = { householdId ->
                         tenantContext.setHouseholdId(householdId)
-                        // Navegar al Hub tras seleccionar hogar (la bottom bar aparecerá al elegir módulo)
                         navController.navigate(Screen.Hub.route) {
                             popUpTo(Screen.Household.route) { inclusive = true }
                         }
                     },
                     onSessionExpired = {
-                        // La sesión expiró irrecuperablemente — limpiar back stack y volver al login
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
@@ -692,7 +716,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Accounts ───────────────────────────────────────────────────────
             composable(Screen.Accounts.route) {
-                val vm = AccountsViewModel(accountsRepository, transactionsRepository, tenantContext)
+                val vm: AccountsViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return AccountsViewModel(accountsRepository, transactionsRepository, tenantContext) as T
+                        }
+                    }
+                )
                 AccountsScreen(
                     viewModel = vm,
                     tutorialManager = tutorialManager,
@@ -702,7 +733,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Transactions ───────────────────────────────────────────────────
             composable(Screen.Transactions.route) {
-                val vm = TransactionsViewModel(transactionsRepository, tenantContext)
+                val vm: TransactionsViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return TransactionsViewModel(transactionsRepository, tenantContext) as T
+                        }
+                    }
+                )
                 TransactionsScreen(
                     viewModel = vm,
                     tutorialManager = tutorialManager,
@@ -768,7 +806,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── InviteMember ───────────────────────────────────────────────────
             composable(Screen.InviteMember.route) {
-                val vm = InviteMemberViewModel(householdRepository, tenantContext)
+                val vm: InviteMemberViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return InviteMemberViewModel(householdRepository, tenantContext) as T
+                        }
+                    }
+                )
                 InviteMemberScreen(
                     viewModel = vm,
                     tutorialManager = tutorialManager,
@@ -795,7 +840,14 @@ fun NavGraph(navController: NavHostController) {
 
             // ── HouseholdMembers ───────────────────────────────────────────────
             composable(Screen.HouseholdMembers.route) {
-                val vm = HouseholdMembersViewModel(householdRepository, tenantContext)
+                val vm: HouseholdMembersViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return HouseholdMembersViewModel(householdRepository, tenantContext) as T
+                        }
+                    }
+                )
                 HouseholdMembersScreen(
                     viewModel = vm,
                     onNavigateBack = { navController.popBackStack() }
@@ -804,10 +856,17 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Wishlist ───────────────────────────────────────────────────────
             composable(Screen.Wishlist.route) {
-                val vm = WishlistViewModel(
-                    repository = ServiceLocator.wishlistRepository,
-                    tenantContext = ServiceLocator.tenantContext,
-                    sessionManager = ServiceLocator.sessionManager
+                val vm: WishlistViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return WishlistViewModel(
+                                repository = ServiceLocator.wishlistRepository,
+                                tenantContext = ServiceLocator.tenantContext,
+                                sessionManager = ServiceLocator.sessionManager
+                            ) as T
+                        }
+                    }
                 )
                 WishlistScreen(
                     viewModel = vm,
@@ -894,15 +953,20 @@ fun NavGraph(navController: NavHostController) {
 
             // ── Receipt Scanner ────────────────────────────────────────────────
             composable("receipt_scanner") {
-                val viewModel = remember {
-                    ReceiptScannerViewModel(
-                        inventoryRepository = ServiceLocator.inventoryRepository,
-                        accountsRepository = ServiceLocator.accountsRepository,
-                        tenantContext = ServiceLocator.tenantContext
-                    )
-                }
+                val vm: ReceiptScannerViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            @Suppress("UNCHECKED_CAST")
+                            return ReceiptScannerViewModel(
+                                inventoryRepository = ServiceLocator.inventoryRepository,
+                                accountsRepository = ServiceLocator.accountsRepository,
+                                tenantContext = ServiceLocator.tenantContext
+                            ) as T
+                        }
+                    }
+                )
                 ReceiptScannerScreen(
-                    viewModel = viewModel,
+                    viewModel = vm,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
