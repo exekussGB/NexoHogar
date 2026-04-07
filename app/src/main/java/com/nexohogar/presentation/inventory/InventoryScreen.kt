@@ -36,9 +36,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.FloatingActionButton
+import kotlin.compareTo
+import kotlin.text.category
+
 
 /** Returns user-friendly price label based on unit, e.g. "Precio por kg", "Precio por unidad" */
 private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
@@ -77,9 +77,7 @@ fun InventoryScreen(
 
     var selectedProductForHistory by remember { mutableStateOf<Product?>(null) }
     var productToConsume by remember { mutableStateOf<Product?>(null) }
-    var productToEdit by remember { mutableStateOf<Product?>(null) }
-    var showShoppingList by remember { mutableStateOf(false) }
-    val editForm by viewModel.editProductForm.collectAsState()
+    var showShoppingModal by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -106,23 +104,16 @@ fun InventoryScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            if (selectedTab == 0 && !uiState.isLoading) {
-                val shoppingCount = uiState.shoppingListProducts.size
-                if (shoppingCount > 0) {
-                    BadgedBox(badge = {
-                        Badge(containerColor = Color(0xFFC62828)) {
-                            Text(shoppingCount.toString(), color = Color.White)
-                        }
-                    }) {
-                        FloatingActionButton(
-                            onClick = { showShoppingList = true },
-                            containerColor = PrimaryBlue
-                        ) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = "Lista de compras", tint = Color.White)
-                        }
-                    }
+        }
+                floatingActionButton = {
+            if (uiState.products.any { (it.suggestedQuantity ?: 0) > 0 }) {
+                FloatingActionButton(
+                    onClick = { showShoppingModal = true },
+                    containerColor = PrimaryBlue,
+                    contentColor = Color.White,
+                    modifier = Modifier.testTag("shopping_fab")
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = "Lista de Compras")
                 }
             }
         }
@@ -140,8 +131,8 @@ fun InventoryScreen(
                         onClick = { selectedTab = i },
                         text = { Text(title, fontSize = 13.sp) },
                         modifier = when (i) {
-                            1 -> Modifier.testTag("inventory_add_button") // Registrar
-                            2 -> Modifier.testTag("inventory_movements") // Categorías
+                            1 -> Modifier.testTag("inventory_add_button")   // Registrar
+                            2 -> Modifier.testTag("inventory_movements")    // Categorías
                             else -> Modifier
                         }
                     )
@@ -154,7 +145,7 @@ fun InventoryScreen(
                 }
                 uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadData() }
                 else -> when (selectedTab) {
-                    0 -> ProductsTab(
+                    0 -> ProductsTab(onShowShoppingList = { showShoppingModal = true },
                         uiState = uiState,
                         onProductClick = { p ->
                             selectedProductForHistory = p
@@ -170,16 +161,13 @@ fun InventoryScreen(
                         allProducts = uiState.products,
                         categories = uiState.categories,
                         onRegistered = { selectedTab = 0 }
-                    )2 -> CategoriesTab(
+                    )
+                    2 -> CategoriesTab(
                         viewModel = viewModel,
                         categories = uiState.categories,
                         stats = uiState.categoryStats
                     )
-                    3 -> SuggestionsTab(
-                        suggestions = uiState.suggestions,
-                        isLoading = uiState.isLoading,
-                        onAddToWishlist = { viewModel.addSuggestionToWishlist(it) }
-                    )
+                    3 -> SuggestionsTab(suggestions = uiState.suggestions)
                 }
             }
         }
@@ -203,56 +191,7 @@ fun InventoryScreen(
                 selectedProductForHistory = p
                 viewModel.loadMovementsForProduct(p)
             },
-            onQuickConsume = { p -> productToConsume = p },
-            onEditProduct = { p ->
-                viewModel.startEditProduct(p)
-                productToEdit = p
-                productForAction = null
-            }
-        )
-    }
-
-    // ─── Diálogo de edición de producto ─────────────────────────────────────
-    productToEdit?.let { _ ->
-        if (editForm.success) {
-            viewModel.resetEditProductForm()
-            productToEdit = null
-        } else {
-            EditProductDialog(
-                form = editForm,
-                categories = uiState.availableCategories,
-                onDismiss = {
-                    viewModel.resetEditProductForm()
-                    productToEdit = null
-                },
-                onNameChange     = viewModel::onEditNameChange,
-                onUnitChange     = viewModel::onEditUnitChange,
-                onBrandChange    = viewModel::onEditBrandChange,
-                onCategoryChange = viewModel::onEditCategoryChange,
-                onMinStockChange = viewModel::onEditMinStockChange,
-                onConfirm        = viewModel::submitEditProduct
-            )
-        }
-    }
-
-    // ─── Diálogo: lista de compras automática ──────────────────────────────
-    if (showShoppingList) {
-        ShoppingListDialog(
-            products = uiState.shoppingListProducts,
-            listText = viewModel.generateShoppingListText(),
-            onDismiss = { showShoppingList = false }
-        )
-    }
-
-    // ─── Diálogo: consumo rápido ─────────────────────────────────────────────
-    productToConsume?.let { product ->
-        QuickConsumeDialog(
-            product = product,
-            onConfirm = { qty ->
-                viewModel.quickConsume(product.id, qty)
-                productToConsume = null
-            },
-            onDismiss = { productToConsume = null }
+            onQuickConsume = { p -> productToConsume = p }
         )
     }
 
@@ -654,17 +593,6 @@ private fun RegisterTab(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Stock mínimo de alerta
-            OutlinedTextField(
-                value = prodForm.minStock,
-                onValueChange = viewModel::onProductMinStockChange,
-                label = { Text("Stock mínimo de alerta (opcional)") },
-                placeholder = { Text("ej: 2") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
             // ── Stock inicial ───
             HorizontalDivider(color = GreenIn.copy(alpha = 0.2f))
             Text("Stock inicial (opcional)", fontSize = 8.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
@@ -846,4 +774,72 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
             }
         }
     }
+
+    // ─── Modal de Lista de Compras ──────────────────────────────────
+    if (showShoppingModal) {
+        AlertDialog(
+            onDismissRequest = { showShoppingModal = false },
+            title = {
+                Text(
+                    "Lista de Compras",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                ) {
+                    val itemsToCompra = uiState.products.filter { it.suggestedQuantity ?: 0 > 0 }
+                    items(itemsToCompra) { product ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF5F5F5)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    product.name,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Stock: ${product.quantity} ${product.unit}",
+                                        color = Color.Red,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        "Comprar: ${product.suggestedQuantity ?: 0} ${product.unit}",
+                                        color = PrimaryBlue,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showShoppingModal = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
+
 }
