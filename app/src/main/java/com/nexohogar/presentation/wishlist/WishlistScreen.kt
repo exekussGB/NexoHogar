@@ -1,5 +1,6 @@
 package com.nexohogar.presentation.wishlist
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,17 +28,12 @@ import com.nexohogar.presentation.tutorial.TutorialOverlay
 import com.nexohogar.presentation.tutorial.TutorialStep
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistScreen(
     viewModel: WishlistViewModel,
     tutorialManager: TutorialManager,
-    availableBalance: Double = 0.0,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -64,7 +60,7 @@ fun WishlistScreen(
             ),
             TutorialStep(
                 title = "Acciones rápidas",
-                description = "Toca los 3 puntos de cualquier artículo para editarlo, marcarlo como comprado o eliminarlo.",
+                description = "Desliza a la derecha para marcar como comprado, o toca los 3 puntos para editarlo o eliminarlo.",
                 icon = Icons.Default.MoreVert,
                 iconColor = Color(0xFF1565C0),
                 iconBgColor = Color(0xFFE3F2FD)
@@ -142,7 +138,7 @@ fun WishlistScreen(
                     val lowItems    = pending.filter { it.priority != "HIGH" && it.priority != "MEDIUM" }
 
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 92.dp),
+                        columns = GridCells.Adaptive(minSize = 80.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -185,7 +181,6 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
-                                        canAfford    = item.price != null && item.price > 0 && availableBalance >= item.price,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -231,7 +226,6 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
-                                        canAfford    = item.price != null && item.price > 0 && availableBalance >= item.price,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -277,7 +271,6 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
-                                        canAfford    = item.price != null && item.price > 0 && availableBalance >= item.price,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -388,7 +381,6 @@ private fun PriorityHeader(label: String, color: Color) {
 private fun WishlistSquareCard(
     item        : WishlistItem,
     format      : NumberFormat,
-    canAfford   : Boolean = false,
     onEdit      : () -> Unit,
     onMarkBought: () -> Unit,
     onDelete    : () -> Unit
@@ -431,14 +423,14 @@ private fun WishlistSquareCard(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .padding(horizontal = 5.dp, vertical = 4.dp)
             ) {
                 // Espacio para la barra de color
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text     = item.name,
-                    fontSize = 11.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -449,7 +441,7 @@ private fun WishlistSquareCard(
                 if (price != null && price > 0) {
                     Text(
                         text  = format.format(price.toLong()),
-                        fontSize = 9.sp,
+                        fontSize = 7.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (item.isPurchased)
                             Color(0xFF9E9E9E)
@@ -457,18 +449,6 @@ private fun WishlistSquareCard(
                             MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
-                    )
-                }
-                // ── Chip "💰 Alcanza!" ───────────────────────────────────
-                if (canAfford && !item.isPurchased) {
-                    AssistChip(
-                        onClick = {},
-                        label   = { Text("💰 Alcanza!", fontSize = 8.sp) },
-                        colors  = AssistChipDefaults.assistChipColors(
-                            containerColor = Color(0xFFE8F5E9),
-                            labelColor     = Color(0xFF2E7D32)
-                        ),
-                        modifier = Modifier.height(20.dp)
                     )
                 }
             }
