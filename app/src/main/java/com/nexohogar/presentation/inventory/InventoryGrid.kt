@@ -110,7 +110,8 @@ internal fun ProductsTab(
                 items(products, key = { it.id }) { product ->
                     ProductGridCard(
                         product = product,
-                        onClick = { onProductAction(product) }
+                        onClick = { onProductAction(product) },
+                        onQuickConsume = { onQuickConsume(product) }
                     )
                 }
             }
@@ -122,7 +123,8 @@ internal fun ProductsTab(
 @Composable
 internal fun ProductGridCard(
     product: Product,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onQuickConsume: (() -> Unit)? = null
 ) {
     val minStockWarning = product.minStock != null && product.currentStock <= product.minStock
     val stockColor = when {
@@ -198,6 +200,35 @@ internal fun ProductGridCard(
                     color = Color(0xFFE65100),
                     fontWeight = FontWeight.Medium
                 )
+            }
+            if (onQuickConsume != null) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(top = 4.dp),
+                    thickness = 0.5.dp,
+                    color = Color(0xFFEEEEEE)
+                )
+                TextButton(
+                    onClick = onQuickConsume,
+                    enabled = product.currentStock > 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RemoveCircleOutline,
+                        contentDescription = "Consumir",
+                        tint = if (product.currentStock > 0) RedOut else Color.Gray,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = "Consumir",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (product.currentStock > 0) RedOut else Color.Gray
+                    )
+                }
             }
         }
     }
