@@ -641,6 +641,7 @@ private fun RecurringBillItem(
 
             // ──── Mostrar categoría si existe ────
             bill.categoryId?.let {
+                val categoryName = uiState.categories.find { cat -> cat.id == bill.categoryId }?.name ?: "Sin categoría"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -649,7 +650,7 @@ private fun RecurringBillItem(
                 ) {
                     AssistChip(
                         onClick = { },
-                        label = { Text(bill.categoryName ?: "Sin categoría", fontSize = 12.sp) },
+                        label = { Text(categoryName, fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                         colors = AssistChipDefaults.assistChipColors(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
