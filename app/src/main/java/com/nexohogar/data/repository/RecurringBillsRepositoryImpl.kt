@@ -49,7 +49,8 @@ class RecurringBillsRepositoryImpl(
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
                 totalInstallments = totalInstallments,
-                paidInstallments  = paidInstallments
+                paidInstallments  = paidInstallments,
+                categoryId        = categoryId
             )
             val response = api.createRecurringBill(request = request)
             if (response.isSuccessful) {
@@ -83,7 +84,8 @@ class RecurringBillsRepositoryImpl(
                 notes             = notes,
                 isActive          = isActive,
                 totalInstallments = totalInstallments,
-                paidInstallments  = paidInstallments
+                paidInstallments  = paidInstallments,
+                categoryId        = categoryId
             )
             val response = api.updateRecurringBill(
                 idFilter = "eq.$billId",

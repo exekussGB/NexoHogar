@@ -152,6 +152,7 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
+                                    categories = uiState.categories,
                                     onMarkAsPaid   = {
                                         statusMap[bill.id]?.let { viewModel.showPayDialog(it) }
                                             ?: viewModel.confirmMarkAsPaid(bill)
@@ -179,6 +180,7 @@ fun RecurringBillsScreen(
                                     bill = bill,
                                     statusDto = statusMap[bill.id],
                                     format = clpFormat,
+                                    categories = uiState.categories,
                                     onMarkAsPaid   = {},
                                     onToggleActive = { viewModel.toggleActive(bill) },
                                     onDelete       = { viewModel.deleteBill(bill) },
@@ -503,6 +505,7 @@ private fun RecurringBillItem(
     bill: RecurringBill,
     statusDto: RecurringBillWithStatusDto?,
     format: NumberFormat,
+    categories: List<Category>,
     onMarkAsPaid: () -> Unit,
     onToggleActive: () -> Unit,
     onDelete: () -> Unit,
@@ -640,8 +643,8 @@ private fun RecurringBillItem(
             }
 
             // ──── Mostrar categoría si existe ────
-            bill.categoryId?.let {
-                val categoryName = uiState.categories.find { cat -> cat.id == bill.categoryId }?.name ?: "Sin categoría"
+            bill.categoryId?.let { categoryId ->
+                val categoryName = categories.find { it.id == categoryId }?.name ?: "Sin categoría"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
