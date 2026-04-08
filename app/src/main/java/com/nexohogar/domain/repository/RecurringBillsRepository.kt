@@ -9,6 +9,7 @@ import com.nexohogar.domain.model.RecurringBill
 interface RecurringBillsRepository {
     suspend fun getRecurringBills(householdId: String): AppResult<List<RecurringBill>>
     suspend fun createRecurringBill(
+        categoryId: String?,
         householdId: String,
         name: String,
         amountClp: Long,
@@ -18,6 +19,7 @@ interface RecurringBillsRepository {
         paidInstallments: Int? = null
     ): AppResult<RecurringBill>
     suspend fun updateRecurringBill(
+        categoryId: String?,
         billId: String,
         name: String? = null,
         amountClp: Long? = null,
