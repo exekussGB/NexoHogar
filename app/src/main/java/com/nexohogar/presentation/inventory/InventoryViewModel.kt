@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.getOrThrow
 import com.nexohogar.core.tenant.TenantContext
+import com.nexohogar.data.repository.FuturePurchasesRepositoryImpl
 import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
@@ -114,7 +115,8 @@ data class MovementsUiState(
 class InventoryViewModel(
     private val repository: InventoryRepository,
     private val tenantContext: TenantContext,
-    private val wishlistRepository: WishlistRepository? = null
+    private val wishlistRepository: WishlistRepository? = null,
+    private val futurePurchasesRepository: FuturePurchasesRepositoryImpl? = null
 ) : ViewModel() {
 
     private val householdId: String get() = tenantContext.getCurrentHouseholdId() ?: ""
@@ -259,29 +261,30 @@ class InventoryViewModel(
         return sb.toString().trim()
     }
 
-    // ─── Añadir sugerencia a wishlist ────────────────────────────────────────────
+    // ─── Añadir sugerencia a future_purchases ────────────────────────────────────
     fun addSuggestionToWishlist(suggestion: PurchaseSuggestion) {
-        android.util.Log.d("InventoryVM", "➤ addSuggestionToWishlist: '${suggestion.productName}', repo=${wishlistRepository != null}")
-        val repo = wishlistRepository ?: run {
-            android.util.Log.e("InventoryVM", "❌ WishlistRepository es null!")
-            _uiState.update { it.copy(error = "Error: WishlistRepository no inicializado") }
+        android.util.Log.d("InventoryVM", "➤ addSuggestionToWishlist: '${suggestion.productName}', repo=${futurePurchasesRepository != null}")
+        val repo = futurePurchasesRepository ?: run {
+            android.util.Log.e("InventoryVM", "❌ FuturePurchasesRepository es null!")
+            _uiState.update { it.copy(error = "Error: FuturePurchasesRepository no inicializado") }
             return
         }
         viewModelScope.launch {
             try {
-                android.util.Log.d("InventoryVM", "📝 Creando item en wishlist: '${suggestion.productName}'")
-                repo.createWishlistItem(
+                android.util.Log.d("InventoryVM", "📝 Creando item en future_purchases: '${suggestion.productName}'")
+                repo.createFuturePurchase(
                     householdId = householdId,
                     name = suggestion.productName,
                     description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
-                    price = suggestion.estimatedCost,
+                    category = suggestion.category,
                     priority = "medium",
+                    estimatedPrice = suggestion.estimatedCost,
                     createdBy = tenantContext.getCurrentUserId() ?: ""
                 )
-                android.util.Log.d("InventoryVM", "✅ Agregado exitosamente a wishlist: '${suggestion.productName}'")
-                _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la wishlist") }
+                android.util.Log.d("InventoryVM", "✅ Agregado exitosamente a future_purchases: '${suggestion.productName}'")
+                _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de compras") }
             } catch (e: Exception) {
-                android.util.Log.e("InventoryVM", "❌ Error al agregar a wishlist: ${e.message}", e)
+                android.util.Log.e("InventoryVM", "❌ Error al agregar a future_purchases: ${e.message}", e)
                 e.printStackTrace()
                 _uiState.update { it.copy(error = "Error al agregar: ${e.message}") }
             }
