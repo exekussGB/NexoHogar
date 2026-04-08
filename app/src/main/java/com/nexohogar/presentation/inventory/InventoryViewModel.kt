@@ -4,13 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.getOrThrow
 import com.nexohogar.core.tenant.TenantContext
-import com.nexohogar.data.repository.FuturePurchasesRepositoryImpl
 import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
 import com.nexohogar.domain.repository.InventoryRepository
 import com.nexohogar.domain.repository.WishlistRepository
+import com.nexohogar.domain.repository.FuturePurchasesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -116,7 +116,7 @@ class InventoryViewModel(
     private val repository: InventoryRepository,
     private val tenantContext: TenantContext,
     private val wishlistRepository: WishlistRepository? = null,
-    private val futurePurchasesRepository: FuturePurchasesRepositoryImpl? = null
+    private val futurePurchasesRepository: FuturePurchasesRepository? = null
 ) : ViewModel() {
 
     private val householdId: String get() = tenantContext.getCurrentHouseholdId() ?: ""
@@ -270,23 +270,50 @@ class InventoryViewModel(
             return
         }
         viewModelScope.launch {
-            try {
-                android.util.Log.d("InventoryVM", "📝 Creando item en future_purchases: '${suggestion.productName}'")
-                repo.createFuturePurchase(
+            android.util.Log.d("InventoryVM", "➤ addSuggestionToWishlist: '${suggestion.productName}', repo=${futurePurchasesRepository != null}")
+
+            // Intentar primero con FuturePurchasesRepository (nuevo)
+            if (futurePurchasesRepository != null) {
+                val result = futurePurchasesRepository.createFuturePurchase(
                     householdId = householdId,
                     name = suggestion.productName,
                     description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
                     category = suggestion.category,
-                    priority = "medium",
                     estimatedPrice = suggestion.estimatedCost,
+                    priority = "medium",
                     createdBy = tenantContext.getCurrentUserId() ?: ""
                 )
-                android.util.Log.d("InventoryVM", "✅ Agregado exitosamente a future_purchases: '${suggestion.productName}'")
-                _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de compras") }
-            } catch (e: Exception) {
-                android.util.Log.e("InventoryVM", "❌ Error al agregar a future_purchases: ${e.message}", e)
-                e.printStackTrace()
-                _uiState.update { it.copy(error = "Error al agregar: ${e.message}") }
+
+                when (result) {
+                    is com.nexohogar.core.result.AppResult.Success -> {
+                        android.util.Log.d("InventoryVM", "✅ Agregado exitosamente a future_purchases: '${suggestion.productName}'")
+                        _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de compras") }
+                    }
+                    is com.nexohogar.core.result.AppResult.Error -> {
+                        android.util.Log.e("InventoryVM", "❌ Error al agregar a future_purchases: ${result.message}")
+                        _uiState.update { it.copy(error = "Error al agregar: ${result.message}") }
+                    }
+                    is com.nexohogar.core.result.AppResult.Loading -> {
+                        // Loading state, no action needed
+                    }
+                }
+            } else {
+                // Fallback: intentar con WishlistRepository (antiguo, para compatibilidad)
+                try {
+                    android.util.Log.d("InventoryVM", "⚠️  Usando WishlistRepository como fallback")
+                    wishlistRepository?.createWishlistItem(
+                        householdId = householdId,
+                        name = suggestion.productName,
+                        description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
+                        price = suggestion.estimatedCost,
+                        priority = "MEDIUM",
+                        createdBy = tenantContext.getCurrentUserId() ?: ""
+                    )
+                    _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de deseos") }
+                } catch (e: Exception) {
+                    android.util.Log.e("InventoryVM", "❌ Error con fallback: ${e.message}", e)
+                    _uiState.update { it.copy(error = "Error al agregar: ${e.message}") }
+                }
             }
         }
     }

@@ -2,123 +2,112 @@ package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.network.FuturePurchasesApi
-import com.nexohogar.data.remote.dto.FuturePurchaseDto
+import com.nexohogar.data.remote.dto.CreateFuturePurchaseRequest
+import com.nexohogar.data.remote.dto.UpdateFuturePurchaseRequest
+import com.nexohogar.domain.model.FuturePurchase
+import com.nexohogar.domain.repository.FuturePurchasesRepository
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.UUID
 
 class FuturePurchasesRepositoryImpl(
     private val api: FuturePurchasesApi
-) {
+) : FuturePurchasesRepository {
 
-    suspend fun getFuturePurchases(householdId: String): AppResult<List<FuturePurchaseDto>> {
+    override suspend fun getFuturePurchases(householdId: String): AppResult<List<FuturePurchase>> {
         return try {
             val response = api.getFuturePurchases(householdIdFilter = "eq.$householdId")
             if (response.isSuccessful) {
-                AppResult.Success(response.body() ?: emptyList())
+                AppResult.Success(response.body()?.map { it.toDomain() } ?: emptyList())
             } else {
-                AppResult.Error("Error al obtener compras futuras: ${response.code()}")
+                AppResult.Error("Error al obtener sugerencias: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
-    suspend fun createFuturePurchase(
+    override suspend fun createFuturePurchase(
         householdId: String,
         name: String,
         description: String?,
         category: String?,
-        priority: String = "medium",
         estimatedPrice: Double?,
+        priority: String,
         createdBy: String
-    ): AppResult<FuturePurchaseDto> {
+    ): AppResult<FuturePurchase> {
         return try {
-            val item = FuturePurchaseDto(
-                id = UUID.randomUUID().toString(),
-                householdId = householdId,
-                name = name,
-                description = description,
-                category = category,
-                priority = priority,
-                estimatedPrice = estimatedPrice,
-                isPurchased = false,
-                createdBy = createdBy,
-                createdAt = nowIso(),
-                updatedAt = nowIso()
+            val request = CreateFuturePurchaseRequest(
+                householdId     = householdId,
+                name            = name,
+                description     = description,
+                category        = category,
+                estimatedPrice  = estimatedPrice,
+                priority        = priority,
+                createdBy       = createdBy
             )
-            val response = api.createFuturePurchase(item = item)
+            val response = api.createFuturePurchase(request = request)
             if (response.isSuccessful) {
                 val created = response.body()?.firstOrNull()
                     ?: return AppResult.Error("No se recibió respuesta del servidor")
-                AppResult.Success(created)
+                AppResult.Success(created.toDomain())
             } else {
-                AppResult.Error("Error al crear compra futura: ${response.code()}")
+                AppResult.Error("Error al crear sugerencia: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
-    suspend fun updateFuturePurchase(
+    override suspend fun updateFuturePurchase(
         itemId: String,
         name: String?,
         description: String?,
         category: String?,
-        priority: String?,
         estimatedPrice: Double?,
-        isPurchased: Boolean?
-    ): AppResult<FuturePurchaseDto> {
+        priority: String?
+    ): AppResult<FuturePurchase> {
         return try {
-            val item = FuturePurchaseDto(
-                id = itemId,
-                householdId = "",
-                name = name ?: "",
-                description = description,
-                category = category,
-                priority = priority,
-                estimatedPrice = estimatedPrice,
-                isPurchased = isPurchased ?: false,
-                createdBy = "",
-                updatedAt = nowIso()
+            val request = UpdateFuturePurchaseRequest(
+                name            = name,
+                description     = description,
+                category        = category,
+                estimatedPrice  = estimatedPrice,
+                priority        = priority,
+                updatedAt       = nowIso()
             )
             val response = api.updateFuturePurchase(
                 idFilter = "eq.$itemId",
-                item = item
+                request  = request
             )
             if (response.isSuccessful) {
                 val updated = response.body()?.firstOrNull()
                     ?: return AppResult.Error("No se recibió respuesta del servidor")
-                AppResult.Success(updated)
+                AppResult.Success(updated.toDomain())
             } else {
-                AppResult.Error("Error al actualizar compra futura: ${response.code()}")
+                AppResult.Error("Error al actualizar sugerencia: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
         }
     }
 
-    suspend fun markAsPurchased(itemId: String): AppResult<FuturePurchaseDto> {
+    override suspend fun markAsPurchased(itemId: String): AppResult<FuturePurchase> {
         return try {
-            val item = FuturePurchaseDto(
-                id = itemId,
-                householdId = "",
-                name = "",
+            val request = UpdateFuturePurchaseRequest(
                 isPurchased = true,
                 purchasedAt = nowIso(),
-                createdBy = "",
-                updatedAt = nowIso()
+                updatedAt   = nowIso()
             )
             val response = api.updateFuturePurchase(
                 idFilter = "eq.$itemId",
-                item = item
+                request  = request
             )
             if (response.isSuccessful) {
                 val updated = response.body()?.firstOrNull()
                     ?: return AppResult.Error("No se recibió respuesta del servidor")
-                AppResult.Success(updated)
+                AppResult.Success(updated.toDomain())
             } else {
                 AppResult.Error("Error al marcar como comprado: ${response.code()}")
             }
@@ -127,13 +116,13 @@ class FuturePurchasesRepositoryImpl(
         }
     }
 
-    suspend fun deleteFuturePurchase(itemId: String): AppResult<Unit> {
+    override suspend fun deleteFuturePurchase(itemId: String): AppResult<Unit> {
         return try {
             val response = api.deleteFuturePurchase(idFilter = "eq.$itemId")
             if (response.isSuccessful) {
                 AppResult.Success(Unit)
             } else {
-                AppResult.Error("Error al eliminar compra futura: ${response.code()}")
+                AppResult.Error("Error al eliminar: ${response.code()}")
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error desconocido")
