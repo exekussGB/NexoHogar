@@ -89,6 +89,7 @@ import com.nexohogar.presentation.tutorial.TutorialListScreen
 import com.nexohogar.presentation.wishlist.WishlistScreen
 import com.nexohogar.presentation.wishlist.WishlistViewModel
 import kotlinx.coroutines.flow.first
+import com.nexohogar.domain.repository.FuturePurchasesRepository
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -888,7 +889,8 @@ fun NavGraph(navController: NavHostController) {
                             return InventoryViewModel(
                                 inventoryRepository,
                                 tenantContext,
-                                ServiceLocator.wishlistRepository
+                                ServiceLocator.wishlistRepository,
+                                ServiceLocator.futurePurchasesRepository
                             ) as T
                         }
                     }
