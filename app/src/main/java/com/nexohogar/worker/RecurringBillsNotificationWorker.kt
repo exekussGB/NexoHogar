@@ -14,7 +14,7 @@ import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.presentation.MainActivity
 import java.time.LocalDate
-
+import com.nexohogar.R
 /**
  * Worker que se ejecuta una vez al día (o según programación).
  * Verifica cuentas recurrentes y envía notificaciones para las que vencen pronto.
@@ -123,7 +123,7 @@ class RecurringBillsNotificationWorker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
