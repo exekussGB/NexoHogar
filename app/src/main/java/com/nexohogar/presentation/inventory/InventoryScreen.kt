@@ -69,7 +69,13 @@ private fun generateShoppingListText(
     futureItems: List<FuturePurchase>
 ): String {
     val sb = StringBuilder()
+
+    // Fecha y hora al inicio
+    val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+    val fechaHora = sdf.format(java.util.Date())
+
     sb.append("📋 LISTA DE COMPRAS\n")
+    sb.append("🕐 Generado: $fechaHora\n")
     sb.append("═".repeat(50)).append("\n\n")
 
     // Productos del inventario con bajo stock
@@ -103,13 +109,23 @@ private fun generateShoppingListText(
             if (item.estimatedPrice != null && item.estimatedPrice > 0) {
                 sb.append("  Precio estimado: \$${String.format("%.0f", item.estimatedPrice)}\n")
             }
-            sb.append("  Prioridad: ${item.priority}\n")
+            // 👆 Línea de Prioridad eliminada
             sb.append("\n")
         }
     }
 
     if (inventoryItems.isEmpty() && futureItems.isEmpty()) {
         sb.append("✅ ¡Lista de compras vacía!\n")
+    }
+
+    // Costo total estimado (solo items de sugerencias con precio)
+    val totalEstimado = futureItems
+        .filter { it.estimatedPrice != null && it.estimatedPrice > 0 }
+        .sumOf { it.estimatedPrice!! }
+
+    if (totalEstimado > 0) {
+        sb.append("─".repeat(50)).append("\n")
+        sb.append("💰 COSTO TOTAL ESTIMADO: \$${String.format("%.0f", totalEstimado)}\n")
     }
 
     sb.append("\n")
