@@ -217,7 +217,10 @@ fun InventoryScreen(
                 )
             },
             text = {
-                if (itemsToCompra.isEmpty()) {
+                // 🔄 Combinar productos del inventario + items de future_purchases
+                val allItems = itemsToCompra.isNotEmpty() || uiState.futurePurchasesItems.isNotEmpty()
+
+                if (!allItems) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -231,7 +234,7 @@ fun InventoryScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            "¡Todos los productos tienen stock!",
+                            "¡Lista de compras vacía!",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
@@ -244,6 +247,7 @@ fun InventoryScreen(
                             .heightIn(max = 400.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // 🛒 Mostrar productos del inventario con bajo stock
                         items(itemsToCompra) { product ->
                             Card(
                                 modifier = Modifier
@@ -289,6 +293,71 @@ fun InventoryScreen(
                                     IconButton(
                                         onClick = {
                                             itemsToCompra = itemsToCompra.filter { it.id != product.id }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Eliminar",
+                                            tint = Color(0xFFC62828),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 📦 Mostrar items de future_purchases
+                        items(uiState.futurePurchasesItems) { futurePurchase ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF0F4FF) // Azul muy claro
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp, Color(0xFF1565C0)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            futurePurchase.name,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF212121)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        if (!futurePurchase.description.isNullOrEmpty()) {
+                                            Text(
+                                                futurePurchase.description,
+                                                color = Color(0xFF666666),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                        if (futurePurchase.estimatedPrice != null) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                "Est. \$${String.format("%.0f", futurePurchase.estimatedPrice)}",
+                                                color = Color(0xFF1565C0),
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.deleteFuturePurchase(futurePurchase.id)
+                                            viewModel.loadData()
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {

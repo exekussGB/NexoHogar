@@ -40,7 +40,8 @@ data class InventoryUiState(
     val error: String? = null,
     val successMessage: String? = null,
     val suggestionThreshold: Double = 0.5,
-    val shoppingListProducts: List<Product> = emptyList()
+    val shoppingListProducts: List<Product> = emptyList(),
+    val futurePurchasesItems: List<com.nexohogar.domain.model.FuturePurchase> = emptyList()
 ) {
     val filteredProducts: List<Product>
         get() = if (selectedCategory == null) products
@@ -155,6 +156,9 @@ class InventoryViewModel(
                 val categories = try {
                     repository.getCategories(householdId).getOrThrow()
                 } catch (e: Exception) { emptyList() }
+                val futurePurchases = try {
+                    futurePurchasesRepository?.getFuturePurchases(householdId)?.getOrThrow() ?: emptyList()
+                } catch (e: Exception) { emptyList() }
 
                 val threshold = _uiState.value.suggestionThreshold
                 val suggestions = withContext(Dispatchers.Default) {
@@ -174,6 +178,7 @@ class InventoryViewModel(
                         categoryStats = stats,
                         categories = categories,
                         shoppingListProducts = shoppingList,
+                        futurePurchasesItems = futurePurchases,
                         isLoading = false
                     )
                 }
@@ -310,6 +315,8 @@ class InventoryViewModel(
                         android.util.Log.d("InventoryVM", "   Name: ${result.data.name}")
                         android.util.Log.d("InventoryVM", "   HouseholdId: ${result.data.householdId}")
                         _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de compras") }
+                        // 🔄 RECARGAR la lista del carrito
+                        loadData()
                     }
                     is com.nexohogar.core.result.AppResult.Error -> {
                         android.util.Log.e("InventoryVM", "❌❌❌ ERROR!")
@@ -338,6 +345,18 @@ class InventoryViewModel(
                 }
             }
             android.util.Log.d("InventoryVM", "=== 📝 addSuggestionToWishlist END ===")
+        }
+    }
+
+    // ─── Eliminar item de future_purchases ────────────────────────────────────
+    fun deleteFuturePurchase(itemId: String) {
+        viewModelScope.launch {
+            try {
+                futurePurchasesRepository?.deleteFuturePurchase(itemId)?.getOrThrow()
+                _uiState.update { it.copy(successMessage = "Item eliminado de la lista de compras") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al eliminar: ${e.message}") }
+            }
         }
     }
 
