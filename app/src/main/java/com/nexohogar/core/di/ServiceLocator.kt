@@ -11,8 +11,11 @@ import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.*
 import com.nexohogar.data.network.WishlistApi
+import com.nexohogar.data.network.FuturePurchasesApi
 import com.nexohogar.data.repository.WishlistRepositoryImpl
+import com.nexohogar.data.repository.FuturePurchasesRepositoryImpl
 import com.nexohogar.domain.repository.WishlistRepository
+import com.nexohogar.domain.repository.FuturePurchasesRepository
 import com.nexohogar.data.repository.*
 import com.nexohogar.domain.repository.*
 import io.github.jan.supabase.SupabaseClient
@@ -152,6 +155,7 @@ object ServiceLocator {
     val fcmApi: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
     val budgetApi: BudgetApi by lazy { retrofit.create(BudgetApi::class.java) }
     val wishlistApi: WishlistApi by lazy { retrofit.create(WishlistApi::class.java) }
+    val futurePurchasesApi: FuturePurchasesApi by lazy { retrofit.create(FuturePurchasesApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
     val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
 
@@ -211,5 +215,9 @@ object ServiceLocator {
 
     val wishlistRepository: WishlistRepository by lazy {
         WishlistRepositoryImpl(wishlistApi)
+    }
+
+    val futurePurchasesRepository: FuturePurchasesRepository by lazy {
+        FuturePurchasesRepositoryImpl(futurePurchasesApi)
     }
 }
