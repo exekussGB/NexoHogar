@@ -32,6 +32,7 @@ class RecurringBillsRepositoryImpl(
     }
 
     override suspend fun createRecurringBill(
+        categoryId: String?,
         householdId: String,
         name: String,
         amountClp: Long,
@@ -64,6 +65,7 @@ class RecurringBillsRepositoryImpl(
     }
 
     override suspend fun updateRecurringBill(
+        categoryId: String?,
         billId: String,
         name: String?,
         amountClp: Long?,

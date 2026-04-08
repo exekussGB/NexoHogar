@@ -20,6 +20,7 @@ import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.domain.model.Account
+import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
@@ -199,9 +200,10 @@ fun RecurringBillsScreen(
         CreateBillDialog(
             isCreating  = uiState.isCreating,
             createError = uiState.createError,
+            categories  = uiState.categories,
             onDismiss   = { viewModel.onDismissCreateDialog() },
-            onCreate    = { name, amount, day, notes, installments, startInstallment ->
-                viewModel.createBill(name, amount, day, notes, installments, startInstallment)
+            onCreate    = { name, amount, day, notes, installments, startInstallment, categoryId ->
+                viewModel.createBill(name, amount, day, notes, installments, startInstallment, categoryId)
             }
         )
     }
@@ -213,9 +215,10 @@ fun RecurringBillsScreen(
             bill        = billToEdit,
             isUpdating  = uiState.isUpdating,
             updateError = uiState.updateError,
+            categories  = uiState.categories,
             onDismiss   = { viewModel.onDismissEditDialog() },
-            onUpdate    = { name, amount, day, notes, installments, paidInst ->
-                viewModel.updateBill(name, amount, day, notes, installments, paidInst)
+            onUpdate    = { name, amount, day, notes, installments, paidInst, categoryId ->
+                viewModel.updateBill(name, amount, day, notes, installments, paidInst, categoryId)
             }
         )
     }
@@ -492,7 +495,7 @@ private fun PaymentHistoryDialog(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item de cuenta recurrente (con opción Editar + cuotas)
+// Item de cuenta recurrente (con opción Editar + cuotas + categoría)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -636,6 +639,26 @@ private fun RecurringBillItem(
                 }
             }
 
+            // ──── Mostrar categoría si existe ────
+            bill.categoryId?.let {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AssistChip(
+                        onClick = { },
+                        label = { Text(bill.categoryName ?: "Sin categoría", fontSize = 12.sp) },
+                        modifier = Modifier.weight(1f),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    )
+                }
+            }
+
             if (!bill.notes.isNullOrBlank()) {
                 Text(
                     text = bill.notes,
@@ -683,15 +706,16 @@ private fun EmptyBillsState(onAdd: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de creación (con soporte a cuotas + cuota inicial)
+// Diálogo de creación (con soporte a cuotas + cuota inicial + categoría)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun CreateBillDialog(
     isCreating: Boolean,
     createError: String?,
+    categories: List<Category>,
     onDismiss: () -> Unit,
-    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?, paidInstallments: Int?) -> Unit
+    onCreate: (name: String, amountClp: Long, dueDayOfMonth: Int, notes: String?, totalInstallments: Int?, paidInstallments: Int?, categoryId: String?) -> Unit
 ) {
     var name        by remember { mutableStateOf("") }
     var amountText  by remember { mutableStateOf("") }
@@ -702,6 +726,8 @@ private fun CreateBillDialog(
     var isInstallment        by remember { mutableStateOf(false) }
     var installmentsText     by remember { mutableStateOf("") }
     var startInstallmentText by remember { mutableStateOf("") }
+    var selectedCategoryId   by remember { mutableStateOf<String?>(null) }
+    var expandedCategory     by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -751,6 +777,64 @@ private fun CreateBillDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isCreating
                 )
+
+                // ──── Dropdown de categoría ────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { expandedCategory = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isCreating,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Text(
+                            if (selectedCategoryId != null) {
+                                categories.find { it.id == selectedCategoryId }?.name ?: "Seleccionar categoría"
+                            } else {
+                                "📁 Seleccionar categoría (opcional)"
+                            },
+                            modifier = Modifier.weight(1f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        if (selectedCategoryId != null) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Limpiar",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedCategory,
+                        onDismissRequest = { expandedCategory = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = {
+                                selectedCategoryId = null
+                                expandedCategory = false
+                            }
+                        )
+                        categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    selectedCategoryId = category.id
+                                    expandedCategory = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 // ── Toggle de cuotas ─────────────────────────────────────
                 Row(
@@ -833,7 +917,8 @@ private fun CreateBillDialog(
                             day!!,
                             notes.trim().ifBlank { null },
                             installments,
-                            startInst
+                            startInst,
+                            selectedCategoryId
                         )
                     }
                 },
@@ -847,7 +932,7 @@ private fun CreateBillDialog(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Diálogo de edición (con cuotas + ajuste de cuota actual)
+// Diálogo de edición (con cuotas + ajuste de cuota actual + categoría)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -855,8 +940,9 @@ private fun EditBillDialog(
     bill: RecurringBill,
     isUpdating: Boolean,
     updateError: String?,
+    categories: List<Category>,
     onDismiss: () -> Unit,
-    onUpdate: (name: String?, amountClp: Long?, dueDayOfMonth: Int?, notes: String?, totalInstallments: Int?, paidInstallments: Int?) -> Unit
+    onUpdate: (name: String?, amountClp: Long?, dueDayOfMonth: Int?, notes: String?, totalInstallments: Int?, paidInstallments: Int?, categoryId: String?) -> Unit
 ) {
     var name        by remember { mutableStateOf(bill.name) }
     var amountText  by remember { mutableStateOf(if (bill.amountClp > 0) bill.amountClp.toString() else "") }
@@ -866,6 +952,8 @@ private fun EditBillDialog(
     var isInstallment        by remember { mutableStateOf(bill.isInstallment) }
     var installmentsText     by remember { mutableStateOf(bill.totalInstallments?.toString() ?: "") }
     var paidInstallmentsText by remember { mutableStateOf(bill.paidInstallments.toString()) }
+    var selectedCategoryId   by remember { mutableStateOf(bill.categoryId) }
+    var expandedCategory     by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isUpdating) onDismiss() },
@@ -914,6 +1002,64 @@ private fun EditBillDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isUpdating
                 )
+
+                // ──── Dropdown de categoría ────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { expandedCategory = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isUpdating,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Text(
+                            if (selectedCategoryId != null) {
+                                categories.find { it.id == selectedCategoryId }?.name ?: "Seleccionar categoría"
+                            } else {
+                                "📁 Seleccionar categoría (opcional)"
+                            },
+                            modifier = Modifier.weight(1f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        if (selectedCategoryId != null) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Limpiar",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedCategory,
+                        onDismissRequest = { expandedCategory = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = {
+                                selectedCategoryId = null
+                                expandedCategory = false
+                            }
+                        )
+                        categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    selectedCategoryId = category.id
+                                    expandedCategory = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 // ── Toggle de cuotas ─────────────────────────────────────
                 Row(
@@ -995,7 +1141,8 @@ private fun EditBillDialog(
                             day,
                             notes.trim().ifBlank { null },
                             installments,
-                            paidInst
+                            paidInst,
+                            selectedCategoryId
                         )
                     }
                 },
