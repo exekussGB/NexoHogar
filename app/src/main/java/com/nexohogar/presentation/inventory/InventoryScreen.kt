@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +29,7 @@ import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
+import com.nexohogar.domain.model.FuturePurchase
 import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
@@ -39,6 +41,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import kotlin.compareTo
 import kotlin.text.category
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
 
 
 /** Returns user-friendly price label based on unit, e.g. "Precio por kg", "Precio por unidad" */
@@ -56,6 +61,62 @@ private fun pricePerUnitLabel(unit: String): String = when (unit.lowercase()) {
     "sobre" -> "Precio por sobre"
     "rollo" -> "Precio por rollo"
     else -> "Precio por $unit"
+}
+
+/** Genera texto formateado de la lista de compras para copiar/compartir */
+private fun generateShoppingListText(
+    inventoryItems: List<Product>,
+    futureItems: List<FuturePurchase>
+): String {
+    val sb = StringBuilder()
+    sb.append("📋 LISTA DE COMPRAS\n")
+    sb.append("═".repeat(50)).append("\n\n")
+
+    // Productos del inventario con bajo stock
+    if (inventoryItems.isNotEmpty()) {
+        sb.append("🔴 STOCK BAJO (Inventario):\n")
+        sb.append("─".repeat(50)).append("\n")
+        inventoryItems.forEach { product ->
+            val quantity = (product.minStock!! - product.currentStock).toInt()
+            sb.append("• ${product.name}\n")
+            sb.append("  Cantidad: $quantity ${product.unit}\n")
+            sb.append("  Stock actual: ${String.format("%.2f", product.currentStock)} ${product.unit}\n")
+            if (!product.brand.isNullOrEmpty()) {
+                sb.append("  Marca: ${product.brand}\n")
+            }
+            sb.append("\n")
+        }
+    }
+
+    // Items de future_purchases (sugerencias)
+    if (futureItems.isNotEmpty()) {
+        if (inventoryItems.isNotEmpty()) {
+            sb.append("\n")
+        }
+        sb.append("🔵 NUEVOS ITEMS (Sugerencias):\n")
+        sb.append("─".repeat(50)).append("\n")
+        futureItems.forEach { item ->
+            sb.append("• ${item.name}\n")
+            if (!item.description.isNullOrEmpty()) {
+                sb.append("  Descripción: ${item.description}\n")
+            }
+            if (item.estimatedPrice != null && item.estimatedPrice > 0) {
+                sb.append("  Precio estimado: \$${String.format("%.0f", item.estimatedPrice)}\n")
+            }
+            sb.append("  Prioridad: ${item.priority}\n")
+            sb.append("\n")
+        }
+    }
+
+    if (inventoryItems.isEmpty() && futureItems.isEmpty()) {
+        sb.append("✅ ¡Lista de compras vacía!\n")
+    }
+
+    sb.append("\n")
+    sb.append("═".repeat(50)).append("\n")
+    sb.append("Generado desde NexoHogar")
+
+    return sb.toString()
 }
 
 // ─── Pantalla principal ────────────────────────────────────────────────────────
@@ -375,8 +436,35 @@ fun InventoryScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = { showShoppingModal = false }) {
-                    Text("Cerrar")
+                val context = LocalContext.current
+                val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            val listText = generateShoppingListText(itemsToCompra, uiState.futurePurchasesItems)
+                            clipboardManager.setText(AnnotatedString(listText))
+                            Toast.makeText(context, "Lista copiada al portapapeles", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1565C0)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Copiar")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { showShoppingModal = false },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cerrar")
+                    }
                 }
             }
         )

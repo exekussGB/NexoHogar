@@ -27,7 +27,6 @@ import com.nexohogar.core.tutorial.TutorialManager
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Sistema de tutorial / onboarding reutilizable
-// Actualizado con las 8 mejoras v2
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -204,8 +203,7 @@ fun TutorialOverlay(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Pasos predefinidos para HubScreen
-// ACTUALIZADO: Menciona seguridad biométrica y sesión mejorada
+// Menú Principal - Menciona seguridad biométrica y sesión mejorada
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val hubTutorialSteps = listOf(
@@ -275,7 +273,7 @@ val hubTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Pasos predefinidos para InventoryScreen (sin cambios)
+// Inventario - Incluye pasos del carrito de compras desde Sugerencias
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val inventoryTutorialSteps = listOf(
@@ -322,6 +320,20 @@ val inventoryTutorialSteps = listOf(
         iconBgColor = Color(0xFFFFF8E1)
     ),
     TutorialStep(
+        title = "Carrito de compras 🛒",
+        description = "En la pestaña \"Sugerencias\", toca el botón \"Agregar a lista de compras\" para guardar los productos que necesitas comprar.\n\nEl botón del carrito (🛒) siempre está visible para gestionar tu lista rápidamente.",
+        icon = Icons.Default.ShoppingCart,
+        iconColor = Color(0xFFE91E63),
+        iconBgColor = Color(0xFFFCE4EC)
+    ),
+    TutorialStep(
+        title = "Gestionar carrito 📋",
+        description = "En el carrito ves:\n✅ Productos con bajo stock (rojo)\n✅ Nuevos items sugeridos (azul)\n✅ Cantidades a comprar (calculadas automáticamente)\n\nToca la X roja en cada producto si no quieres comprarlo.",
+        icon = Icons.Default.ManageSearch,
+        iconColor = Color(0xFF1565C0),
+        iconBgColor = Color(0xFFE3F2FD)
+    ),
+    TutorialStep(
         title = "Registrar como compra 💡",
         description = "Al crear un producto con stock inicial, puedes marcar \"Registrar como compra\" para que el gasto aparezca en tus finanzas del hogar.\n\nAsí mantienes sincronizado tu inventario con tus gastos.",
         icon = Icons.Default.AddShoppingCart,
@@ -337,9 +349,8 @@ val inventoryTutorialSteps = listOf(
     )
 )
 
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// Dashboard — ACTUALIZADO: balance en tiempo real
+// Dashboard — balance en tiempo real
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val dashboardTutorialSteps = listOf(
@@ -374,7 +385,7 @@ val dashboardTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Cuentas — ACTUALIZADO: íconos por tipo, secciones por subtipo, swipe
+// Cuentas — íconos por tipo, secciones por subtipo, swipe
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val accountsTutorialSteps = listOf(
@@ -416,7 +427,7 @@ val accountsTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Transacciones — ACTUALIZADO: swipe mejorado, filtro por fecha, edición directa
+// Transacciones — swipe mejorado, filtro por fecha, edición directa
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val transactionsTutorialSteps = listOf(
@@ -458,7 +469,7 @@ val transactionsTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Presupuestos (sin cambios)
+// Presupuestos
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val budgetsTutorialSteps = listOf(
@@ -486,7 +497,7 @@ val budgetsTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Gastos Recurrentes — ACTUALIZADO: historial mejorado + categoría
+// Gastos Recurrentes — historial mejorado + categoría
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val recurringBillsTutorialSteps = listOf(
@@ -521,7 +532,7 @@ val recurringBillsTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Hogar — ACTUALIZADO: diseño visual con tarjetas gradiente
+// Hogar —  diseño visual con tarjetas gradiente
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val householdTutorialSteps = listOf(
@@ -556,7 +567,7 @@ val householdTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Invitar miembro (sin cambios)
+// Invitar miembro
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val inviteMemberTutorialSteps = listOf(
@@ -584,7 +595,7 @@ val inviteMemberTutorialSteps = listOf(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Lista de deseos (sin cambios)
+// Lista de deseos
 // ═══════════════════════════════════════════════════════════════════════════════
 
 val wishlistTutorialSteps = listOf(
@@ -623,15 +634,15 @@ val wishlistTutorialSteps = listOf(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 private fun stepsForModule(module: TutorialModule): List<TutorialStep> = when (module) {
-    TutorialModule.DASHBOARD       -> dashboardTutorialSteps
-    TutorialModule.ACCOUNTS        -> accountsTutorialSteps
-    TutorialModule.TRANSACTIONS    -> transactionsTutorialSteps
-    TutorialModule.BUDGETS         -> budgetsTutorialSteps
-    TutorialModule.INVENTORY       -> inventoryTutorialSteps
+    TutorialModule.DASHBOARD -> dashboardTutorialSteps
+    TutorialModule.ACCOUNTS -> accountsTutorialSteps
+    TutorialModule.TRANSACTIONS -> transactionsTutorialSteps
+    TutorialModule.BUDGETS -> budgetsTutorialSteps
+    TutorialModule.INVENTORY -> inventoryTutorialSteps
     TutorialModule.RECURRING_BILLS -> recurringBillsTutorialSteps
-    TutorialModule.HOUSEHOLD       -> householdTutorialSteps
-    TutorialModule.INVITE_MEMBER   -> inviteMemberTutorialSteps
-    TutorialModule.WISHLIST        -> wishlistTutorialSteps
+    TutorialModule.HOUSEHOLD -> householdTutorialSteps
+    TutorialModule.INVITE_MEMBER -> inviteMemberTutorialSteps
+    TutorialModule.WISHLIST -> wishlistTutorialSteps
 }
 
 @Composable
@@ -646,14 +657,13 @@ fun TutorialOverlay(
     )
 }
 
-
 @Composable
 fun TutorialOverlay(
     module: TutorialModule,
     onFinish: () -> Unit
 ) {
     TutorialOverlay(
-        steps     = stepsForModule(module),
+        steps = stepsForModule(module),
         onDismiss = onFinish
     )
 }
