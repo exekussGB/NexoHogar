@@ -833,7 +833,11 @@ fun NavGraph(navController: NavHostController) {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
                             @Suppress("UNCHECKED_CAST")
                             return RecurringBillsViewModel(
-                                categoriesRepository = categoriesRepository,recurringBillsRepository, accountsRepository, tenantContext) as T
+                                repository = recurringBillsRepository,
+                                accountsRepository = accountsRepository,
+                                categoriesRepository = categoriesRepository,
+                                tenantContext = tenantContext
+                            ) as T
                         }
                     }
                 )
