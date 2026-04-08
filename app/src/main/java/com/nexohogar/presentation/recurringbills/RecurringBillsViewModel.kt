@@ -9,10 +9,8 @@ import com.nexohogar.data.remote.dto.RecurringBillPaymentDto
 import com.nexohogar.data.remote.dto.RecurringBillWithStatusDto
 import com.nexohogar.data.remote.dto.RecurringSummaryDto
 import com.nexohogar.domain.model.Account
-import com.nexohogar.domain.model.Category
 import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.domain.repository.AccountsRepository
-import com.nexohogar.domain.repository.CategoriesRepository
 import com.nexohogar.domain.repository.RecurringBillsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +25,6 @@ data class RecurringBillsUiState(
     val billsWithStatus: List<RecurringBillWithStatusDto> = emptyList(),
     val summary: RecurringSummaryDto?                 = null,
     val accounts: List<Account>                      = emptyList(),
-    val categories: List<Category>                   = emptyList(),
     val isLoading: Boolean                           = false,
     val error: String?                               = null,
 
@@ -52,9 +49,9 @@ data class RecurringBillsUiState(
 )
 
 class RecurringBillsViewModel(
+    private val categoriesRepository: CategoriesRepository,
     private val repository: RecurringBillsRepository,
     private val accountsRepository: AccountsRepository,
-    private val categoriesRepository: CategoriesRepository,
     private val tenantContext: TenantContext
 ) : ViewModel() {
 
@@ -93,13 +90,6 @@ class RecurringBillsViewModel(
                     is AppResult.Loading -> Unit
                 }
             }
-            val categoriesJob = launch {
-                when (val result = categoriesRepository.getCategories(householdId)) {
-                    is AppResult.Success -> _uiState.update { it.copy(categories = result.data) }
-                    is AppResult.Error   -> {}
-                    is AppResult.Loading -> Unit
-                }
-            }
             val legacyJob = launch {
                 when (val result = repository.getRecurringBills(householdId)) {
                     is AppResult.Success -> _uiState.update { it.copy(bills = result.data) }
@@ -111,7 +101,6 @@ class RecurringBillsViewModel(
             billsJob.join()
             summaryJob.join()
             accountsJob.join()
-            categoriesJob.join()
             legacyJob.join()
 
             _uiState.update { it.copy(isLoading = false) }
@@ -136,8 +125,7 @@ class RecurringBillsViewModel(
         dueDayOfMonth: Int,
         notes: String?,
         totalInstallments: Int? = null,
-        paidInstallments: Int? = null,
-        categoryId: String? = null
+        paidInstallments: Int? = null
     ) {
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
 
@@ -166,7 +154,7 @@ class RecurringBillsViewModel(
             _uiState.update { it.copy(isCreating = true, createError = null) }
             when (val result = repository.createRecurringBill(
                 householdId, sanitizedName, amountClp, dueDayOfMonth, notes,
-                totalInstallments, paidInstallments, categoryId
+                totalInstallments, paidInstallments
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(
@@ -200,8 +188,7 @@ class RecurringBillsViewModel(
         dueDayOfMonth: Int?,
         notes: String?,
         totalInstallments: Int?,
-        paidInstallments: Int? = null,
-        categoryId: String? = null
+        paidInstallments: Int? = null
     ) {
         val bill = _uiState.value.billToEdit ?: return
 
@@ -237,8 +224,7 @@ class RecurringBillsViewModel(
                 dueDayOfMonth     = dueDayOfMonth,
                 notes             = notes,
                 totalInstallments = totalInstallments,
-                paidInstallments  = paidInstallments,
-                categoryId        = categoryId
+                paidInstallments  = paidInstallments
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(billToEdit = null, isUpdating = false) }
