@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
@@ -39,8 +40,6 @@ import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
 import androidx.compose.runtime.snapshotFlow
-import java.time.LocalDate
-import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,16 +63,17 @@ fun TransactionsScreen(
     // ── Date Range Picker Dialog ───────────────────────────────────────────
     var showDatePicker by remember { mutableStateOf(false) }
 
-    if (showDatePicker) {
-        // BUG FIX 1: Configurar DateRangePickerState con parámetros iniciales para permitir navegación
-        val today = System.currentTimeMillis()
-        val oneYearAgo = today - (365L * 24 * 60 * 60 * 1000) // 1 año atrás
-        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    // BUG FIX 1b: Estado para navegación de meses con flechas
+    var selectedMonth by remember { mutableStateOf(Calendar.getInstance()) }
 
+    if (showDatePicker) {
+        // BUG FIX 1: Configurar DateRangePicker con navegación sin límites
         val dateRangePickerState = rememberDateRangePickerState(
-            initialSelectedStartDateMillis = oneYearAgo,
-            initialSelectedEndDateMillis = today,
-            yearRange = IntRange(2020, currentYear + 1)
+            initialSelectedStartDateMillis = (dateRange?.first ?: Calendar.getInstance().apply {
+                add(Calendar.YEAR, -1)
+            }.timeInMillis),
+            initialSelectedEndDateMillis = (dateRange?.second ?: Calendar.getInstance().timeInMillis),
+            yearRange = IntRange(2020, Calendar.getInstance().get(Calendar.YEAR) + 1)
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -155,11 +155,82 @@ fun TransactionsScreen(
                 }
             }
 
-            // ── Active date filter chip ───────────────────────────────────────
+            // ── Month Navigator with arrows ─────────────────────────────────────
+            // BUG FIX 1b: Navegador de meses con flechas para filtrar por mes
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Flecha izquierda: mes anterior
+                IconButton(
+                    onClick = {
+                        selectedMonth.add(Calendar.MONTH, -1)
+                        val startOfMonth = selectedMonth.apply {
+                            set(Calendar.DAY_OF_MONTH, 1)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                        }.timeInMillis
+                        val endOfMonth = selectedMonth.apply {
+                            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                        }.timeInMillis
+                        viewModel.setDateFilter(startOfMonth, endOfMonth)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Mes anterior", modifier = Modifier.size(20.dp))
+                }
+
+                // Mes y año actual
+                val monthFormat = SimpleDateFormat("MMMM yyyy", Locale("es", "CL"))
+                Text(
+                    text = monthFormat.format(selectedMonth.time).replaceFirstChar { it.uppercase() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                // Flecha derecha: mes siguiente
+                IconButton(
+                    onClick = {
+                        selectedMonth.add(Calendar.MONTH, 1)
+                        val startOfMonth = selectedMonth.apply {
+                            set(Calendar.DAY_OF_MONTH, 1)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                        }.timeInMillis
+                        val endOfMonth = selectedMonth.apply {
+                            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                        }.timeInMillis
+                        viewModel.setDateFilter(startOfMonth, endOfMonth)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(Icons.Default.ArrowForward, contentDescription = "Mes siguiente", modifier = Modifier.size(20.dp))
+                }
+            }
+
+            // Chip para mostrar rango actual y limpiar filtro
             if (dateRange != null) {
                 val format = SimpleDateFormat("dd MMM", Locale("es", "CL"))
                 AssistChip(
-                    onClick = { viewModel.clearDateFilter() },
+                    onClick = {
+                        viewModel.clearDateFilter()
+                        selectedMonth = Calendar.getInstance()
+                    },
                     label = { Text("${format.format(Date(dateRange!!.first))} – ${format.format(Date(dateRange!!.second))}") },
                     trailingIcon = { Icon(Icons.Default.Close, "Quitar filtro", modifier = Modifier.size(16.dp)) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
