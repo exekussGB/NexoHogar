@@ -77,12 +77,30 @@ class AccountsViewModel(
         viewModelScope.launch {
             when (val result = accountsRepository.getAccountBalances(householdId)) {
                 is AppResult.Success -> {
-                    val savings = result.data.filter { it.isSavings }
-                    val shared = result.data.filter { it.isShared && !it.isSavings }
-                    val personal = result.data.filter { !it.isShared && it.ownerUserId == userId && !it.isSavings }
+                    // BUG FIX 3: Filtrar cuentas personales para que solo se muestren al propietario
+                    val allAccounts = result.data
+
+                    // Filtro: Cuentas compartidas visibles para todos
+                    val shared = allAccounts.filter { it.isShared && !it.isSavings }
+
+                    // Filtro: Cuentas personales solo visibles para el propietario
+                    val personal = allAccounts.filter { account ->
+                        !account.isShared &&
+                                !account.isSavings &&
+                                account.ownerUserId == userId  // ✅ Solo mostrar si el usuario actual es el propietario
+                    }
+
+                    // Ahorros visibles para todos
+                    val savings = allAccounts.filter { it.isSavings }
 
                     // Group all accounts by subtype for section display
-                    val bySubtype = result.data.groupBy { it.accountType }
+                    // BUG FIX 3: También filtrar en la agrupación por subtipo
+                    val bySubtype = allAccounts
+                        .filter { account ->
+                            // Incluir si es compartida O si es personal pero del usuario actual
+                            account.isShared || account.ownerUserId == userId
+                        }
+                        .groupBy { it.accountType }
 
                     _uiState.update {
                         it.copy(
@@ -242,8 +260,8 @@ class AccountsViewModel(
     // ── Edit account ────────────────────────────────────────────────────────
     fun showEditDialog(accountId: String) {
         val all = _uiState.value.sharedAccounts +
-                  _uiState.value.personalAccounts +
-                  _uiState.value.savingsAccounts
+                _uiState.value.personalAccounts +
+                _uiState.value.savingsAccounts
         val account = all.find { it.accountId == accountId }
         _uiState.update {
             it.copy(
