@@ -157,6 +157,9 @@ fun InventoryScreen(
     var productToConsume by remember { mutableStateOf<Product?>(null) }
     var showShoppingModal by remember { mutableStateOf(false) }
 
+    // BUG FIX 4: Estados para edición de producto
+    var showEditProductDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -265,8 +268,21 @@ fun InventoryScreen(
         )
     }
 
+    // ─── Diálogo de consumo rápido ──────────────────────────────────────────────
+    productToConsume?.let { product ->
+        QuickConsumeDialog(
+            product = product,
+            onConfirm = { qty ->
+                viewModel.quickConsume(product.id, qty)
+                productToConsume = null
+            },
+            onDismiss = { productToConsume = null }
+        )
+    }
+
     // ─── Popup de acciones de producto ──────────────────────────────────────────
     productForAction?.let { product ->
+        // BUG FIX 4: Pasar onEditProduct callback
         ProductActionPopup(
             product = product,
             onDismiss = { productForAction = null },
@@ -274,7 +290,34 @@ fun InventoryScreen(
                 selectedProductForHistory = p
                 viewModel.loadMovementsForProduct(p)
             },
-            onQuickConsume = { p -> productToConsume = p }
+            onQuickConsume = { p -> productToConsume = p },
+            onEditProduct = { p ->
+                viewModel.startEditProduct(p)
+                showEditProductDialog = true
+                productForAction = null
+            }
+        )
+    }
+
+    // BUG FIX 4: Diálogo de edición de producto
+    if (showEditProductDialog) {
+        val editForm by viewModel.editProductForm.collectAsState()
+        EditProductDialog(
+            form = editForm,
+            categories = uiState.categories.map { it.name },
+            onDismiss = {
+                showEditProductDialog = false
+                viewModel.resetEditProductForm()
+            },
+            onNameChange = { viewModel.onEditNameChange(it) },
+            onUnitChange = { viewModel.onEditUnitChange(it) },
+            onBrandChange = { viewModel.onEditBrandChange(it) },
+            onCategoryChange = { viewModel.onEditCategoryChange(it) },
+            onMinStockChange = { viewModel.onEditMinStockChange(it) },
+            onConfirm = {
+                viewModel.submitEditProduct()
+                showEditProductDialog = false
+            }
         )
     }
 

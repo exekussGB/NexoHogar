@@ -39,6 +39,8 @@ import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
 import androidx.compose.runtime.snapshotFlow
+import java.time.LocalDate
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +65,16 @@ fun TransactionsScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
-        val dateRangePickerState = rememberDateRangePickerState()
+        // BUG FIX 1: Configurar DateRangePickerState con parámetros iniciales para permitir navegación
+        val today = System.currentTimeMillis()
+        val oneYearAgo = today - (365L * 24 * 60 * 60 * 1000) // 1 año atrás
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+
+        val dateRangePickerState = rememberDateRangePickerState(
+            initialSelectedStartDateMillis = oneYearAgo,
+            initialSelectedEndDateMillis = today,
+            yearRange = IntRange(2020, currentYear + 1)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

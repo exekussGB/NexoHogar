@@ -149,6 +149,34 @@ fun WishlistScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement   = Arrangement.spacedBy(4.dp)
                     ) {
+                        // ── BUG FIX 2: Chip de alerta de Alta Prioridad ─────────────
+                        if (highItems.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                AssistChip(
+                                    onClick = { /* Filtro visual ya activado */ },
+                                    label = {
+                                        Text(
+                                            "🔴 ${highItems.size} items de Alta Prioridad",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Warning,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = Color(0xFFFFEBEE),
+                                        labelColor = Color(0xFFD32F2F)
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+
                         // ── Alta Prioridad ───────────────────────────────────
                         if (highItems.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {

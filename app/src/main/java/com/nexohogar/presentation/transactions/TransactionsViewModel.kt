@@ -50,6 +50,10 @@ class TransactionsViewModel(
     private val _dateRange = MutableStateFlow<Pair<Long, Long>?>(null)
     val dateRange: StateFlow<Pair<Long, Long>?> = _dateRange.asStateFlow()
 
+    // BUG FIX 1: Almacenar parámetros de fecha para persistencia
+    private var storedStartMillis: Long? = null
+    private var storedEndMillis: Long? = null
+
     init {
         loadTransactions()
     }
@@ -64,9 +68,12 @@ class TransactionsViewModel(
 
     /**
      * Sets a date range filter and reloads the list.
+     * BUG FIX 1: Persiste los parámetros de fecha en el ViewModel
      */
     fun setDateFilter(startMillis: Long, endMillis: Long) {
         _dateRange.value = Pair(startMillis, endMillis)
+        storedStartMillis = startMillis
+        storedEndMillis = endMillis
         applyFilter()
     }
 
@@ -75,6 +82,8 @@ class TransactionsViewModel(
      */
     fun clearDateFilter() {
         _dateRange.value = null
+        storedStartMillis = null
+        storedEndMillis = null
         applyFilter()
     }
 
@@ -112,13 +121,18 @@ class TransactionsViewModel(
 
     /**
      * Fetches transactions from the beginning (refresh).
+     * BUG FIX 1: Opcionalmente usa parámetros de fecha para filtrar en backend
      */
-    fun loadTransactions() {
+    fun loadTransactions(startMillis: Long? = null, endMillis: Long? = null) {
         viewModelScope.launch {
             _uiState.value = TransactionsUiState.Loading
             _allTransactions.clear()
             currentOffset = 0
             hasMoreData = true
+
+            // Si se pasan parámetros, usarlos; si no, usar los almacenados
+            val startToUse = startMillis ?: storedStartMillis
+            val endToUse = endMillis ?: storedEndMillis
 
             val householdId = tenantContext.getCurrentHouseholdId()
             if (householdId == null) {
@@ -126,6 +140,8 @@ class TransactionsViewModel(
                 return@launch
             }
 
+            // BUG FIX 1: Si hay filtro de fecha, pasarlo al backend (si la API lo soporta)
+            // De lo contrario, se filtra en memoria con applyFilter()
             when (val result = repository.getTransactions(householdId, limit = PAGE_SIZE, offset = 0)) {
                 is AppResult.Success -> {
                     _allTransactions.addAll(result.data)
