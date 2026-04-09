@@ -1,6 +1,8 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
+import io.github.jan.supabase.SupabaseClient
+import io.mockk.mockk
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AuthApi
 import com.nexohogar.data.remote.dto.LoginRequest
@@ -20,6 +22,7 @@ class AuthRepositoryImplTest {
 
     private lateinit var authApi: AuthApi
     private lateinit var sessionManager: SessionManager
+    private lateinit var supabaseClient: SupabaseClient
     private lateinit var repository: AuthRepositoryImpl
 
     private val fakeLoginResponse = LoginResponse(
@@ -34,7 +37,8 @@ class AuthRepositoryImplTest {
     fun setUp() {
         authApi = mockk()
         sessionManager = mockk(relaxed = true)
-        repository = AuthRepositoryImpl(authApi, sessionManager)
+        supabaseClient = mockk(relaxed = true)
+        repository = AuthRepositoryImpl(authApi, sessionManager, supabaseClient)
     }
 
     // ── login() ─────────────────────────────────────────────────────────────
