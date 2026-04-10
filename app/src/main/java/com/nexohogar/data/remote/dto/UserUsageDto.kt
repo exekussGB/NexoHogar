@@ -5,7 +5,10 @@ import com.nexohogar.domain.model.UserUsage
 
 data class UserUsageDto(
     @SerializedName("plan_name")        val planName: String  = "free",
+    @SerializedName("plan_display_name")  val planDisplayName: String = "Free",
     @SerializedName("is_premium")       val isPremium: Boolean = false,
+    @SerializedName("price_monthly")      val priceMonthly: Double = 0.0,
+    @SerializedName("current_period_end") val currentPeriodEnd: String? = null,
     @SerializedName("products_used")    val productsUsed: Int  = 0,
     @SerializedName("products_limit")   val productsLimit: Int = 10,
     @SerializedName("inventory_used")   val inventoryUsed: Int  = 0,
@@ -30,6 +33,6 @@ data class UserUsageDto(
         suggestions = UserUsage.LimitUsage(suggestionsUsed, suggestionsLimit),
         recurring   = UserUsage.LimitUsage(recurringUsed,   recurringLimit),
         accounts    = UserUsage.LimitUsage(accountsUsed,    accountsLimit),
-        members     = UserUsage.LimitUsage(membersUsed,     membersLimit),
+        members     = UserUsage.LimitUsage(0, 0),
     )
 }
