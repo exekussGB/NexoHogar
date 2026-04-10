@@ -226,7 +226,7 @@ object ServiceLocator {
 
     // ═══ MEMBRESÍAS ═══ (NUEVO - agregar estas 2 líneas)
     val membershipRepository: MembershipRepository by lazy {
-        MembershipRepositoryImpl(membershipApi)
+        MembershipRepositoryImpl(membershipApi, supabaseClient)
     }
     val membershipViewModel: MembershipViewModel by lazy {
         MembershipViewModel(membershipRepository)
