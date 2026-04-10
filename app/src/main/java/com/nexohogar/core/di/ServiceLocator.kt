@@ -123,7 +123,7 @@ object ServiceLocator {
     private val okHttpClient: OkHttpClient by lazy {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.HEADERS
+                HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -137,7 +137,7 @@ object ServiceLocator {
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(SupabaseConfig.BASE_URL)
+            .baseUrl(SupabaseConfig.REST_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
