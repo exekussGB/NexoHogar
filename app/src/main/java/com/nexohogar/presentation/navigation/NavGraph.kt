@@ -88,6 +88,8 @@ import com.nexohogar.presentation.transactions.TransactionsViewModel
 import com.nexohogar.presentation.tutorial.TutorialListScreen
 import com.nexohogar.presentation.wishlist.WishlistScreen
 import com.nexohogar.presentation.wishlist.WishlistViewModel
+import com.nexohogar.presentation.membership.MembershipScreen
+import com.nexohogar.presentation.membership.MembershipViewModel
 import kotlinx.coroutines.flow.first
 import com.nexohogar.domain.repository.FuturePurchasesRepository
 // ---------------------------------------------------------------------------
@@ -105,6 +107,7 @@ sealed class Screen(val route: String) {
     object InviteMember : Screen("invite_member")
     object RecurringBills : Screen("recurring_bills")
     object Settings : Screen("settings")
+    object Membership : Screen("membership")
     object HouseholdMembers : Screen("household_members")
     object Inventory : Screen("inventory")
     object Budget : Screen("budget")
@@ -881,11 +884,13 @@ fun NavGraph(navController: NavHostController) {
                 WishlistScreen(
                     viewModel = vm,
                     tutorialManager = ServiceLocator.tutorialManager,
+                    // FIX línea 887: agregar membershipViewModel
+                    membershipViewModel = ServiceLocator.membershipViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
-            // ── Inventory ──────────────────────────────────────────────────────
+// ── Inventory ──────────────────────────────────────────────────────
             composable(Screen.Inventory.route) {
                 val vm: InventoryViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
@@ -893,9 +898,7 @@ fun NavGraph(navController: NavHostController) {
                             @Suppress("UNCHECKED_CAST")
                             return InventoryViewModel(
                                 inventoryRepository,
-                                tenantContext,
-                                ServiceLocator.wishlistRepository,
-                                ServiceLocator.futurePurchasesRepository
+                                tenantContext
                             ) as T
                         }
                     }
@@ -903,6 +906,7 @@ fun NavGraph(navController: NavHostController) {
                 InventoryScreen(
                     viewModel = vm,
                     tutorialManager = tutorialManager,
+                    membershipViewModel = ServiceLocator.membershipViewModel,
                     onBack = { navController.popBackStack() },
                     onNavigateToScanner = { navController.navigate("receipt_scanner") }
                 )
@@ -1012,6 +1016,14 @@ fun NavGraph(navController: NavHostController) {
                         }
                     },
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.Membership.route) {
+                MembershipScreen(
+                    viewModel = ServiceLocator.membershipViewModel,
+                    householdId = tenantContext.getCurrentHouseholdId() ?: "",
+                    onUpgradeClick = { /* TODO: Navegar a Flow.cl */ }
                 )
             }
         } // end NavHost

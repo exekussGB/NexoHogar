@@ -31,6 +31,7 @@ import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.data.local.ThemePreferences
 import com.nexohogar.data.local.NotificationPreferences
 import com.nexohogar.core.biometric.BiometricHelper
+import com.nexohogar.presentation.membership.MembershipViewModel
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -158,6 +159,8 @@ object ServiceLocator {
     val futurePurchasesApi: FuturePurchasesApi by lazy { retrofit.create(FuturePurchasesApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
     val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
+    // ═══ MEMBRESÍAS ═══ (NUEVO - agregar estas 3 líneas)
+    val membershipApi: MembershipApi by lazy { retrofit.create(MembershipApi::class.java) }
 
     // ── Repositories ──────────────────────────────────────────────────────────
 
@@ -220,4 +223,13 @@ object ServiceLocator {
     val futurePurchasesRepository: FuturePurchasesRepository by lazy {
         FuturePurchasesRepositoryImpl(futurePurchasesApi)
     }
+
+    // ═══ MEMBRESÍAS ═══ (NUEVO - agregar estas 2 líneas)
+    val membershipRepository: MembershipRepository by lazy {
+        MembershipRepositoryImpl(membershipApi)
+    }
+    val membershipViewModel: MembershipViewModel by lazy {
+        MembershipViewModel(membershipRepository)
+    }
+
 }
