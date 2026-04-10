@@ -26,6 +26,7 @@ import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.domain.model.WishlistItem
 import com.nexohogar.presentation.tutorial.TutorialOverlay
 import com.nexohogar.presentation.tutorial.TutorialStep
+import com.nexohogar.presentation.membership.MembershipViewModel
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -33,6 +34,7 @@ import java.util.Locale
 @Composable
 fun WishlistScreen(
     viewModel: WishlistViewModel,
+    membershipViewModel: MembershipViewModel,
     tutorialManager: TutorialManager,
     onNavigateBack: () -> Unit
 ) {

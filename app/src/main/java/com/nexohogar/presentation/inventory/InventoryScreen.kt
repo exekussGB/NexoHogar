@@ -30,6 +30,7 @@ import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
 import com.nexohogar.domain.model.PurchaseSuggestion
 import com.nexohogar.domain.model.FuturePurchase
+import com.nexohogar.presentation.membership.MembershipViewModel
 import androidx.compose.ui.platform.testTag
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
@@ -140,12 +141,14 @@ private fun generateShoppingListText(
 @Composable
 fun InventoryScreen(
     viewModel: InventoryViewModel,
+    membershipViewModel: MembershipViewModel,
     tutorialManager: TutorialManager,
     onBack: () -> Unit,
     onNavigateToScanner: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var productForAction by remember { mutableStateOf<Product?>(null) }
+    var showPremiumGate by remember { mutableStateOf(false) }
 
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.INVENTORY))

@@ -216,7 +216,7 @@ private fun MetricItem(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal,
             color = if (highlight) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface
         )
     }
 }

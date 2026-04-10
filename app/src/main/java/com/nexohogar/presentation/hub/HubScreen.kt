@@ -50,6 +50,7 @@ fun HubScreen(
     onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
     onNavigateToWishlist      : () -> Unit,
+    onNavigateToMembership    : () -> Unit = {}, // ═══ NUEVO ═══
     overdueCount              : Int = 0,
     budgetAlertCount          : Int = 0,
     lowStockCount             : Int = 0,
@@ -125,6 +126,14 @@ fun HubScreen(
             backgroundColor = Color(0xFFE0F7FA),
             iconColor       = Color(0xFF00695C),
             onClick         = onNavigateToInviteMember
+        ),
+        HubAction(
+            title           = "Mi Plan",
+            subtitle        = "Membresía y límites",
+            icon            = Icons.Default.WorkspacePremium,
+            backgroundColor = Color(0xFFFFE0B2),
+            iconColor       = Color(0xFFFF8F00),
+            onClick         = onNavigateToMembership
         ),
         HubAction(
             title           = "Opciones",
