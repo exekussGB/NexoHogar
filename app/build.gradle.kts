@@ -33,7 +33,6 @@ android {
             useSupportLibrary = true
         }
 
-        // SEC-01: Inyectar valores desde local.properties via BuildConfig
         buildConfigField(
             "String",
             "SUPABASE_KEY",
@@ -42,7 +41,13 @@ android {
         buildConfigField(
             "String",
             "SUPABASE_URL",
-            "\"${localProperties.getProperty("SUPABASE_URL", "https://REMOVED.supabase.co/")}\""
+            "\"${localProperties.getProperty("SUPABASE_URL", "https://REMOVED.supabase.co")}\""
+        )
+        // ── URL específica para Retrofit (REST API) ──────────────────────────
+        buildConfigField(
+            "String",
+            "SUPABASE_REST_URL",
+            "\"${localProperties.getProperty("SUPABASE_URL", "https://REMOVED.supabase.co")}/rest/v1/\""
         )
     }
 

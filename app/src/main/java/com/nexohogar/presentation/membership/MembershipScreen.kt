@@ -43,6 +43,7 @@ fun MembershipScreen(
     val error = viewModel.error.collectAsState()
 
     LaunchedEffect(householdId) {
+        android.util.Log.d("MembershipScreen", "LaunchedEffect fired, householdId='$householdId'")
         viewModel.loadUsage(householdId)
     }
 

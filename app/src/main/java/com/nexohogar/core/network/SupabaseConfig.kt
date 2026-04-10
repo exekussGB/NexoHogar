@@ -7,6 +7,7 @@ import com.nexohogar.BuildConfig
  * SEC-01: API Key se inyecta desde local.properties via BuildConfig.
  */
 object SupabaseConfig {
-    val BASE_URL: String = BuildConfig.SUPABASE_URL
-    val API_KEY: String = BuildConfig.SUPABASE_KEY
+    val BASE_URL: String  = BuildConfig.SUPABASE_URL
+    val API_KEY: String   = BuildConfig.SUPABASE_KEY
+    val REST_URL: String  = BuildConfig.SUPABASE_REST_URL
 }

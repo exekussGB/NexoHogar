@@ -1021,9 +1021,11 @@ fun NavGraph(navController: NavHostController) {
             }
 
             composable(Screen.Membership.route) {
+                val hId = tenantContext.getCurrentHouseholdId() ?: ""
+                android.util.Log.d("MembershipNav", "householdId='$hId'")
                 MembershipScreen(
                     viewModel = ServiceLocator.membershipViewModel,
-                    householdId = tenantContext.getCurrentHouseholdId() ?: "",
+                    householdId = hId,
                     onUpgradeClick = { /* TODO: Navegar a Flow.cl */ }
                 )
             }
