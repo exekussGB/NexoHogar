@@ -689,6 +689,7 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToInventory = { navController.navigate(Screen.Inventory.route) },
                     onNavigateToWishlist = { navController.navigate(Screen.Wishlist.route) },
                     onNavigateToOptions = { navController.navigate(Screen.Settings.route) },
+                    onNavigateToMembership = { navController.navigate(Screen.Membership.route) },
                     overdueCount = hubAlerts.overdueCount,
                     budgetAlertCount = hubAlerts.budgetAlertCount,
                     lowStockCount = hubAlerts.lowStockCount,
