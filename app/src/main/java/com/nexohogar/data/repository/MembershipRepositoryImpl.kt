@@ -35,11 +35,14 @@ class MembershipRepositoryImpl(
         }
     }
 
-    override suspend fun isPremium(): AppResult<Boolean> {
+    override suspend fun isPremium(householdId: String): AppResult<Boolean> {
         return try {
-            val result = membershipApi.isPremium(IsPremiumRequest(p_household_id = ""))
+            val result = membershipApi.isPremium(
+                IsPremiumRequest(p_household_id = householdId)
+            )
             AppResult.Success(result)
         } catch (e: Exception) {
+            android.util.Log.e("MembershipRepo", "Error en isPremium: ${e.message}")
             AppResult.Error(e.message ?: "Error al verificar premium", e)
         }
     }
