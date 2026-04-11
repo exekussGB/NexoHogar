@@ -32,6 +32,7 @@ import com.nexohogar.data.local.ThemePreferences
 import com.nexohogar.data.local.NotificationPreferences
 import com.nexohogar.core.biometric.BiometricHelper
 import com.nexohogar.presentation.membership.MembershipViewModel
+import com.nexohogar.presentation.premium.PremiumLimitsViewModel
 
 @SuppressLint("StaticFieldLeak")
 object ServiceLocator {
@@ -137,7 +138,7 @@ object ServiceLocator {
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(SupabaseConfig.REST_URL)
+            .baseUrl(SupabaseConfig.BASE_URL + "/rest/v1/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -159,8 +160,8 @@ object ServiceLocator {
     val futurePurchasesApi: FuturePurchasesApi by lazy { retrofit.create(FuturePurchasesApi::class.java) }
     val categoryExpensesApi: CategoryExpensesApi by lazy { retrofit.create(CategoryExpensesApi::class.java) }
     val personalDashboardApi: PersonalDashboardApi by lazy { retrofit.create(PersonalDashboardApi::class.java) }
-    // ═══ MEMBRESÍAS ═══ (NUEVO - agregar estas 3 líneas)
     val membershipApi: MembershipApi by lazy { retrofit.create(MembershipApi::class.java) }
+    val subscriptionsApi: SubscriptionsApi by lazy { retrofit.create(SubscriptionsApi::class.java) }
 
     // ── Repositories ──────────────────────────────────────────────────────────
 
@@ -224,12 +225,21 @@ object ServiceLocator {
         FuturePurchasesRepositoryImpl(futurePurchasesApi)
     }
 
-    // ═══ MEMBRESÍAS ═══ (NUEVO - agregar estas 2 líneas)
     val membershipRepository: MembershipRepository by lazy {
         MembershipRepositoryImpl(membershipApi, supabaseClient)
     }
+
+    val subscriptionsRepository: SubscriptionsRepository by lazy {
+        SubscriptionsRepositoryImpl(subscriptionsApi)
+    }
+
+    // ── ViewModels ────────────────────────────────────────────────────────────
+
     val membershipViewModel: MembershipViewModel by lazy {
         MembershipViewModel(membershipRepository)
     }
 
+    val premiumLimitsViewModel: PremiumLimitsViewModel by lazy {
+        PremiumLimitsViewModel(subscriptionsRepository)
+    }
 }

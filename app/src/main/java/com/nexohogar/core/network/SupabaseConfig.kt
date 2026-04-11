@@ -9,5 +9,4 @@ import com.nexohogar.BuildConfig
 object SupabaseConfig {
     val BASE_URL: String  = BuildConfig.SUPABASE_URL
     val API_KEY: String   = BuildConfig.SUPABASE_KEY
-    val REST_URL: String  = BuildConfig.SUPABASE_REST_URL
 }

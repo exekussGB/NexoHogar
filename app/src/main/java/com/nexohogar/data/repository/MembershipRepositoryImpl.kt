@@ -19,15 +19,21 @@ class MembershipRepositoryImpl(
             val userId = supabaseClient.auth.currentUserOrNull()?.id
                 ?: return AppResult.Error("Usuario no autenticado")
 
-            // LOG temporal para depuración
             android.util.Log.d("MembershipRepo", "userId=$userId householdId=$householdId")
 
-            val dto = membershipApi.getUserUsage(
+
+            val dtoList = membershipApi.getUserUsage(
                 GetUserUsageRequest(
                     p_user_id      = userId,
                     p_household_id = householdId
                 )
             )
+
+            val dto = dtoList.firstOrNull() ?: run {
+                android.util.Log.w("MembershipRepo", "RPC retornó array vacío para householdId=$householdId")
+                return@run com.nexohogar.data.remote.dto.UserUsageDto()
+            }
+
             AppResult.Success(dto.toDomain())
         } catch (e: Exception) {
             android.util.Log.e("MembershipRepo", "Error: ${e.message}")
@@ -37,12 +43,15 @@ class MembershipRepositoryImpl(
 
     override suspend fun isPremium(householdId: String): AppResult<Boolean> {
         return try {
-            val result = membershipApi.isPremium(
-                IsPremiumRequest(p_household_id = householdId)
-            )
+            if (householdId.isBlank()) {
+                android.util.Log.w("MembershipRepo", "isPremium() llamado con householdId vacío")
+                return AppResult.Error("householdId es requerido")
+            }
+
+            val result = membershipApi.isPremium(IsPremiumRequest(p_household_id = householdId))
             AppResult.Success(result)
         } catch (e: Exception) {
-            android.util.Log.e("MembershipRepo", "Error en isPremium: ${e.message}")
+            android.util.Log.e("MembershipRepo", "Error al verificar premium: ${e.message}")
             AppResult.Error(e.message ?: "Error al verificar premium", e)
         }
     }

@@ -265,7 +265,7 @@ private fun UsageProgressCard(
                     )
                 }
                 Text(
-                    text = "${usage.used}/${usage.limit}",
+                    text = "${usage.used}/${usage.displayLimit}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1976D2)

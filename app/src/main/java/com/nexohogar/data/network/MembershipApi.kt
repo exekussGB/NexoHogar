@@ -14,9 +14,10 @@ data class IsPremiumRequest(val p_household_id: String)
 
 // ─── API interface ─────────────────────────────────────────────────────────────
 interface MembershipApi {
+
     @POST("rpc/get_user_usage")
     @Headers("Content-Type: application/json")
-    suspend fun getUserUsage(@Body body: GetUserUsageRequest): UserUsageDto
+    suspend fun getUserUsage(@Body body: GetUserUsageRequest): List<UserUsageDto>
 
     @POST("rpc/is_premium")
     @Headers("Content-Type: application/json")
