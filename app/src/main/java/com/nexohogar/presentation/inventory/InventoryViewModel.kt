@@ -112,7 +112,38 @@ data class MovementsUiState(
     val isLoading: Boolean = false,
     val error: String? = null
 )
+// ─── Validación de inputs ───────────────────────────────────────────────────
+private object InputValidator {
+    private val SAFE_TEXT = Regex("^[\\p{L}\\p{N}\\s\\-_.,()áéíóúÁÉÍÓÚñÑüÜ]+$")
 
+    fun sanitizeText(input: String): String = input.trim()
+
+    fun validateName(name: String): String? {
+        if (name.isBlank()) return "El nombre es obligatorio"
+        if (name.length > 100) return "El nombre no puede superar 100 caracteres"
+        if (!SAFE_TEXT.matches(name)) return "El nombre contiene caracteres no permitidos"
+        return null
+    }
+
+    fun validateOptionalText(value: String, fieldName: String, maxLength: Int = 100): String? {
+        if (value.isBlank()) return null
+        if (value.length > maxLength) return "$fieldName no puede superar $maxLength caracteres"
+        if (!SAFE_TEXT.matches(value)) return "$fieldName contiene caracteres no permitidos"
+        return null
+    }
+
+    fun validateQuantity(qty: Double): String? {
+        if (qty <= 0) return "La cantidad debe ser mayor a 0"
+        if (qty > 99999) return "La cantidad es demasiado grande"
+        return null
+    }
+
+    fun validatePrice(price: Double): String? {
+        if (price < 0) return "El precio no puede ser negativo"
+        if (price > 999_999_999) return "El precio es demasiado grande"
+        return null
+    }
+}
 class InventoryViewModel(
     private val repository: InventoryRepository,
     private val tenantContext: TenantContext,
@@ -384,25 +415,41 @@ class InventoryViewModel(
 
     fun submitEditProduct() {
         val form = _editProductForm.value
-        if (form.name.isBlank()) {
-            _editProductForm.update { it.copy(error = "El nombre es obligatorio") }
+        val productId = _currentEditingProductId
+
+        // Validar inputs
+        val nameError = InputValidator.validateName(form.name)
+        if (productId == null || nameError != null) {
+            _editProductForm.value = form.copy(error = nameError ?: "Error interno")
             return
         }
+        val brandError = InputValidator.validateOptionalText(form.brand, "La marca")
+        if (brandError != null) {
+            _editProductForm.value = form.copy(error = brandError)
+            return
+        }
+
         viewModelScope.launch {
-            _editProductForm.update { it.copy(isSubmitting = true, error = null) }
+            _editProductForm.value = form.copy(isSubmitting = true, error = null)
             try {
                 repository.updateProduct(
-                    productId = form.productId,
-                    name = form.name.trim(),
-                    unit = form.unit,
-                    brand = form.brand.takeIf { it.isNotBlank() },
-                    category = form.category.takeIf { it.isNotBlank() },
-                    minStock = form.minStock.toIntOrNull()
+                    productId = productId,
+                    name      = InputValidator.sanitizeText(form.name),
+                    unit      = form.unit,
+                    brand     = form.brand.takeIf { it.isNotBlank() }
+                        ?.let { InputValidator.sanitizeText(it) },
+                    category  = form.category.takeIf { it.isNotBlank() },
+                    minStock  = form.minStock.toDoubleOrNull()?.toInt()
                 ).getOrThrow()
-                _editProductForm.update { it.copy(isSubmitting = false, success = true) }
+
+                _editProductForm.value = EditProductFormState()
+                _currentEditingProductId = null
                 loadData()
             } catch (e: Exception) {
-                _editProductForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al editar") }
+                _editProductForm.value = _editProductForm.value.copy(
+                    isSubmitting = false,
+                    error = e.message ?: "Error al actualizar producto"
+                )
             }
         }
     }
@@ -457,38 +504,79 @@ class InventoryViewModel(
 
     fun submitProduct() {
         val form = _productForm.value
-        if (form.name.isBlank()) { _productForm.update { it.copy(error = "El nombre es obligatorio") }; return }
-        val initialQty = form.initialQuantity.toDoubleOrNull()
-        if (form.initialQuantity.isNotBlank() && initialQty == null) {
-            _productForm.update { it.copy(error = "La cantidad inicial debe ser un número válido") }; return
+
+        // Validar y sanitizar inputs antes de enviar al API
+        val nameError = InputValidator.validateName(form.name)
+        if (nameError != null) {
+            _productForm.value = form.copy(error = nameError)
+            return
         }
+        val brandError = InputValidator.validateOptionalText(form.brand, "La marca")
+        if (brandError != null) {
+            _productForm.value = form.copy(error = brandError)
+            return
+        }
+        val storeError = InputValidator.validateOptionalText(form.store, "La tienda")
+        if (storeError != null) {
+            _productForm.value = form.copy(error = storeError)
+            return
+        }
+        val initialQty = form.initialQuantity.toDoubleOrNull()
+        if (form.initialQuantity.isNotBlank()) {
+            if (initialQty == null) {
+                _productForm.value = form.copy(error = "La cantidad inicial debe ser un número válido")
+                return
+            }
+            val qtyError = InputValidator.validateQuantity(initialQty)
+            if (qtyError != null) {
+                _productForm.value = form.copy(error = qtyError)
+                return
+            }
+        }
+        val pricePerUnit = form.pricePerUnit.toDoubleOrNull()
+        if (pricePerUnit != null) {
+            val priceError = InputValidator.validatePrice(pricePerUnit)
+            if (priceError != null) {
+                _productForm.value = form.copy(error = priceError)
+                return
+            }
+        }
+
         viewModelScope.launch {
-            _productForm.update { it.copy(isSubmitting = true, error = null) }
+            _productForm.value = form.copy(isSubmitting = true, error = null)
             try {
                 val product = repository.createProduct(
                     householdId = householdId,
-                    name = form.name.trim(),
-                    unit = form.unit,
-                    brand = form.brand.takeIf { it.isNotBlank() },
-                    category = form.category.takeIf { it.isNotBlank() },
-                    minStock = form.minStock.toIntOrNull()
+                    name        = InputValidator.sanitizeText(form.name),
+                    unit        = form.unit,
+                    brand       = form.brand.takeIf { it.isNotBlank() }
+                        ?.let { InputValidator.sanitizeText(it) },
+                    category    = form.category.takeIf { it.isNotBlank() }
                 ).getOrThrow()
+
                 if (initialQty != null && initialQty > 0) {
                     repository.addPurchase(
-                        householdId = householdId,
-                        itemId = product.id,
-                        quantity = initialQty,
+                        householdId  = householdId,
+                        itemId       = product.id,
+                        quantity     = initialQty,
                         movementDate = LocalDate.now().toString(),
-                        pricePerUnit = if (form.registerAsPurchase) form.pricePerUnit.toDoubleOrNull() else null,
-                        priceTotal = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
-                        brand = form.brand.takeIf { it.isNotBlank() },
-                        store = if (form.registerAsPurchase) form.store.takeIf { it.isNotBlank() } else null
+                        pricePerUnit = if (form.registerAsPurchase) pricePerUnit else null,
+                        priceTotal   = if (form.registerAsPurchase) form.priceTotal.toDoubleOrNull() else null,
+                        brand        = form.brand.takeIf { it.isNotBlank() }
+                            ?.let { InputValidator.sanitizeText(it) },
+                        store        = if (form.registerAsPurchase)
+                            form.store.takeIf { it.isNotBlank() }
+                                ?.let { InputValidator.sanitizeText(it) }
+                        else null
                     ).getOrThrow()
                 }
                 _productForm.value = ProductFormState(success = true)
                 loadData()
             } catch (e: Exception) {
-                _productForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al crear producto") }
+                _productForm.value = _productForm.value.copy(
+                    isSubmitting = false,
+                    error = e.message ?: "Error al crear producto"
+                )
             }
         }
     }
@@ -574,32 +662,36 @@ class InventoryViewModel(
     fun submitMovement() {
         val form = _movementForm.value
         val product = form.selectedProduct
-        if (product == null) { _movementForm.update { it.copy(error = "Selecciona un producto") }; return }
+        if (product == null) {
+            _movementForm.value = form.copy(error = "Selecciona un producto")
+            return
+        }
         val qty = form.quantity.toDoubleOrNull()
-        if (qty == null || qty <= 0) { _movementForm.update { it.copy(error = "Cantidad inválida") }; return }
-        viewModelScope.launch {
-            _movementForm.update { it.copy(isSubmitting = true, error = null) }
-            try {
-                if (form.movementType == "in") {
-                    repository.addPurchase(
-                        householdId = householdId, itemId = product.id, quantity = qty,
-                        movementDate = form.movementDate,
-                        pricePerUnit = form.pricePerUnit.toDoubleOrNull(),
-                        priceTotal = form.priceTotal.toDoubleOrNull(),
-                        brand = form.brand.takeIf { it.isNotBlank() },
-                        store = form.store.takeIf { it.isNotBlank() }
-                    ).getOrThrow()
-                } else {
-                    repository.addConsumption(
-                        householdId = householdId, itemId = product.id,
-                        quantity = qty, movementDate = form.movementDate
-                    ).getOrThrow()
-                }
-                _movementForm.value = MovementFormState(success = true)
-                loadData()
-            } catch (e: Exception) {
-                _movementForm.update { it.copy(isSubmitting = false, error = e.message ?: "Error al registrar") }
+        if (qty == null || qty <= 0) {
+            _movementForm.value = form.copy(error = "Cantidad inválida")
+            return
+        }
+        // Validar cantidad y precios
+        InputValidator.validateQuantity(qty)?.let {
+            _movementForm.value = form.copy(error = it)
+            return
+        }
+        val pricePerUnit = form.pricePerUnit.toDoubleOrNull()
+        pricePerUnit?.let {
+            InputValidator.validatePrice(it)?.let { err ->
+                _movementForm.value = form.copy(error = err)
+                return
             }
+        }
+        val brandError = InputValidator.validateOptionalText(form.brand, "La marca")
+        if (brandError != null) {
+            _movementForm.value = form.copy(error = brandError)
+            return
+        }
+        val storeError = InputValidator.validateOptionalText(form.store, "La tienda")
+        if (storeError != null) {
+            _movementForm.value = form.copy(error = storeError)
+            return
         }
     }
 
