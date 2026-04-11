@@ -3,6 +3,7 @@ package com.nexohogar.domain.model
 data class UserUsage(
     val isPremium: Boolean,
     val planName: String,
+    val periodEnd: String?,
     val products: LimitUsage,
     val inventory: LimitUsage,
     val wishlist: LimitUsage,

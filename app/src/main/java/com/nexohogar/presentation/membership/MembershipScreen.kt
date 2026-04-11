@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexohogar.domain.model.UserUsage
-
+import androidx.compose.runtime.remember
 @Composable
 fun MembershipScreen(
     viewModel: MembershipViewModel,
@@ -86,12 +86,18 @@ fun MembershipScreen(
 
         // Content
         usage.value?.let { userUsage ->
-            // Plan badge
+            // Plan Display
             item {
                 PlanBadge(isPremium = userUsage.isPremium, planName = userUsage.planName)
+
+                // ← agregar esto
+                if (userUsage.isPremium && userUsage.periodEnd != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PeriodEndBadge(periodEnd = userUsage.periodEnd)
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
-
             // Usage cards
             item {
                 UsageProgressCard(
@@ -225,7 +231,69 @@ private fun PlanBadge(isPremium: Boolean, planName: String) {
         }
     }
 }
+@Composable
+private fun PeriodEndBadge(periodEnd: String) {
+    // Convierte "2027-04-10T02:02:33.761597+00:00" → "10/04/2027"
+    val formattedDate = remember(periodEnd) {
+        try {
+            val date = periodEnd.take(10) // "2027-04-10"
+            val parts = date.split("-")
+            "${parts[2]}/${parts[1]}/${parts[0]}"
+        } catch (e: Exception) {
+            periodEnd.take(10)
+        }
+    }
 
+    // Calcula días restantes
+    val daysLeft = remember(periodEnd) {
+        try {
+            val expiryDate = java.time.LocalDate.parse(periodEnd.take(10))
+            val today = java.time.LocalDate.now(java.time.ZoneId.of("America/Santiago"))
+            java.time.temporal.ChronoUnit.DAYS.between(today, expiryDate)
+        } catch (e: Exception) { 0L }
+    }
+
+    val containerColor = when {
+        daysLeft <= 7  -> Color(0xFFFFEBEE)  // rojo suave — urgente
+        daysLeft <= 30 -> Color(0xFFFFF8E1)  // amarillo — pronto
+        else           -> Color(0xFFE8F5E9)  // verde — tranquilo
+    }
+    val textColor = when {
+        daysLeft <= 7  -> Color(0xFFC62828)
+        daysLeft <= 30 -> Color(0xFFF57F17)
+        else           -> Color(0xFF2E7D32)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(containerColor, RoundedCornerShape(8.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Vence el $formattedDate",
+                fontSize = 13.sp,
+                color = textColor,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = when {
+                    daysLeft <= 0  -> "Expirado"
+                    daysLeft == 1L -> "Mañana"
+                    else           -> "en $daysLeft días"
+                },
+                fontSize = 12.sp,
+                color = textColor,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
 @Composable
 private fun UsageProgressCard(
     title: String,
