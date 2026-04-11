@@ -1023,12 +1023,19 @@ fun NavGraph(navController: NavHostController) {
             }
 
             composable(Screen.Membership.route) {
+                val context = LocalContext.current
                 val hId = tenantContext.getCurrentHouseholdId() ?: ""
                 android.util.Log.d("MembershipNav", "householdId='$hId'")
                 MembershipScreen(
                     viewModel = ServiceLocator.membershipViewModel,
                     householdId = hId,
-                    onUpgradeClick = { /* TODO: Navegar a Flow.cl */ }
+                    onUpgradeClick = {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://www.flow.cl")
+                        )
+                        context.startActivity(intent)
+                    }
                 )
             }
             composable("premium_limits") {
