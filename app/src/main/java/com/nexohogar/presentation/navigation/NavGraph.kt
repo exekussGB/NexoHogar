@@ -92,6 +92,8 @@ import com.nexohogar.presentation.membership.MembershipScreen
 import com.nexohogar.presentation.membership.MembershipViewModel
 import kotlinx.coroutines.flow.first
 import com.nexohogar.domain.repository.FuturePurchasesRepository
+import com.nexohogar.presentation.premium.PremiumLimitsScreen
+import com.nexohogar.presentation.premium.PremiumLimitsViewModel
 // ---------------------------------------------------------------------------
 // Rutas de la app
 // ---------------------------------------------------------------------------
@@ -1029,6 +1031,12 @@ fun NavGraph(navController: NavHostController) {
                     onUpgradeClick = { /* TODO: Navegar a Flow.cl */ }
                 )
             }
-        } // end NavHost
+            composable("premium_limits") {
+                PremiumLimitsScreen(
+                    viewModel = ServiceLocator.premiumLimitsViewModel
+                )
+            }
+        }
+    // end NavHost
     } // end Scaffold
 }

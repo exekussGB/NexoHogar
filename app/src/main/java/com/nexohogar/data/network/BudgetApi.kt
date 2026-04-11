@@ -11,38 +11,30 @@ import retrofit2.http.Query
 
 interface BudgetApi {
 
-    /**
-     * Llama a rpc_get_budget_consumption para obtener presupuesto con consumo.
-     * Params: p_household_id, p_year, p_month
-     */
-    @POST("rest/v1/rpc/rpc_get_budget_consumption")
+    @POST("rpc/rpc_get_budget_consumption")
     suspend fun getBudgetConsumption(
         @Body body: HashMap<String, Any>
     ): Response<List<BudgetConsumptionDto>>
 
-    /** Crea un presupuesto en la tabla budgets. */
     @Headers("Prefer: return=minimal")
-    @POST("rest/v1/budgets")
+    @POST("budgets")
     suspend fun createBudget(
         @Body body: HashMap<String, Any>
     ): Response<Unit>
 
-    /** Actualiza el monto de un presupuesto. */
     @Headers("Prefer: return=minimal")
-    @PATCH("rest/v1/budgets")
+    @PATCH("budgets")
     suspend fun updateBudget(
         @Query("id") id: String,
         @Body body: HashMap<String, Any>
     ): Response<Unit>
 
-    /** Elimina un presupuesto por ID. */
-    @DELETE("rest/v1/budgets")
+    @DELETE("budgets")
     suspend fun deleteBudget(
         @Query("id") id: String
     ): Response<Unit>
 
-    /** Crea un presupuesto vía RPC (resuelve categoryName → categoryId). */
-    @POST("rest/v1/rpc/rpc_create_budget")
+    @POST("rpc/rpc_create_budget")
     suspend fun createBudgetRpc(
         @Body body: HashMap<String, Any>
     ): Response<Unit>

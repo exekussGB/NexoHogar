@@ -43,12 +43,6 @@ android {
             "SUPABASE_URL",
             "\"${localProperties.getProperty("SUPABASE_URL", "https://fpsdkpurugviwygfuljp.supabase.co")}\""
         )
-        // ── URL específica para Retrofit (REST API) ──────────────────────────
-        buildConfigField(
-            "String",
-            "SUPABASE_REST_URL",
-            "\"${localProperties.getProperty("SUPABASE_URL", "https://fpsdkpurugviwygfuljp.supabase.co")}/rest/v1/\""
-        )
     }
 
     buildTypes {

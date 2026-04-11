@@ -8,27 +8,27 @@ import retrofit2.http.*
 
 interface FuturePurchasesApi {
 
-    @GET("rest/v1/future_purchases")
+    @GET("future_purchases")
     suspend fun getFuturePurchases(
         @Query("household_id") householdIdFilter: String,
         @Query("select")       select: String = "*",
         @Query("order")        order: String = "priority.asc,created_at.desc"
     ): Response<List<FuturePurchaseDto>>
 
-    @POST("rest/v1/future_purchases")
+    @POST("future_purchases")
     suspend fun createFuturePurchase(
         @Header("Prefer") prefer: String = "return=representation",
         @Body request: CreateFuturePurchaseRequest
     ): Response<List<FuturePurchaseDto>>
 
-    @PATCH("rest/v1/future_purchases")
+    @PATCH("future_purchases")
     suspend fun updateFuturePurchase(
         @Query("id")      idFilter: String,
         @Header("Prefer") prefer: String = "return=representation",
         @Body request: UpdateFuturePurchaseRequest
     ): Response<List<FuturePurchaseDto>>
 
-    @DELETE("rest/v1/future_purchases")
+    @DELETE("future_purchases")
     suspend fun deleteFuturePurchase(
         @Query("id") idFilter: String
     ): Response<Unit>

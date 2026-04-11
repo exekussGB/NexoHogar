@@ -15,63 +15,61 @@ import retrofit2.http.*
 
 interface RecurringBillsApi {
 
-    @GET("rest/v1/recurring_bills")
+    @GET("recurring_bills")
     suspend fun getRecurringBills(
         @Query("household_id") householdIdFilter: String,
         @Query("select")       select: String = "*",
         @Query("order")        order: String = "due_day.asc"
     ): Response<List<RecurringBillDto>>
 
-    @POST("rest/v1/recurring_bills")
+    @POST("recurring_bills")
     suspend fun createRecurringBill(
         @Header("Prefer") prefer: String = "return=representation",
         @Body request: CreateRecurringBillRequest
     ): Response<List<RecurringBillDto>>
 
-    @PATCH("rest/v1/recurring_bills")
+    @PATCH("recurring_bills")
     suspend fun updateRecurringBill(
         @Query("id")       idFilter: String,
         @Header("Prefer")  prefer: String = "return=representation",
         @Body request: UpdateRecurringBillRequest
     ): Response<List<RecurringBillDto>>
 
-    @PATCH("rest/v1/recurring_bills")
+    @PATCH("recurring_bills")
     suspend fun markAsPaid(
         @Query("id")       idFilter: String,
         @Header("Prefer")  prefer: String = "return=representation",
         @Body request: UpdateLastPaidRequest
     ): Response<List<RecurringBillDto>>
 
-    @PATCH("rest/v1/recurring_bills")
+    @PATCH("recurring_bills")
     suspend fun toggleActive(
         @Query("id")       idFilter: String,
         @Header("Prefer")  prefer: String = "return=representation",
         @Body request: ToggleActiveRequest
     ): Response<List<RecurringBillDto>>
 
-    @DELETE("rest/v1/recurring_bills")
+    @DELETE("recurring_bills")
     suspend fun deleteRecurringBill(
         @Query("id") idFilter: String
     ): Response<Unit>
 
-    // ── Endpoints RPC con integración contable ──────────────────────────
-
-    @POST("rest/v1/rpc/rpc_pay_recurring_bill")
+    @POST("rpc/rpc_pay_recurring_bill")
     suspend fun payRecurringBill(
         @Body request: PayRecurringBillRequest
     ): Response<JsonObject>
 
-    @POST("rest/v1/rpc/rpc_recurring_summary")
+    @POST("rpc/rpc_recurring_summary")
     suspend fun getRecurringSummary(
         @Body request: Map<String, String>
     ): Response<RecurringSummaryDto>
 
-    @POST("rest/v1/rpc/rpc_recurring_bills_with_status")
+    @POST("rpc/rpc_recurring_bills_with_status")
     suspend fun getRecurringBillsWithStatus(
         @Body request: Map<String, String>
     ): Response<List<RecurringBillWithStatusDto>>
 
-    @POST("rest/v1/rpc/rpc_recurring_bill_history")
+    @POST("rpc/rpc_recurring_bill_history")
     suspend fun getRecurringBillHistory(
         @Body request: Map<String, String>
     ): Response<List<RecurringBillPaymentDto>>

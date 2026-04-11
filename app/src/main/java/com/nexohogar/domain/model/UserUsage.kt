@@ -11,14 +11,10 @@ data class UserUsage(
     val accounts: LimitUsage,
     val members: LimitUsage
 ) {
-    data class LimitUsage(
-        val used: Int,
-        val limit: Int
-    ) {
-        val isAtLimit: Boolean
-            get() = limit > 0 && used >= limit
-
-        val percentage: Float
-            get() = if (limit > 0) used.toFloat() / limit else 0f
+    data class LimitUsage(val used: Int, val limit: Int) {
+        val isUnlimited: Boolean get() = limit == Int.MAX_VALUE
+        val isAtLimit: Boolean get() = !isUnlimited && used >= limit
+        val percentage: Float get() = if (isUnlimited || limit == 0) 0f else used.toFloat() / limit
+        val displayLimit: String get() = if (isUnlimited) "∞" else limit.toString()
     }
 }

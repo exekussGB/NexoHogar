@@ -12,59 +12,56 @@ import retrofit2.http.*
 
 interface InventoryApi {
 
-    // ---------- inventory_items ----------
-    @GET("rest/v1/inventory_items")
+    @GET("inventory_items")
     suspend fun getProducts(
         @Query("household_id") householdId: String,
         @Query("order") order: String = "name.asc"
     ): Response<List<ProductDto>>
 
-    @POST("rest/v1/inventory_items")
+    @POST("inventory_items")
     @Headers("Prefer: return=representation")
     suspend fun createProduct(
         @Body request: CreateProductRequest
     ): Response<List<ProductDto>>
 
-    @PATCH("rest/v1/inventory_items")
+    @PATCH("inventory_items")
     @Headers("Prefer: return=representation")
     suspend fun updateProduct(
         @Query("id") id: String,
         @Body request: Map<String, @JvmSuppressWildcards Any?>
     ): Response<List<ProductDto>>
 
-    // ---------- inventory_movements ----------
-    @GET("rest/v1/inventory_movements")
+    @GET("inventory_movements")
     suspend fun getMovements(
         @Query("household_id") householdId: String,
         @Query("item_id") itemId: String? = null,
         @Query("order") order: String = "movement_date.desc"
     ): Response<List<InventoryMovementDto>>
 
-    @POST("rest/v1/inventory_movements")
+    @POST("inventory_movements")
     @Headers("Prefer: return=representation")
     suspend fun addMovement(
         @Body request: CreateInventoryMovementRequest
     ): Response<List<InventoryMovementDto>>
 
-    // ---------- inventory_categories ----------
-    @GET("rest/v1/inventory_categories")
+    @GET("inventory_categories")
     suspend fun getCategories(
         @Query("household_id") householdId: String,
         @Query("order") order: String = "sort_order.asc,name.asc"
     ): Response<List<InventoryCategoryDto>>
 
-    @POST("rest/v1/inventory_categories")
+    @POST("inventory_categories")
     @Headers("Prefer: return=representation")
     suspend fun createCategory(
         @Body request: CreateInventoryCategoryRequest
     ): Response<List<InventoryCategoryDto>>
 
-    @DELETE("rest/v1/inventory_categories")
+    @DELETE("inventory_categories")
     suspend fun deleteCategory(
         @Query("id") id: String
     ): Response<Unit>
 
-    @POST("rest/v1/rpc/rpc_import_receipt")
+    @POST("rpc/rpc_import_receipt")
     suspend fun importReceipt(
         @Body request: ImportReceiptRequest
     ): Response<Map<String, Any>>

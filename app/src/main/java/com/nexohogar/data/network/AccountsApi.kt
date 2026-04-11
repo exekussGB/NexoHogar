@@ -14,60 +14,41 @@ import retrofit2.http.PATCH
 import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
 import com.nexohogar.data.remote.dto.UpdateAccountRequest
 import retrofit2.Response
+
 interface AccountsApi {
 
-
-    /**
-     * Consulta la VISTA account_balances para obtener saldos reales.
-     * La vista incluye is_shared, owner_user_id e icon desde la tabla accounts.
-     * householdId debe pasarse con prefijo "eq." → "eq.{uuid}"
-     */
-    @GET("rest/v1/account_balances")
+    @GET("account_balances")
     suspend fun getBalances(
         @Query("household_id") householdId: String,
         @Query("select")       select: String = "account_id,name,account_type,balance_clp,is_shared,owner_user_id,is_savings,icon",
         @Query("order")        order: String  = "name.asc"
     ): List<AccountBalanceViewDto>
 
-    /**
-     * Obtiene cuentas del hogar (sin balance calculado, solo metadata).
-     */
-    @GET("rest/v1/accounts")
+    @GET("accounts")
     suspend fun getAccounts(
         @Query("household_id") householdId: String,
         @Query("select")       select: String = "*",
         @Query("order")        order: String  = "name.asc",
-        @Query("is_deleted") isDeleted: String = "eq.false"
+        @Query("is_deleted")   isDeleted: String = "eq.false"
     ): List<AccountDto>
 
-    /**
-     * Crea una nueva cuenta.
-     * account_type debe ser UPPERCASE: ASSET, LIABILITY, INCOME, EXPENSE
-     */
     @Headers("Prefer: return=representation")
-    @POST("rest/v1/accounts")
+    @POST("accounts")
     suspend fun createAccount(
         @Body request: CreateAccountRequest
     ): List<AccountResponse>
 
-    /**
-     * Elimina (soft delete) una cuenta por ID.
-     */
     @Headers("Prefer: return=minimal")
-    @PATCH("rest/v1/accounts")
+    @PATCH("accounts")
     suspend fun deleteAccount(
         @Query("id") id: String,
         @Body body: SoftDeleteAccountRequest
     ): Response<Unit>
 
-    /**
-     * Edita una cuenta existente (nombre, is_savings, is_shared, icon).
-     */
     @Headers("Prefer: return=minimal")
-    @PATCH("rest/v1/accounts")
+    @PATCH("accounts")
     suspend fun updateAccount(
         @Query("id") id: String,
         @Body body: UpdateAccountRequest
     ): Response<Unit>
-
 }
