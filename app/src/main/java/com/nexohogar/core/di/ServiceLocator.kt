@@ -128,6 +128,8 @@ object ServiceLocator {
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
+            redactHeader("Authorization")
+            redactHeader("apikey")
         }
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)

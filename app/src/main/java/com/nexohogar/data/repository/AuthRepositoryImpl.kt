@@ -126,12 +126,14 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout() {
+        // Limpiar legacy store PRIMERO — antes de cualquier fallo de red
+        sessionManager.clearSession()
         try {
             supabaseClient.auth.signOut()
         } catch (e: Exception) {
             AppLogger.e(TAG, "Error al cerrar sesión en supabase: ${e.message}")
+            // El SDK limpiará su DataStore en el próximo inicio aunque falle aquí
         }
-        sessionManager.clearSession()
     }
 
     override fun getCurrentSession(): UserSession? = buildAndCacheDomainSession()
