@@ -28,6 +28,7 @@ data class UserUsageDto(
     fun toDomain() = UserUsage(
         isPremium   = isPremium,
         planName    = planName,
+        periodEnd   = currentPeriodEnd,
         products    = UserUsage.LimitUsage(productsUsed,    limitOrUnlimited(productsLimit)),
         inventory   = UserUsage.LimitUsage(inventoryUsed,   limitOrUnlimited(inventoryLimit)),
         wishlist    = UserUsage.LimitUsage(wishlistUsed,    limitOrUnlimited(wishlistLimit)),
