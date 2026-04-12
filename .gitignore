@@ -21,3 +21,5 @@ google-services.json
 
 # ─── Supabase / Secretos ────────────────────────────────────────────────────
 local.properties
+
+gradle.properties
