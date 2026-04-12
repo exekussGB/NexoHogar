@@ -41,7 +41,7 @@ android {
         buildConfigField(
             "String",
             "SUPABASE_URL",
-            "\"${localProperties.getProperty("SUPABASE_URL", "https://REMOVED.supabase.co")}\""
+            "\"${localProperties.getProperty("SUPABASE_URL", "")}\""
         )
     }
 
