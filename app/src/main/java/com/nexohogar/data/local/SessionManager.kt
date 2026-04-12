@@ -22,7 +22,6 @@ class SessionManager(context: Context) {
         private const val EXPIRES_AT_STR = "expires_at_str"
         private const val SELECTED_HOUSEHOLD_ID = "selected_household_id"
         private const val EXPIRY_MARGIN_MS = 5 * 60 * 1000L
-        private const val BACKUP_FILENAME = "session_backup.dat"
         private const val BIOMETRIC_ENABLED = "biometric_enabled"
 
         private fun createEncryptedPrefs(context: Context): SharedPreferences {
@@ -61,52 +60,6 @@ class SessionManager(context: Context) {
         }
     }
 
-    // ── Backup file I/O ────────────────────────────────────────────────────
-    // Simple line-based file: refreshToken|userId|email|accessToken|expiresAt
-
-    private fun saveToBackup(session: UserSession) {
-        try {
-            val file = File(appContext.filesDir, BACKUP_FILENAME)
-            val data = listOf(
-                session.refreshToken,
-                session.userId,
-                session.email,
-                session.accessToken,
-                session.expiresAt.toString()
-            ).joinToString("|")
-            file.writeText(data)
-            Log.d(TAG, "📁 Backup saved OK")
-        } catch (e: Exception) {
-            Log.e(TAG, "📁 Backup save failed: ${e.message}")
-        }
-    }
-
-    private fun readFromBackup(): UserSession? {
-        return try {
-            val file = File(appContext.filesDir, BACKUP_FILENAME)
-            if (!file.exists()) return null
-            val parts = file.readText().split("|")
-            if (parts.size < 5) return null
-            val refreshToken = parts[0]
-            val userId = parts[1]
-            val email = parts[2]
-            val accessToken = parts[3]
-            val expiresAt = parts[4].toLongOrNull() ?: 0L
-            if (refreshToken.isBlank() || accessToken.isBlank()) return null
-            Log.d(TAG, "📁 Backup read OK (token ${accessToken.take(8)}...)")
-            UserSession(accessToken, refreshToken, userId, email, expiresAt)
-        } catch (e: Exception) {
-            Log.e(TAG, "📁 Backup read failed: ${e.message}")
-            null
-        }
-    }
-
-    private fun clearBackup() {
-        try {
-            File(appContext.filesDir, BACKUP_FILENAME).delete()
-        } catch (_: Exception) {}
-    }
-
     // ── Core session operations ────────────────────────────────────────────
 
     fun saveSession(session: UserSession) {
@@ -127,7 +80,6 @@ class SessionManager(context: Context) {
         if (!success) {
             Log.w(TAG, "⚠️ EncryptedPrefs commit() returned false — data may not be persisted!")
         }
-
         // Verify write
         try {
             val readBack = prefs.getString(REFRESH_TOKEN, null)
@@ -139,9 +91,6 @@ class SessionManager(context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "❌ Verify read threw: ${e.message}")
         }
-
-        // Always save to backup file
-        saveToBackup(session)
     }
 
     fun fetchSession(): UserSession? {
@@ -167,23 +116,7 @@ class SessionManager(context: Context) {
             return fromPrefs
         }
 
-        // Fallback to backup
-        Log.w(TAG, "⚠️ Prefs returned null/empty — trying backup file")
-        val fromBackup = readFromBackup()
-        if (fromBackup != null) {
-            Log.w(TAG, "📁 Recovered session from backup! Re-saving to prefs...")
-            // Try to re-save to prefs so next read works normally
-            try {
-                prefs.edit().apply {
-                    putString(ACCESS_TOKEN, fromBackup.accessToken)
-                    putString(REFRESH_TOKEN, fromBackup.refreshToken)
-                    putString(USER_ID, fromBackup.userId)
-                    putString(USER_EMAIL, fromBackup.email)
-                    putString(EXPIRES_AT_STR, fromBackup.expiresAt.toString())
-                }.commit()
-            } catch (_: Exception) {}
-        }
-        return fromBackup
+        return null
     }
 
     fun fetchAuthToken(): String? {
@@ -191,7 +124,7 @@ class SessionManager(context: Context) {
             prefs.getString(ACCESS_TOKEN, null)
         } catch (e: Exception) {
             Log.e(TAG, "❌ fetchAuthToken threw: ${e.message}")
-            readFromBackup()?.accessToken
+            return null
         }
     }
 
@@ -218,9 +151,7 @@ class SessionManager(context: Context) {
         }
         if (!fromPrefs.isNullOrBlank()) return fromPrefs
 
-        // Fallback to backup
-        Log.w(TAG, "⚠️ refresh_token not in prefs — trying backup")
-        return readFromBackup()?.refreshToken
+        return null
     }
 
     fun saveSelectedHouseholdId(id: String) {
@@ -234,7 +165,6 @@ class SessionManager(context: Context) {
     fun clearSession() {
         Log.d(TAG, "🗑️ clearSession() called")
         try { prefs.edit().clear().commit() } catch (_: Exception) {}
-        clearBackup()
     }
 
     fun saveExtra(key: String, value: String) {
