@@ -110,14 +110,26 @@ object ServiceLocator {
 
     /**
      * SEC-07: Certificate pinning para Supabase.
+     *
+     * MANTENIMIENTO — qué hacer si la app deja de conectarse con SSL error:
+     * 1. Obtener nuevos hashes:
+     *    Ejecutar el comando PowerShell de verificación de certificado.
+     *
+     * 2. Reemplazar el hash expirado manteniendo siempre 2 pins activos.
+     * 3. Publicar nueva versión de la app.
+     *
+     * Certificado actual vence: 31-05-2026
+     * Último verificado: abril 2026
+     * Próxima revisión: primera semana de mayo 2026
      */
     private val certificatePinner: CertificatePinner by lazy {
         val supabaseHost = SupabaseConfig.BASE_URL
             .removePrefix("https://")
             .removeSuffix("/")
         CertificatePinner.Builder()
-            .add(supabaseHost, "sha256/kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=")
-            .add(supabaseHost, "sha256/mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=")
+            .add(supabaseHost, "sha256/kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=")  // vence 31-05-2026
+            .add(supabaseHost, "sha256/mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=")  // backup
+            .add(supabaseHost, "sha256/M4FlSvpxk5vEw3n70qj3t4y7QuYUHuzwkh9Earv1FNQ=")  // nuevo — activo desde mayo 2026
             .build()
     }
 
