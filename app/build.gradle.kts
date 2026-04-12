@@ -33,16 +33,13 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField(
-            "String",
-            "SUPABASE_KEY",
-            "\"${localProperties.getProperty("SUPABASE_KEY", "")}\""
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_URL",
-            "\"${localProperties.getProperty("SUPABASE_URL", "")}\""
-        )
+        val supabaseKey = localProperties.getProperty("SUPABASE_KEY")
+            ?: throw GradleException("❌ SUPABASE_KEY no definida en local.properties")
+        val supabaseUrl = localProperties.getProperty("SUPABASE_URL")
+            ?: throw GradleException("❌ SUPABASE_URL no definida en local.properties")
+
+        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
     }
 
     buildTypes {
