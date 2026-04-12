@@ -160,6 +160,7 @@ class InventoryViewModel(
     val productForm: StateFlow<ProductFormState> = _productForm.asStateFlow()
 
     private val _editProductForm = MutableStateFlow(EditProductFormState())
+    private var _currentEditingProductId: String? = null
     val editProductForm: StateFlow<EditProductFormState> = _editProductForm.asStateFlow()
 
     private val _movementForm = MutableStateFlow(MovementFormState())
@@ -397,7 +398,9 @@ class InventoryViewModel(
 
     // ─── Editar producto ────────────────────────────────────────────────────────
     fun startEditProduct(product: Product) {
+        _currentEditingProductId = product.id
         _editProductForm.value = EditProductFormState(
+
             productId = product.id,
             name = product.name,
             unit = product.unit,
@@ -415,9 +418,9 @@ class InventoryViewModel(
 
     fun submitEditProduct() {
         val form = _editProductForm.value
+        // Capturar en val local antes del coroutine
         val productId = _currentEditingProductId
 
-        // Validar inputs
         val nameError = InputValidator.validateName(form.name)
         if (productId == null || nameError != null) {
             _editProductForm.value = form.copy(error = nameError ?: "Error interno")
@@ -429,17 +432,23 @@ class InventoryViewModel(
             return
         }
 
+        // Sanitizar fuera del coroutine para evitar problemas de tipo
+        val sanitizedName  = InputValidator.sanitizeText(form.name)
+        val sanitizedBrand = form.brand.takeIf { it.isNotBlank() }
+            ?.let { InputValidator.sanitizeText(it) }
+        val sanitizedCategory = form.category.takeIf { it.isNotBlank() }
+        val minStock = form.minStock.toDoubleOrNull()?.toInt()
+
         viewModelScope.launch {
             _editProductForm.value = form.copy(isSubmitting = true, error = null)
             try {
                 repository.updateProduct(
                     productId = productId,
-                    name      = InputValidator.sanitizeText(form.name),
+                    name      = sanitizedName,
                     unit      = form.unit,
-                    brand     = form.brand.takeIf { it.isNotBlank() }
-                        ?.let { InputValidator.sanitizeText(it) },
-                    category  = form.category.takeIf { it.isNotBlank() },
-                    minStock  = form.minStock.toDoubleOrNull()?.toInt()
+                    brand     = sanitizedBrand,
+                    category  = sanitizedCategory,
+                    minStock  = minStock
                 ).getOrThrow()
 
                 _editProductForm.value = EditProductFormState()
