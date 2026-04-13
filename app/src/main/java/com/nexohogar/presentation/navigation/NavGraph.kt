@@ -588,6 +588,9 @@ fun NavGraph(navController: NavHostController) {
                     onViewMembers = {
                         navController.navigate(Screen.HouseholdMembers.route)
                     },
+                    onNavigateToMembership = {
+                        navController.navigate(Screen.Membership.route)
+                    },
                     onNavigateToTutorial = {
                         navController.navigate(Screen.TutorialList.route)
                     },
@@ -1044,6 +1047,6 @@ fun NavGraph(navController: NavHostController) {
                 )
             }
         }
-    // end NavHost
+        // end NavHost
     } // end Scaffold
 }

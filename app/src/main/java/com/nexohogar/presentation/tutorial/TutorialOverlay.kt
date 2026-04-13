@@ -558,6 +558,13 @@ val householdTutorialSteps = listOf(
         iconBgColor = Color(0xFFE8F5E9)
     ),
     TutorialStep(
+        title = "Mi Plan 💎",
+        description = "Desde \"Mi Plan\" puedes ver tu membresía activa, los límites de tu hogar y gestionar tu suscripción.",
+        icon = Icons.Default.WorkspacePremium,
+        iconColor = Color(0xFFFF8F00),
+        iconBgColor = Color(0xFFFFE0B2)
+    ),
+    TutorialStep(
         title = "Repetir tutoriales",
         description = "Puedes volver a ver cualquier tutorial desde Ajustes, en la sección de ayuda.",
         icon = Icons.Default.Help,

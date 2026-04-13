@@ -128,14 +128,6 @@ fun HubScreen(
             onClick         = onNavigateToInviteMember
         ),
         HubAction(
-            title           = "Mi Plan",
-            subtitle        = "Membresía y límites",
-            icon            = Icons.Default.WorkspacePremium,
-            backgroundColor = Color(0xFFFFE0B2),
-            iconColor       = Color(0xFFFF8F00),
-            onClick         = onNavigateToMembership
-        ),
-        HubAction(
             title           = "Opciones",
             subtitle        = "Configuración",
             icon            = Icons.Default.Settings,
@@ -242,9 +234,13 @@ fun HubScreen(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 rowActions.forEach { action ->
-                    HubActionCard(action = action, modifier = Modifier.weight(1f))
+                    HubActionCard(
+                        action     = action,
+                        modifier   = Modifier.weight(1f),
+                        horizontal = rowActions.size == 1
+                    )
                 }
-                if (rowActions.size == 1) Spacer(modifier = Modifier.weight(1f))
+                // last odd item spans full width
             }
             Spacer(modifier = Modifier.height(14.dp))
         }
@@ -346,58 +342,114 @@ fun AddMovementDialog(
 // Tarjeta de acción
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun HubActionCard(action: HubAction, modifier: Modifier = Modifier) {
+private fun HubActionCard(
+    action:     HubAction,
+    modifier:   Modifier = Modifier,
+    horizontal: Boolean  = false
+) {
     Card(
         modifier  = modifier
-            .height(130.dp)
+            .then(if (horizontal) Modifier.height(72.dp) else Modifier.height(130.dp))
             .alpha(if (action.enabled) 1f else 0.45f)
             .clickable(enabled = action.enabled) { action.onClick() },
         shape     = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = if (action.enabled) 2.dp else 0.dp),
         colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(
-            modifier            = Modifier
-                .fillMaxSize()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            BadgedBox(
-                badge = {
-                    if (action.badge > 0) {
-                        Badge {
-                            Text(if (action.badge > 9) "9+" else action.badge.toString())
+        if (horizontal) {
+            // ── Layout horizontal: ícono | título + subtítulo ──────────────
+            Row(
+                modifier          = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (action.badge > 0) {
+                            Badge {
+                                Text(if (action.badge > 9) "9+" else action.badge.toString())
+                            }
                         }
                     }
-                }
-            ) {
-                Box(
-                    modifier         = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(action.backgroundColor),
-                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector        = action.icon,
-                        contentDescription = action.title,
-                        tint               = action.iconColor,
-                        modifier           = Modifier.size(24.dp)
+                    Box(
+                        modifier         = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(action.backgroundColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector        = action.icon,
+                            contentDescription = action.title,
+                            tint               = action.iconColor,
+                            modifier           = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text       = action.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 15.sp,
+                        color      = MaterialTheme.colorScheme.onSurface
                     )
+                    if (action.subtitle.isNotEmpty()) {
+                        Text(
+                            text     = action.subtitle,
+                            fontSize = 12.sp,
+                            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                        )
+                    }
                 }
             }
-            Column {
-                Text(
-                    text       = action.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 15.sp,
-                    color      = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text     = action.subtitle,
-                    fontSize = 12.sp,
-                    color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                )
+        } else {
+            // ── Layout vertical original ───────────────────────────────────
+            Column(
+                modifier            = Modifier
+                    .fillMaxSize()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (action.badge > 0) {
+                            Badge {
+                                Text(if (action.badge > 9) "9+" else action.badge.toString())
+                            }
+                        }
+                    }
+                ) {
+                    Box(
+                        modifier         = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(action.backgroundColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector        = action.icon,
+                            contentDescription = action.title,
+                            tint               = action.iconColor,
+                            modifier           = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text       = action.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 15.sp,
+                        color      = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text     = action.subtitle,
+                        fontSize = 12.sp,
+                        color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
+                }
             }
         }
     }

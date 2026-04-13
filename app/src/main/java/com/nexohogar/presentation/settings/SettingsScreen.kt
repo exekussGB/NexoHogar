@@ -46,6 +46,7 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onChangeHousehold: () -> Unit,
     onViewMembers: () -> Unit,
+    onNavigateToMembership: () -> Unit,
     onNavigateToTutorial: () -> Unit,
     onHouseholdDeleted: () -> Unit
 ) {
@@ -198,6 +199,15 @@ fun SettingsScreen(
                     title     = "Ver miembros",
                     subtitle  = "Usuarios y solicitudes pendientes",
                     onClick   = onViewMembers
+                )
+            }
+            Box(modifier = Modifier.testTag("membership")) {
+                SettingsItem(
+                    icon      = Icons.Default.WorkspacePremium,
+                    iconColor = Color(0xFFFF8F00),
+                    title     = "Mi Plan",
+                    subtitle  = "Membresía y límites del hogar",
+                    onClick   = onNavigateToMembership
                 )
             }
 
