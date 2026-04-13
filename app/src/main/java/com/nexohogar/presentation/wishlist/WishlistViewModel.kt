@@ -55,16 +55,27 @@ class WishlistViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val itemsDeferred   = async { repository.getWishlistItems(householdId) }
+            val itemsDeferred    = async { repository.getWishlistItems(householdId) }
             val accountsDeferred = async { accountsRepository.getAccounts(householdId) }
-            when (val result = repository.getWishlistItems(householdId)) {
+
+            when (val result = itemsDeferred.await()) {
                 is AppResult.Success -> _uiState.update {
                     it.copy(items = result.data, isLoading = false)
                 }
-                is AppResult.Error   -> _uiState.update {
+                is AppResult.Error -> _uiState.update {
                     it.copy(error = result.message, isLoading = false)
                 }
                 is AppResult.Loading -> Unit
+            }
+
+            when (val result = accountsDeferred.await()) {
+                is AppResult.Success -> {
+                    val total = result.data.sumOf { it.balance.toDouble() }
+                    android.util.Log.d("WishlistVM", "totalBalance=$total cuentas=${result.data.size}")
+                    _totalBalance.value = total
+                }
+                is AppResult.Error -> android.util.Log.e("WishlistVM", "Error cuentas: ${result.message}")
+                else -> Unit
             }
         }
     }

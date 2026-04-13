@@ -395,19 +395,19 @@ private fun PriorityHeader(label: String, color: Color) {
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WishlistSquareCard(
-    item        : WishlistItem,
-    format      : NumberFormat,
+    item         : WishlistItem,
+    format       : NumberFormat,
     totalBalance : Double,
-    onEdit      : () -> Unit,
-    onMarkBought: () -> Unit,
-    onDelete    : () -> Unit
+    onEdit       : () -> Unit,
+    onMarkBought : () -> Unit,
+    onDelete     : () -> Unit
 ) {
     val priorityColor = when (item.priority) {
         "HIGH"   -> Color(0xFFD32F2F)
         "MEDIUM" -> Color(0xFFF57F17)
         else     -> Color(0xFF388E3C)
     }
-    // ── Badge "puede pagar" ──────────────────────────────────────────────
+
     val canAfford = !item.isPurchased &&
             item.price != null &&
             item.price > 0 &&
@@ -417,15 +417,11 @@ private fun WishlistSquareCard(
 
     Box {
         Card(
-            modifier  = Modifier
-                .fillMaxWidth(),
+            modifier  = Modifier.fillMaxWidth(),
             shape     = RoundedCornerShape(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             colors    = CardDefaults.cardColors(
-                containerColor = if (item.isPurchased)
-                    Color(0xFFF5F5F5)
-                else
-                    Color.White
+                containerColor = if (item.isPurchased) Color(0xFFF5F5F5) else Color.White
             )
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -449,30 +445,29 @@ private fun WishlistSquareCard(
                         .fillMaxWidth()
                         .padding(horizontal = 5.dp, vertical = 4.dp)
                 ) {
-                    // Espacio para la barra de color
                     Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
-                        text     = item.name,
-                        fontSize = 9.sp,
+                        text       = item.name,
+                        fontSize   = 9.sp,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color    = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
+                        maxLines   = 2,
+                        overflow   = TextOverflow.Ellipsis,
+                        color      = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
                     )
 
                     val price = item.price
                     if (price != null && price > 0) {
                         Text(
-                            text  = format.format(price.toLong()),
-                            fontSize = 7.sp,
+                            text       = format.format(price.toLong()),
+                            fontSize   = 7.sp,
                             fontWeight = FontWeight.Medium,
-                            color = if (item.isPurchased)
+                            color      = if (item.isPurchased)
                                 Color(0xFF9E9E9E)
                             else
                                 MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines   = 1,
+                            overflow   = TextOverflow.Ellipsis
                         )
                     }
 
@@ -507,10 +502,10 @@ private fun WishlistSquareCard(
                 // ── Menú de opciones / ícono comprado ────────────────────────────
                 if (item.isPurchased) {
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
+                        imageVector        = Icons.Default.CheckCircle,
                         contentDescription = "Comprado",
-                        tint     = Color(0xFF4CAF50).copy(alpha = 0.6f),
-                        modifier = Modifier
+                        tint               = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                        modifier           = Modifier
                             .align(Alignment.TopEnd)
                             .padding(3.dp)
                             .size(9.dp)
@@ -522,10 +517,10 @@ private fun WishlistSquareCard(
                             modifier = Modifier.size(18.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MoreVert,
+                                imageVector        = Icons.Default.MoreVert,
                                 contentDescription = "Opciones",
-                                modifier = Modifier.size(9.dp),
-                                tint     = Color(0xFF757575)
+                                modifier           = Modifier.size(9.dp),
+                                tint               = Color(0xFF757575)
                             )
                         }
                         DropdownMenu(
@@ -553,17 +548,17 @@ private fun WishlistSquareCard(
             }
         }
 
+        // ── Badge "puede pagar" — sobre la card ──────────────────────────────
         if (canAfford) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(top = 3.dp, start = 3.dp)
-                    .size(8.dp)
+                    .offset(x = (-4).dp, y = (-4).dp)
+                    .size(12.dp)
                     .background(Color(0xFF4CAF50), RoundedCornerShape(50))
             )
         }
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
