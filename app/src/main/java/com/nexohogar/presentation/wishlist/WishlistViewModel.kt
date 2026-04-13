@@ -7,7 +7,9 @@ import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.core.util.InputSanitizer
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.domain.model.WishlistItem
+import com.nexohogar.domain.repository.AccountsRepository
 import com.nexohogar.domain.repository.WishlistRepository
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,9 +35,12 @@ data class WishlistUiState(
 class WishlistViewModel(
     private val repository: WishlistRepository,
     private val tenantContext: TenantContext,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val accountsRepository: AccountsRepository
 ) : ViewModel() {
 
+    private val _totalBalance = MutableStateFlow(0.0)
+    val totalBalance: StateFlow<Double> = _totalBalance.asStateFlow()
     private val _uiState = MutableStateFlow(WishlistUiState())
     val uiState: StateFlow<WishlistUiState> = _uiState.asStateFlow()
 
@@ -49,6 +54,9 @@ class WishlistViewModel(
         val householdId = tenantContext.getCurrentHouseholdId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val itemsDeferred   = async { repository.getWishlistItems(householdId) }
+            val accountsDeferred = async { accountsRepository.getAccounts(householdId) }
             when (val result = repository.getWishlistItems(householdId)) {
                 is AppResult.Success -> _uiState.update {
                     it.copy(items = result.data, isLoading = false)

@@ -114,6 +114,7 @@ dependencies {
 
     // ── SEC-02: EncryptedSharedPreferences ─────────────────────────────────
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation(libs.androidx.compose.foundation.layout)
 
     testImplementation("junit:junit:4.13.2")
 

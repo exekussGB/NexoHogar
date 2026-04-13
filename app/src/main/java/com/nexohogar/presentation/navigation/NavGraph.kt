@@ -882,7 +882,8 @@ fun NavGraph(navController: NavHostController) {
                             return WishlistViewModel(
                                 repository = ServiceLocator.wishlistRepository,
                                 tenantContext = ServiceLocator.tenantContext,
-                                sessionManager = ServiceLocator.sessionManager
+                                sessionManager = ServiceLocator.sessionManager,
+                                accountsRepository = ServiceLocator.accountsRepository
                             ) as T
                         }
                     }

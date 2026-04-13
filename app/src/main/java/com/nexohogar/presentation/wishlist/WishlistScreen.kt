@@ -3,6 +3,7 @@ package com.nexohogar.presentation.wishlist
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -15,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -39,6 +41,7 @@ fun WishlistScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val totalBalance by viewModel.totalBalance.collectAsState()
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.WISHLIST))
@@ -151,33 +154,7 @@ fun WishlistScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement   = Arrangement.spacedBy(4.dp)
                     ) {
-                        // ── BUG FIX 2: Chip de alerta de Alta Prioridad ─────────────
-                        if (highItems.isNotEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                AssistChip(
-                                    onClick = { /* Filtro visual ya activado */ },
-                                    label = {
-                                        Text(
-                                            "🔴 ${highItems.size} items de Alta Prioridad",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Warning,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = Color(0xFFFFEBEE),
-                                        labelColor = Color(0xFFD32F2F)
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                                )
-                            }
-                        }
+
 
                         // ── Alta Prioridad ───────────────────────────────────
                         if (highItems.isNotEmpty()) {
@@ -216,6 +193,7 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
+                                        totalBalance = totalBalance,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -261,6 +239,7 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
+                                        totalBalance = totalBalance,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -306,6 +285,7 @@ fun WishlistScreen(
                                     WishlistSquareCard(
                                         item         = item,
                                         format       = clpFormat,
+                                        totalBalance = totalBalance,
                                         onEdit       = { viewModel.onShowEditDialog(item) },
                                         onMarkBought = { viewModel.markAsPurchased(item) },
                                         onDelete     = { viewModel.deleteItem(item) }
@@ -323,6 +303,7 @@ fun WishlistScreen(
                                 WishlistSquareCard(
                                     item         = item,
                                     format       = clpFormat,
+                                    totalBalance = totalBalance,
                                     onEdit       = {},
                                     onMarkBought = {},
                                     onDelete     = { viewModel.deleteItem(item) }
@@ -416,6 +397,7 @@ private fun PriorityHeader(label: String, color: Color) {
 private fun WishlistSquareCard(
     item        : WishlistItem,
     format      : NumberFormat,
+    totalBalance : Double,
     onEdit      : () -> Unit,
     onMarkBought: () -> Unit,
     onDelete    : () -> Unit
@@ -425,117 +407,163 @@ private fun WishlistSquareCard(
         "MEDIUM" -> Color(0xFFF57F17)
         else     -> Color(0xFF388E3C)
     }
+    // ── Badge "puede pagar" ──────────────────────────────────────────────
+    val canAfford = !item.isPurchased &&
+            item.price != null &&
+            item.price > 0 &&
+            totalBalance >= item.price
+
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
-        modifier  = Modifier
-            .fillMaxWidth(),
-        shape     = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        colors    = CardDefaults.cardColors(
-            containerColor = if (item.isPurchased)
-                Color(0xFFF5F5F5)
-            else
-                Color.White
-        )
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-
-            // ── Barra de prioridad (top) ─────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(
-                        if (item.isPurchased) Color(0xFFBDBDBD) else priorityColor,
-                        RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                    )
-                    .align(Alignment.TopCenter)
+    Box {
+        Card(
+            modifier  = Modifier
+                .fillMaxWidth(),
+            shape     = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors    = CardDefaults.cardColors(
+                containerColor = if (item.isPurchased)
+                    Color(0xFFF5F5F5)
+                else
+                    Color.White
             )
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
 
-            // ── Contenido ────────────────────────────────────────────────────
-            Column(
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 5.dp, vertical = 4.dp)
-            ) {
-                // Espacio para la barra de color
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text     = item.name,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color    = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
-                )
-
-                val price = item.price
-                if (price != null && price > 0) {
-                    Text(
-                        text  = format.format(price.toLong()),
-                        fontSize = 7.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (item.isPurchased)
-                            Color(0xFF9E9E9E)
-                        else
-                            MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // ── Menú de opciones / ícono comprado ────────────────────────────
-            if (item.isPurchased) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Comprado",
-                    tint     = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                // ── Barra de prioridad (top) ─────────────────────────────────────
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(3.dp)
-                        .size(9.dp)
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(
+                            if (item.isPurchased) Color(0xFFBDBDBD) else priorityColor,
+                            RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                        )
+                        .align(Alignment.TopCenter)
                 )
-            } else {
-                Box(modifier = Modifier.align(Alignment.TopEnd)) {
-                    IconButton(
-                        onClick  = { expanded = true },
-                        modifier = Modifier.size(18.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Opciones",
-                            modifier = Modifier.size(9.dp),
-                            tint     = Color(0xFF757575)
+
+                // ── Contenido ────────────────────────────────────────────────────
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 5.dp, vertical = 4.dp)
+                ) {
+                    // Espacio para la barra de color
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text     = item.name,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color    = if (item.isPurchased) Color(0xFF9E9E9E) else Color(0xFF212121),
+                    )
+
+                    val price = item.price
+                    if (price != null && price > 0) {
+                        Text(
+                            text  = format.format(price.toLong()),
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (item.isPurchased)
+                                Color(0xFF9E9E9E)
+                            else
+                                MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                    DropdownMenu(
-                        expanded         = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text        = { Text("Editar", fontSize = 11.sp) },
-                            leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) },
-                            onClick     = { expanded = false; onEdit() }
-                        )
-                        DropdownMenuItem(
-                            text        = { Text("Marcar comprado", fontSize = 11.sp) },
-                            leadingIcon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp)) },
-                            onClick     = { expanded = false; onMarkBought() }
-                        )
-                        DropdownMenuItem(
-                            text        = { Text("Eliminar", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Default.Delete, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) },
-                            onClick     = { expanded = false; onDelete() }
-                        )
+
+                    // ── Pill de prioridad ─────────────────────────────────────
+                    if (!item.isPurchased) {
+                        val pillColor = when (item.priority) {
+                            "HIGH"   -> Color(0xFFFFEBEE)
+                            "MEDIUM" -> Color(0xFFFFF8E1)
+                            else     -> Color(0xFFE8F5E9)
+                        }
+                        val pillTextColor = when (item.priority) {
+                            "HIGH"   -> Color(0xFFD32F2F)
+                            "MEDIUM" -> Color(0xFFF57F17)
+                            else     -> Color(0xFF388E3C)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(pillColor)
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text       = item.priorityLabel,
+                                fontSize   = 6.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = pillTextColor
+                            )
+                        }
+                    }
+                }
+
+                // ── Menú de opciones / ícono comprado ────────────────────────────
+                if (item.isPurchased) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Comprado",
+                        tint     = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(3.dp)
+                            .size(9.dp)
+                    )
+                } else {
+                    Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                        IconButton(
+                            onClick  = { expanded = true },
+                            modifier = Modifier.size(18.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Opciones",
+                                modifier = Modifier.size(9.dp),
+                                tint     = Color(0xFF757575)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded         = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text        = { Text("Editar", fontSize = 11.sp) },
+                                leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(16.dp)) },
+                                onClick     = { expanded = false; onEdit() }
+                            )
+                            DropdownMenuItem(
+                                text        = { Text("Marcar comprado", fontSize = 11.sp) },
+                                leadingIcon = { Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp)) },
+                                onClick     = { expanded = false; onMarkBought() }
+                            )
+                            DropdownMenuItem(
+                                text        = { Text("Eliminar", fontSize = 11.sp, color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error) },
+                                onClick     = { expanded = false; onDelete() }
+                            )
+                        }
                     }
                 }
             }
         }
+
+        if (canAfford) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 3.dp, start = 3.dp)
+                    .size(8.dp)
+                    .background(Color(0xFF4CAF50), RoundedCornerShape(50))
+            )
+        }
     }
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
