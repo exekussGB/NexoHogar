@@ -36,6 +36,8 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
 import com.nexohogar.presentation.tutorial.TutorialOverlay
@@ -55,6 +57,11 @@ fun TransactionsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val dateRange by viewModel.dateRange.collectAsState()
+
+    // Refrescar al volver a la pantalla
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.applyFilter()
+    }
 
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.TRANSACTIONS))

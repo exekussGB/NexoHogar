@@ -180,7 +180,7 @@ object ServiceLocator {
     // ── Repositories ──────────────────────────────────────────────────────────
 
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(authApi, sessionManager, supabaseClient)
+        AuthRepositoryImpl(sessionManager, supabaseClient)
     }
 
     val householdRepository: HouseholdRepository by lazy {

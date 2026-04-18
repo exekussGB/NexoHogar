@@ -90,7 +90,7 @@ class TransactionsViewModel(
     /**
      * Applies the current type filter and date range filter to the accumulated transactions list.
      */
-    private fun applyFilter() {
+    fun applyFilter() {
         val range = _dateRange.value
 
         // First apply type filter

@@ -4,42 +4,25 @@ import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.util.AppLogger
 import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AuthApi
-import com.nexohogar.data.remote.dto.UpdatePasswordRequest
-import com.nexohogar.data.remote.dto.VerifyOtpRequest
 import com.nexohogar.domain.model.UserSession
 import com.nexohogar.domain.repository.AuthRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.OtpType
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * Implementación del repositorio de autenticación.
- *
- * LOGIN / REGISTER / LOGOUT — delegado al SDK de Supabase (supabase-kt).
- *   El SDK persiste la sesión en DataStore y la refresca automáticamente
- *   → el usuario nunca tiene que volver a hacer login mientras el refresh_token sea válido.
- *
- * FORGOT PASSWORD / VERIFY OTP / UPDATE PASSWORD — siguen usando Retrofit
- *   ya que ese flujo no requiere gestión de sesión de larga duración.
+ * Implementación del repositorio de autenticación usando Supabase SDK.
  */
 class AuthRepositoryImpl(
-    private val authApi: AuthApi,
     private val sessionManager: SessionManager,
     private val supabaseClient: SupabaseClient
 ) : AuthRepository {
 
     companion object {
         private const val TAG = "AuthRepository"
-
-        private fun userFriendlyMessage(code: Int): String = when (code) {
-            400 -> "Datos inválidos"
-            401 -> "Sesión expirada"
-            422 -> "Los datos no cumplen los requisitos"
-            429 -> "Demasiados intentos, intenta más tarde"
-            else -> "Error inesperado, intenta nuevamente"
-        }
 
         private fun parseLoginError(e: Throwable): String = when {
             e.message?.contains("email_not_confirmed", ignoreCase = true) == true ->
@@ -143,59 +126,40 @@ class AuthRepositoryImpl(
 
     override suspend fun forgotPassword(email: String): AppResult<Unit> {
         return try {
-            val response = authApi.forgotPassword(mapOf("email" to email))
-            if (response.isSuccessful) {
-                AppResult.Success(Unit)
-            } else {
-                val errorBody = response.errorBody()?.string()
-                AppLogger.e(TAG, "Error en forgotPassword HTTP ${response.code()}: $errorBody")
-                AppResult.Error(userFriendlyMessage(response.code()))
-            }
+            supabaseClient.auth.resetPasswordForEmail(email)
+            AppResult.Success(Unit)
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Error en forgotPassword: ${e.message}")
-            AppResult.Error("Error de conexión, intenta nuevamente")
+            AppLogger.e(TAG, "Error en forgotPassword (SDK): ${e.message}")
+            AppResult.Error(parseLoginError(e))
         }
     }
 
     override suspend fun updatePassword(accessToken: String, newPassword: String): AppResult<Unit> {
         return try {
-            val response = authApi.updatePassword(
-                token   = "Bearer $accessToken",
-                request = UpdatePasswordRequest(password = newPassword)
-            )
-            if (response.isSuccessful) {
-                AppResult.Success(Unit)
-            } else {
-                val errorBody = response.errorBody()?.string()
-                AppLogger.e(TAG, "Error en updatePassword HTTP ${response.code()}: $errorBody")
-                AppResult.Error(userFriendlyMessage(response.code()))
+            // El SDK permite actualizar el usuario actual si la sesión está activa
+            // O podemos usar el flujo de reset si venimos de un token
+            supabaseClient.auth.updateUser {
+                password = newPassword
             }
+            AppResult.Success(Unit)
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Error en updatePassword: ${e.message}")
-            AppResult.Error("Error de conexión, intenta nuevamente")
+            AppLogger.e(TAG, "Error en updatePassword (SDK): ${e.message}")
+            AppResult.Error(parseLoginError(e))
         }
     }
 
     override suspend fun verifyOtp(email: String, code: String): AppResult<String> {
         return try {
-            val response = authApi.verifyOtp(
-                VerifyOtpRequest(email = email, token = code, type = "recovery")
-            )
-            if (response.isSuccessful) {
-                val accessToken = response.body()?.accessToken
-                if (accessToken != null) {
-                    AppResult.Success(accessToken)
-                } else {
-                    AppResult.Error("No se recibió el token de acceso")
-                }
+            supabaseClient.auth.verifyEmailOtp(type = OtpType.Email.RECOVERY, email = email, token = code)
+            val session = supabaseClient.auth.currentSessionOrNull()
+            if (session != null) {
+                AppResult.Success(session.accessToken)
             } else {
-                val errorBody = response.errorBody()?.string()
-                AppLogger.e(TAG, "Error en verifyOtp HTTP ${response.code()}: $errorBody")
-                AppResult.Error(userFriendlyMessage(response.code()))
+                AppResult.Error("No se pudo iniciar sesión tras verificar el código")
             }
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Error en verifyOtp: ${e.message}")
-            AppResult.Error("Error de conexión, intenta nuevamente")
+            AppLogger.e(TAG, "Error en verifyOtp (SDK): ${e.message}")
+            AppResult.Error("Código inválido o expirado")
         }
     }
 }

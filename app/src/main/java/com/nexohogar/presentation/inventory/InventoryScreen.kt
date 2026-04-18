@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.nexohogar.domain.model.InventoryCategory
 import com.nexohogar.domain.model.InventoryMovement
 import com.nexohogar.domain.model.Product
@@ -147,6 +149,12 @@ fun InventoryScreen(
     onNavigateToScanner: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Refrescar al volver a la pantalla
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.loadData()
+    }
+
     var productForAction by remember { mutableStateOf<Product?>(null) }
     var showPremiumGate by remember { mutableStateOf(false) }
 

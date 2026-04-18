@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.nexohogar.core.util.DateFormatter
 import com.nexohogar.domain.model.AccountBalance
 import com.nexohogar.domain.model.Transaction
@@ -302,6 +304,11 @@ fun AccountsScreen(
     onNavigateBack : (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Refrescar saldos automáticamente cada vez que la pantalla vuelve a ser visible
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.loadAccounts()
+    }
 
     // Tutorial
     var showTutorial by remember {
