@@ -1,6 +1,7 @@
 package com.nexohogar.presentation.dashboard
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -32,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.domain.model.MonthlyBalance
 import com.nexohogar.domain.model.Transaction
+import com.nexohogar.domain.model.RecurringBill
+import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.time.Instant
@@ -78,6 +83,7 @@ fun DashboardScreen(
     onSeeAllClick: () -> Unit,
     onNavigateToCategoryExp: () -> Unit,
     onNavigateToPersonal: () -> Unit,
+    onNavigateToRecurring: () -> Unit, // 🆕
     onAddMovement: () -> Unit = {},
     onAddExpense: () -> Unit = {},
     onAddIncome: () -> Unit = {},
@@ -157,7 +163,42 @@ fun DashboardScreen(
                 // ── Balance ────────────────────────────────────────────────────
                 item {
                     Box(modifier = Modifier.testTag("dashboard_balance")) {
-                        uiState.summary?.let { BalanceCard(summary = it, format = clpFormat, uiState = uiState) }
+                        val summary = uiState.summary
+                        val computedBalance = uiState.computedTotalBalance
+                        
+                        if (summary != null) {
+                            BalanceCardWithInsights(
+                                summary = summary,
+                                format = clpFormat,
+                                uiState = uiState
+                            )
+                        } else if (computedBalance != null) {
+                            // Fallback por si summary es nulo pero tenemos datos de balances
+                            BalanceCardWithInsights(
+                                summary = DashboardSummary(
+                                    householdId = "",
+                                    totalBalance = computedBalance,
+                                    totalIncome = 0.0,
+                                    totalExpense = 0.0,
+                                    accountsCount = 0,
+                                    transactionsCount = 0
+                                ),
+                                format = clpFormat,
+                                uiState = uiState
+                            )
+                        }
+                    }
+                }
+
+                // 🆕 Integración Cuentas Recurrentes: Próximos Vencimientos
+                if (uiState.upcomingBills.isNotEmpty()) {
+                    item {
+                        UpcomingBillsCard(
+                            bills = uiState.upcomingBills,
+                            totalPending = uiState.pendingBillsTotal,
+                            format = clpFormat,
+                            onClick = onNavigateToRecurring
+                        )
                     }
                 }
 
@@ -176,46 +217,18 @@ fun DashboardScreen(
                 // 🆕 Feature 2: Tarjeta de ahorro
                 if (uiState.totalSavings != 0L) {
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFF3E5F5)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Savings,
-                                    contentDescription = null,
-                                    tint = Color(0xFF6A1B9A),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        "Ahorro total",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF6A1B9A)
-                                    )
-                                    Text(
-                                        text = clpFormat.format(uiState.totalSavings),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp,
-                                        color = Color(0xFF6A1B9A)
-                                    )
-                                    Text(
-                                        "No incluido en el balance del hogar",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray
-                                    )
-                                }
-                            }
-                        }
+                        SavingsCard(totalSavings = uiState.totalSavings, format = clpFormat)
+                    }
+                }
+
+                // 🆕 Feature 3 & 4: Tarjeta de Deudas y Cupos
+                if (uiState.totalLiabilities != 0L) {
+                    item {
+                        LiabilitiesCard(
+                            totalLiabilities = uiState.totalLiabilities,
+                            totalCreditLimit = uiState.totalCreditLimit,
+                            format = clpFormat
+                        )
                     }
                 }
 
@@ -229,6 +242,11 @@ fun DashboardScreen(
                             onSeeAllClick = onSeeAllClick
                         )
                     }
+                }
+
+                // ── Espaciador final para evitar que el BottomNav tape el contenido ──
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
             // ── Tutorial overlay ────────────────────────────────────────────────────
@@ -298,7 +316,127 @@ fun CategoryExpensesButton(onClick: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BalanceCard
+// BalanceCard con Insights (Gráfico de Dona)
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun BalanceCardWithInsights(
+    summary: DashboardSummary,
+    format: NumberFormat,
+    uiState: DashboardUiState
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1.2f)) {
+                Text("Saldo Total", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = format.format(uiState.computedTotalBalance ?: summary.totalBalance),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                if (uiState.actualLiquidity != null && uiState.pendingBillsTotal > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Liquidez Real: ${format.format(uiState.actualLiquidity)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    Text(
+                        "Saldo disponible tras pagar cuentas",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), RoundedCornerShape(2.dp)))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Ingresos: ${format.format(summary.totalIncome)}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(8.dp).background(Color(0xFFF44336), RoundedCornerShape(2.dp)))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Gastos: ${format.format(summary.totalExpense)}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            // Gráfico de Dona
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .weight(0.8f),
+                contentAlignment = Alignment.Center
+            ) {
+                val total = (summary.totalIncome + summary.totalExpense).toFloat()
+                val incomeAngle = if (total > 0) (summary.totalIncome.toFloat() / total) * 360f else 180f
+                val expenseAngle = 360f - incomeAngle
+
+                Canvas(modifier = Modifier.size(80.dp)) {
+                    drawArc(
+                        color = Color(0xFF4CAF50),
+                        startAngle = -90f,
+                        sweepAngle = incomeAngle,
+                        useCenter = false,
+                        style = Stroke(width = 25f, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = Color(0xFFF44336),
+                        startAngle = -90f + incomeAngle,
+                        sweepAngle = expenseAngle,
+                        useCenter = false,
+                        style = Stroke(width = 25f, cap = StrokeCap.Round)
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val ratio = if (summary.totalIncome > 0) 
+                        (summary.totalExpense / summary.totalIncome * 100).toInt() 
+                    else 0
+                    Text(
+                        text = "$ratio%",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (ratio > 80) Color(0xFFF44336) else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text("gastado", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp)
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BalanceCard (Legacy - se mantiene por compatibilidad si se usa en otros lados)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun BalanceCard(summary: DashboardSummary, format: NumberFormat, uiState: DashboardUiState = DashboardUiState()) {
@@ -559,6 +697,191 @@ fun MonthlyChart(monthlyData: List<MonthlyBalance>) {
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun UpcomingBillsCard(
+    bills: List<RecurringBill>,
+    totalPending: Long,
+    format: NumberFormat,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.EventRepeat,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Próximos Vencimientos",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+
+            bills.forEach { bill ->
+                val status = bill.status()
+                val statusColor = when (status) {
+                    RecurringBillStatus.OVERDUE -> Color(0xFFB71C1C)
+                    RecurringBillStatus.DUE_SOON -> Color(0xFFE65100)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = bill.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = bill.statusLabel(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor
+                        )
+                    }
+                    Text(
+                        text = format.format(bill.amountClp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Comprometido este mes:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = format.format(totalPending),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tarjetas de Ahorro y Deuda
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun SavingsCard(totalSavings: Long, format: NumberFormat) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Savings, null, tint = Color(0xFF6A1B9A), modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("Ahorro total", style = MaterialTheme.typography.bodySmall, color = Color(0xFF6A1B9A))
+                Text(text = format.format(totalSavings), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF6A1B9A))
+                Text("No incluido en el balance operativo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+fun LiabilitiesCard(totalLiabilities: Long, totalCreditLimit: Long = 0L, format: NumberFormat) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)) // Naranja suave
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.CreditCard, null, tint = Color(0xFFE65100), modifier = Modifier.size(32.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text("Carga Financiera (Deudas)", style = MaterialTheme.typography.bodySmall, color = Color(0xFFE65100))
+                    Text(
+                        text = format.format(kotlin.math.abs(totalLiabilities)),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color(0xFFE65100)
+                    )
+                }
+            }
+            
+            if (totalCreditLimit > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                val availableCredit = totalCreditLimit - kotlin.math.abs(totalLiabilities)
+                val progress = if (totalCreditLimit > 0) (kotlin.math.abs(totalLiabilities).toFloat() / totalCreditLimit.toFloat()).coerceIn(0f, 1f) else 0f
+                
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Cupo Utilizado", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text(
+                            "Disponible: ${format.format(maxOf(0, availableCredit))}", 
+                            style = MaterialTheme.typography.labelSmall, 
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF43A047)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = progress,
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = if (progress > 0.8f) Color(0xFFF44336) else Color(0xFFE65100),
+                        trackColor = Color.LightGray.copy(alpha = 0.3f),
+                        strokeCap = StrokeCap.Round
+                    )
+                }
+            } else {
+                Text("Saldo acumulado en pasivos", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
         }
     }

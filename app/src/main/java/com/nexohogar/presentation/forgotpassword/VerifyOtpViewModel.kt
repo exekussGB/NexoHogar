@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.domain.repository.AuthRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +16,9 @@ data class VerifyOtpState(
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
     val accessToken: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val resendTimer: Int = 0, // Segundos restantes para reenviar
+    val canResend: Boolean = true
 )
 
 /**
@@ -31,6 +34,33 @@ class VerifyOtpViewModel(
 
     private var attemptCount = 0
     private val MAX_ATTEMPTS = 5
+
+    init {
+        startResendTimer()
+    }
+
+    private fun startResendTimer() {
+        _state.update { it.copy(resendTimer = 60, canResend = false) }
+        viewModelScope.launch {
+            while (_state.value.resendTimer > 0) {
+                delay(1000)
+                _state.update { it.copy(resendTimer = it.resendTimer - 1) }
+            }
+            _state.update { it.copy(canResend = true) }
+        }
+    }
+
+    fun resendOtp(email: String) {
+        if (!_state.value.canResend) return
+        
+        viewModelScope.launch {
+            // Aquí iría la llamada al repositorio para reenviar el OTP
+            // Supabase auth.resetPasswordForEmail(email) ya envía uno, 
+            // pero si necesitamos reenviar explícitamente:
+            // authRepository.sendPasswordReset(email) 
+            startResendTimer()
+        }
+    }
 
     fun verifyOtp(email: String, code: String) {
         if (attemptCount >= MAX_ATTEMPTS) {

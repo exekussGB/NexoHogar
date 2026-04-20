@@ -203,6 +203,25 @@ class InventoryViewModel(
                     suggestions.any { it.productId == p.id }
                 }
 
+                // UX INTEGRACIÓN: Auto-añadir a la lista de compras si el stock es crítico
+                products.forEach { product ->
+                    if (product.currentStock <= (product.minStock?.toDouble() ?: 0.0) / 2.0) {
+                        val alreadyInFuture = futurePurchases.any { it.name.contains(product.name, ignoreCase = true) }
+                        if (!alreadyInFuture) {
+                            addSuggestionToWishlist(PurchaseSuggestion(
+                                productId = product.id,
+                                productName = product.name,
+                                unit = product.unit,
+                                category = product.category,
+                                currentStock = product.currentStock,
+                                suggestedQuantity = (product.minStock?.toDouble() ?: 1.0) * 2,
+                                estimatedCost = null,
+                                reason = "Stock crítico detectado automáticamente"
+                            ), silent = true)
+                        }
+                    }
+                }
+
                 _uiState.update {
                     it.copy(
                         products = products,
@@ -299,84 +318,45 @@ class InventoryViewModel(
     }
 
     // ─── Añadir sugerencia a future_purchases ────────────────────────────────────
-    fun addSuggestionToWishlist(suggestion: PurchaseSuggestion) {
-        android.util.Log.d("InventoryVM", "=== 📝 addSuggestionToWishlist START ===")
-        android.util.Log.d("InventoryVM", "Product: ${suggestion.productName}")
-        android.util.Log.d("InventoryVM", "futurePurchasesRepository != null: ${futurePurchasesRepository != null}")
-
-        val repo = futurePurchasesRepository ?: run {
-            android.util.Log.e("InventoryVM", "❌ FuturePurchasesRepository es null!")
-            _uiState.update { it.copy(error = "Error: FuturePurchasesRepository no inicializado") }
-            return
+    fun addSuggestionToWishlist(suggestion: PurchaseSuggestion, silent: Boolean = false) {
+        if (!silent) {
+            android.util.Log.d("InventoryVM", "=== 📝 addSuggestionToWishlist START ===")
+            android.util.Log.d("InventoryVM", "Product: ${suggestion.productName}")
         }
 
+        val repo = futurePurchasesRepository ?: return
+
         viewModelScope.launch {
-            android.util.Log.d("InventoryVM", "📡 Iniciando viewModelScope...")
+            val hId = householdId
+            val uId = tenantContext.getCurrentUserId() ?: ""
 
-            if (futurePurchasesRepository != null) {
-                android.util.Log.d("InventoryVM", "📨 Llamando a createFuturePurchase()")
-                val hId = householdId
-                val uId = tenantContext.getCurrentUserId() ?: ""
-                android.util.Log.d("InventoryVM", "   householdId: '$hId' (isEmpty: ${hId.isEmpty()})")
-                android.util.Log.d("InventoryVM", "   createdBy: '$uId' (isEmpty: ${uId.isEmpty()})")
-                android.util.Log.d("InventoryVM", "   name: ${suggestion.productName}")
+            if (hId.isEmpty() || uId.isEmpty()) return@launch
 
-                if (hId.isEmpty() || uId.isEmpty()) {
-                    android.util.Log.e("InventoryVM", "⚠️ householdId o userId están vacíos!")
-                    android.util.Log.e("InventoryVM", "   tenantContext.getCurrentHouseholdId(): ${tenantContext.getCurrentHouseholdId()}")
-                    android.util.Log.e("InventoryVM", "   tenantContext.getCurrentUserId(): ${tenantContext.getCurrentUserId()}")
-                }
+            val result = repo.createFuturePurchase(
+                householdId = hId,
+                name = suggestion.productName,
+                description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
+                category = suggestion.category,
+                estimatedPrice = suggestion.estimatedCost,
+                priority = if (suggestion.reason.contains("crítico")) "HIGH" else "MEDIUM",
+                createdBy = uId
+            )
 
-                val result = futurePurchasesRepository.createFuturePurchase(
-                    householdId = hId,
-                    name = suggestion.productName,
-                    description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
-                    category = suggestion.category,
-                    estimatedPrice = suggestion.estimatedCost,
-                    priority = "MEDIUM",
-                    createdBy = uId
-                )
-
-                android.util.Log.d("InventoryVM", "✅ createFuturePurchase() retornó")
-                android.util.Log.d("InventoryVM", "   Result type: ${result.javaClass.simpleName}")
-
-                when (result) {
-                    is com.nexohogar.core.result.AppResult.Success -> {
-                        android.util.Log.d("InventoryVM", "✅✅✅ SUCCESS!")
-                        android.util.Log.d("InventoryVM", "   ID: ${result.data.id}")
-                        android.util.Log.d("InventoryVM", "   Name: ${result.data.name}")
-                        android.util.Log.d("InventoryVM", "   HouseholdId: ${result.data.householdId}")
+            when (result) {
+                is com.nexohogar.core.result.AppResult.Success -> {
+                    if (!silent) {
                         _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de compras") }
-                        // 🔄 RECARGAR la lista del carrito
-                        loadData()
                     }
-                    is com.nexohogar.core.result.AppResult.Error -> {
-                        android.util.Log.e("InventoryVM", "❌❌❌ ERROR!")
-                        android.util.Log.e("InventoryVM", "   Message: ${result.message}")
+                    // No recargamos todo el loadData para evitar bucles si es silent, 
+                    // solo actualizamos la lista local si es necesario
+                }
+                is com.nexohogar.core.result.AppResult.Error -> {
+                    if (!silent) {
                         _uiState.update { it.copy(error = "Error al agregar: ${result.message}") }
                     }
-                    is com.nexohogar.core.result.AppResult.Loading -> {
-                        android.util.Log.d("InventoryVM", "⏳ Loading state")
-                    }
                 }
-            } else {
-                android.util.Log.d("InventoryVM", "⚠️ Usando WishlistRepository como fallback")
-                try {
-                    wishlistRepository?.createWishlistItem(
-                        householdId = householdId,
-                        name = suggestion.productName,
-                        description = suggestion.unit?.let { "Cant. sugerida: ${suggestion.suggestedQuantity} $it" },
-                        price = suggestion.estimatedCost,
-                        priority = "MEDIUM",
-                        createdBy = tenantContext.getCurrentUserId() ?: ""
-                    )
-                    _uiState.update { it.copy(successMessage = "${suggestion.productName} agregado a la lista de deseos") }
-                } catch (e: Exception) {
-                    android.util.Log.e("InventoryVM", "❌ Error con fallback: ${e.message}", e)
-                    _uiState.update { it.copy(error = "Error al agregar: ${e.message}") }
-                }
+                else -> {}
             }
-            android.util.Log.d("InventoryVM", "=== 📝 addSuggestionToWishlist END ===")
         }
     }
 

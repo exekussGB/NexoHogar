@@ -31,6 +31,7 @@ data class AccountsUiState(
     val newAccountHasInitialBalance: Boolean = false,
     val newAccountInitialBalance: String = "",
     val newAccountIcon: String? = null,              // 🆕 Custom icon for create dialog
+    val newAccountCreditLimit: String = "",          // 🆕 Feature 4
     val showDeleteConfirm: String? = null, // accountId to delete
     val currentUserId: String? = null,
     val selectedAccount: AccountBalance? = null,
@@ -47,6 +48,7 @@ data class AccountsUiState(
     val editAccountIsSavings: Boolean = false,
     val editAccountIsShared: Boolean = true,
     val editAccountIcon: String? = null,             // 🆕 Custom icon for edit dialog
+    val editAccountCreditLimit: String = "",         // 🆕 Feature 4
     val isSavingEdit: Boolean = false
 )
 
@@ -172,7 +174,7 @@ class AccountsViewModel(
     }
 
     // ── Create Dialog ────────────────────────────────────────────────────────
-    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountIsSavings = false, newAccountHasInitialBalance = false, newAccountInitialBalance = "", newAccountIcon = null) } }
+    fun showCreateDialog()  { _uiState.update { it.copy(showCreateDialog = true, newAccountName = "", newAccountSubtype = "cash", newAccountIsShared = true, newAccountIsSavings = false, newAccountHasInitialBalance = false, newAccountInitialBalance = "", newAccountIcon = null, newAccountCreditLimit = "") } }
     fun dismissCreateDialog() { _uiState.update { it.copy(showCreateDialog = false) } }
     fun onNameChange(name: String) { _uiState.update { it.copy(newAccountName = name) } }
     fun onSubtypeChange(subtype: String) { _uiState.update { it.copy(newAccountSubtype = subtype) } }
@@ -181,6 +183,7 @@ class AccountsViewModel(
     fun onHasInitialBalanceChange(has: Boolean) { _uiState.update { it.copy(newAccountHasInitialBalance = has, newAccountInitialBalance = if (!has) "" else it.newAccountInitialBalance) } }
     fun onInitialBalanceChange(amount: String) { _uiState.update { it.copy(newAccountInitialBalance = amount) } }
     fun onIconChange(icon: String?) { _uiState.update { it.copy(newAccountIcon = icon) } }                    // 🆕 Custom icon
+    fun onCreditLimitChange(limit: String) { _uiState.update { it.copy(newAccountCreditLimit = limit) } }    // 🆕 Feature 4
 
     fun createAccount() {
         val state = _uiState.value
@@ -211,6 +214,8 @@ class AccountsViewModel(
             null
         }
 
+        val creditLimit = state.newAccountCreditLimit.toLongOrNull()
+
         val accountType = when (state.newAccountSubtype) {
             "credit_card" -> "LIABILITY"
             else -> "ASSET"
@@ -227,7 +232,8 @@ class AccountsViewModel(
                 ownerUserId    = if (!state.newAccountIsShared) state.currentUserId else null,
                 initialBalanceCLP = initialBalance,
                 isSavings      = state.newAccountIsSavings,
-                icon           = state.newAccountIcon           // 🆕 Custom icon
+                icon           = state.newAccountIcon,           // 🆕 Custom icon
+                creditLimit    = creditLimit                      // 🆕 Feature 4
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isCreating = false, showCreateDialog = false) }
@@ -270,6 +276,7 @@ class AccountsViewModel(
                 editAccountIsSavings = account?.isSavings  ?: false,
                 editAccountIsShared  = account?.isShared   ?: true,
                 editAccountIcon      = account?.icon,                // 🆕 Custom icon
+                editAccountCreditLimit = account?.creditLimit?.toString() ?: "", // 🆕 Feature 4
                 error                = null
             )
         }
@@ -295,6 +302,10 @@ class AccountsViewModel(
         _uiState.update { it.copy(editAccountIcon = icon) }
     }
 
+    fun onEditCreditLimitChange(limit: String) {                     // 🆕 Feature 4
+        _uiState.update { it.copy(editAccountCreditLimit = limit) }
+    }
+
     fun saveEditAccount() {
         val state = _uiState.value
         val accountId = state.showEditDialog ?: return
@@ -303,6 +314,8 @@ class AccountsViewModel(
             _uiState.update { it.copy(error = "El nombre es obligatorio") }
             return
         }
+        val creditLimit = state.editAccountCreditLimit.toLongOrNull()
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSavingEdit = true, error = null) }
             when (val result = accountsRepository.updateAccount(
@@ -310,7 +323,8 @@ class AccountsViewModel(
                 name      = name,
                 isSavings = state.editAccountIsSavings,
                 isShared  = state.editAccountIsShared,
-                icon      = state.editAccountIcon              // 🆕 Custom icon
+                icon      = state.editAccountIcon,              // 🆕 Custom icon
+                creditLimit = creditLimit                       // 🆕 Feature 4
             )) {
                 is AppResult.Success -> {
                     _uiState.update { it.copy(isSavingEdit = false, showEditDialog = null) }

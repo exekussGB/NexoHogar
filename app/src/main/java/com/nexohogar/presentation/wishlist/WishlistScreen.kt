@@ -46,6 +46,9 @@ fun WishlistScreen(
     var showTutorial by remember {
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.WISHLIST))
     }
+    
+    // Filtros de UI
+    var priorityFilter by remember { mutableStateOf<String?>(null) }
 
     // ── Recargar items cada vez que la pantalla se muestra ───────────────────
     LaunchedEffect(Unit) {
@@ -140,8 +143,11 @@ fun WishlistScreen(
                     }
                 }
                 else -> {
-                    val pending   = uiState.items.filter { !it.isPurchased }
-                    val purchased = uiState.items.filter {  it.isPurchased }
+                    val items = if (priorityFilter == null) uiState.items 
+                                else uiState.items.filter { it.priority == priorityFilter || it.isPurchased }
+                    
+                    val pending   = items.filter { !it.isPurchased }
+                    val purchased = items.filter {  it.isPurchased }
 
                     val highItems   = pending.filter { it.priority == "HIGH" }
                     val mediumItems = pending.filter { it.priority == "MEDIUM" }
@@ -154,6 +160,30 @@ fun WishlistScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement   = Arrangement.spacedBy(4.dp)
                     ) {
+                        // Chips de Filtro
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = priorityFilter == null,
+                                    onClick = { priorityFilter = null },
+                                    label = { Text("Todos", fontSize = 10.sp) }
+                                )
+                                FilterChip(
+                                    selected = priorityFilter == "HIGH",
+                                    onClick = { priorityFilter = if (priorityFilter == "HIGH") null else "HIGH" },
+                                    label = { Text("Urgentes", fontSize = 10.sp) },
+                                    leadingIcon = { Icon(Icons.Default.PriorityHigh, null, Modifier.size(12.dp)) }
+                                )
+                                FilterChip(
+                                    selected = priorityFilter == "MEDIUM",
+                                    onClick = { priorityFilter = if (priorityFilter == "MEDIUM") null else "MEDIUM" },
+                                    label = { Text("Pendientes", fontSize = 10.sp) }
+                                )
+                            }
+                        }
 
 
                         // ── Alta Prioridad ───────────────────────────────────

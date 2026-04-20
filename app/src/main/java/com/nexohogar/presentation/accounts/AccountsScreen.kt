@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -376,8 +377,10 @@ fun AccountsScreen(
             onHasInitialBalanceChange = { viewModel.onHasInitialBalanceChange(it) },
             onIsSavingsChange         = { viewModel.onIsSavingsChange(it) },
             isSavings                 = uiState.newAccountIsSavings,
+            creditLimit               = uiState.newAccountCreditLimit,    // 🆕 Feature 4
             onInitialBalanceChange    = { viewModel.onInitialBalanceChange(it) },
             onIconChange              = { viewModel.onIconChange(it) },    // 🆕
+            onCreditLimitChange       = { viewModel.onCreditLimitChange(it) }, // 🆕 Feature 4
             onDismiss   = { viewModel.dismissCreateDialog() },
             onCreate    = { viewModel.createAccount() }
         )
@@ -420,10 +423,12 @@ fun AccountsScreen(
             isSaving       = uiState.isSavingEdit,
             error          = uiState.error,
             icon           = uiState.editAccountIcon,                      // 🆕
+            creditLimit    = uiState.editAccountCreditLimit,               // 🆕 Feature 4
             onNameChange   = { viewModel.onEditNameChange(it) },
             onIsSavingsChange = { viewModel.onEditIsSavingsChange(it) },
             onIsSharedChange  = { viewModel.onEditIsSharedChange(it) },
             onIconChange      = { viewModel.onEditIconChange(it) },        // 🆕
+            onCreditLimitChange = { viewModel.onEditCreditLimitChange(it) }, // 🆕 Feature 4
             onDismiss      = { viewModel.dismissEditDialog() },
             onSave         = { viewModel.saveEditAccount() }
         )
@@ -519,6 +524,40 @@ private fun AccountDetailSheet(
                         fontSize = 28.sp,
                         color = if (account.movementBalance >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
                     )
+
+                    // 🆕 Cupo Disponible para Tarjetas de Crédito
+                    if (account.creditLimit != null && account.creditLimit > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val used = kotlin.math.abs(account.movementBalance)
+                        val available = account.creditLimit - used
+                        val progress = (used.toFloat() / account.creditLimit.toFloat()).coerceIn(0f, 1f)
+                        
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Cupo disponible: ${clpFormat.format(available)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "${(progress * 100).toInt()}% usado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (progress > 0.9f) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth().height(8.dp),
+                                color = if (progress > 0.9f) Color.Red else MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
+                    }
                 }
             }
 
@@ -678,6 +717,7 @@ fun CreateAccountDialog(
     initialBalance  : String = "",
     isSavings       : Boolean = false,
     icon            : String? = null,                    // 🆕 Custom icon
+    creditLimit     : String = "",                       // 🆕 Feature 4
     onNameChange    : (String) -> Unit,
     onSubtypeChange : (String) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
@@ -685,6 +725,7 @@ fun CreateAccountDialog(
     onHasInitialBalanceChange: (Boolean) -> Unit = {},
     onInitialBalanceChange   : (String) -> Unit = {},
     onIconChange    : (String?) -> Unit = {},            // 🆕 Custom icon
+    onCreditLimitChange : (String) -> Unit = {},         // 🆕 Feature 4
     onDismiss       : () -> Unit,
     onCreate        : () -> Unit
 ) {
@@ -768,6 +809,20 @@ fun CreateAccountDialog(
                             }
                         }
                     }
+                }
+
+                // 🆕 Cupo de Crédito (solo para TC)
+                if (subtype == "credit_card") {
+                    OutlinedTextField(
+                        value = creditLimit,
+                        onValueChange = onCreditLimitChange,
+                        label = { Text("Cupo total de la tarjeta (CLP)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isCreating,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        prefix = { Text("$") }
+                    )
                 }
 
                 // Compartida / Personal
@@ -886,10 +941,12 @@ fun EditAccountDialog(
     isSaving        : Boolean,
     error           : String?,
     icon            : String? = null,                    // 🆕 Custom icon
+    creditLimit     : String = "",                       // 🆕 Feature 4
     onNameChange    : (String) -> Unit,
     onIsSavingsChange: (Boolean) -> Unit,
     onIsSharedChange: (Boolean) -> Unit,
     onIconChange    : (String?) -> Unit = {},            // 🆕 Custom icon
+    onCreditLimitChange : (String) -> Unit = {},         // 🆕 Feature 4
     onDismiss       : () -> Unit,
     onSave          : () -> Unit
 ) {
@@ -912,6 +969,22 @@ fun EditAccountDialog(
                     singleLine    = true,
                     modifier      = Modifier.fillMaxWidth(),
                     enabled       = !isSaving
+                )
+
+                // 🆕 Cupo de Crédito
+                val isCreditCard = remember(name) { name.lowercase().contains("crédito") || name.lowercase().contains("credito") }
+                // Nota: Podríamos pasar el subtype al EditDialog también si quisiéramos ser más estrictos
+                
+                OutlinedTextField(
+                    value = creditLimit,
+                    onValueChange = onCreditLimitChange,
+                    label = { Text("Cupo total (Opcional CLP)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    prefix = { Text("$") },
+                    supportingText = { Text("Para calcular cupo disponible") }
                 )
 
                 // Compartida / Personal

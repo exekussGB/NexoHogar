@@ -10,5 +10,6 @@ data class UpdateAccountRequest(
     @SerializedName("name")       val name: String? = null,
     @SerializedName("is_savings") val isSavings: Boolean? = null,
     @SerializedName("is_shared")  val isShared: Boolean? = null,
-    @SerializedName("icon")       val icon: String? = null         // 🆕 Custom icon
+    @SerializedName("icon")       val icon: String? = null,        // 🆕 Custom icon
+    @SerializedName("credit_limit") val creditLimit: Double? = null // 🆕 Feature 4
 )

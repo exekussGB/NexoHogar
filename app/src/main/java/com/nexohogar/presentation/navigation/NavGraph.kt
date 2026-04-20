@@ -712,6 +712,7 @@ fun NavGraph(navController: NavHostController) {
                                 dashboardRepository,
                                 transactionsRepository,
                                 accountsRepository,
+                                recurringBillsRepository,
                                 tenantContext
                             ) as T
                         }
@@ -724,6 +725,7 @@ fun NavGraph(navController: NavHostController) {
                     onSeeAllClick = { navController.navigate(Screen.Transactions.route) },
                     onNavigateToCategoryExp = { navController.navigate(Screen.CategoryExpenses.route) },
                     onNavigateToPersonal = { navController.navigate(Screen.PersonalDashboard.route) },
+                    onNavigateToRecurring = { navController.navigate(Screen.RecurringBills.route) },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

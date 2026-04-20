@@ -1,5 +1,7 @@
 package com.nexohogar.presentation.recurringbills
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -26,10 +29,14 @@ import com.nexohogar.domain.model.RecurringBillStatus
 import com.nexohogar.presentation.components.LoadingOverlay
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.core.content.FileProvider
 import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.core.tutorial.TutorialModule
+import com.nexohogar.core.util.ReceiptScanner
 import com.nexohogar.presentation.tutorial.TutorialOverlay
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +50,26 @@ fun RecurringBillsScreen(
         mutableStateOf(!tutorialManager.isTutorialCompleted(TutorialModule.RECURRING_BILLS))
     }
     val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    val context = LocalContext.current
+    val scanner = remember { ReceiptScanner(context) }
+    var photoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            photoUri?.let { viewModel.scanReceipt(it, scanner) }
+        }
+    }
+
+    fun launchCamera() {
+        val directory = File(context.cacheDir, "images")
+        if (!directory.exists()) directory.mkdirs()
+        val file = File(directory, "receipt_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "com.nexohogar.fileprovider", file)
+        photoUri = uri
+        cameraLauncher.launch(uri)
+    }
 
     Scaffold(
         topBar = {
@@ -229,11 +256,15 @@ fun RecurringBillsScreen(
     val billToPay = uiState.billToPay
     if (billToPay != null) {
         PayBillDialog(
-            bill       = billToPay,
-            accounts   = uiState.accounts,
-            isPaying   = uiState.isPayingBill,
-            onDismiss  = { viewModel.dismissPayDialog() },
-            onConfirm  = { amount, accountId, notes ->
+            bill           = billToPay,
+            accounts       = uiState.accounts,
+            isPaying       = uiState.isPayingBill,
+            isScanning     = uiState.isScanningReceipt,
+            anomalyWarning = uiState.anomalyWarning,
+            onDismiss      = { viewModel.dismissPayDialog() },
+            onAmountChanged = { viewModel.onAmountChangedInPayDialog(it) },
+            onScanClick    = { launchCamera() },
+            onConfirm      = { amount, accountId, notes ->
                 viewModel.payBill(amount, accountId, notes)
             }
         )
@@ -326,12 +357,30 @@ private fun PayBillDialog(
     bill: RecurringBillWithStatusDto,
     accounts: List<Account>,
     isPaying: Boolean,
+    isScanning: Boolean = false,
+    anomalyWarning: String?,
     onDismiss: () -> Unit,
+    onAmountChanged: (Long) -> Unit,
+    onScanClick: () -> Unit,
     onConfirm: (amount: Long, accountId: String?, notes: String?) -> Unit
 ) {
     var amount by remember { mutableStateOf(bill.amountClp.toString()) }
     var selectedAccountId by remember { mutableStateOf(bill.accountId) }
     var notes by remember { mutableStateOf("") }
+
+    // Sincronizar monto si cambia desde el exterior (OCR)
+    LaunchedEffect(bill.amountClp) {
+        if (bill.amountClp > 0) {
+            amount = bill.amountClp.toString()
+        }
+    }
+
+    // Notificar al ViewModel para recalcular anomalías si el usuario cambia el monto manualmente
+    LaunchedEffect(amount) {
+        amount.toLongOrNull()?.let {
+            onAmountChanged(it)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!isPaying) onDismiss() },
@@ -339,6 +388,26 @@ private fun PayBillDialog(
         title = { Text("Pagar ${bill.name}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (anomalyWarning != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Text(
+                                text = anomalyWarning,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { c -> c.isDigit() } },
@@ -346,8 +415,17 @@ private fun PayBillDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     prefix = { Text("$") },
+                    trailingIcon = {
+                        if (isScanning) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else {
+                            IconButton(onClick = onScanClick, enabled = !isPaying) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = "Escanear recibo", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    },
                     singleLine = true,
-                    enabled = !isPaying
+                    enabled = !isPaying && !isScanning
                 )
 
                 if (accounts.isNotEmpty()) {
@@ -581,12 +659,24 @@ private fun RecurringBillItem(
                         // Progreso de cuotas
                         bill.installmentLabel?.let { label ->
                             Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (bill.installmentsCompleted) Color(0xFF2E7D32) else Color(0xFF1565C0),
-                                fontWeight = FontWeight.Medium
-                            )
+                            Column(verticalArrangement = Arrangement.Center) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (bill.installmentsCompleted) Color(0xFF2E7D32) else Color(0xFF1565C0),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                if (bill.isInstallment && !bill.installmentsCompleted) {
+                                    val progressValue = bill.paidInstallments.toFloat() / (bill.totalInstallments ?: 1).toFloat()
+                                    LinearProgressIndicator(
+                                        progress = { progressValue },
+                                        modifier = Modifier.width(40.dp).height(4.dp).padding(top = 2.dp),
+                                        color = Color(0xFF1565C0),
+                                        trackColor = Color(0xFF1565C0).copy(alpha = 0.2f),
+                                        strokeCap = StrokeCap.Round
+                                    )
+                                }
+                            }
                         }
                         // Mostrar último pago si existe
                         statusDto?.lastPaymentAmount?.let { lastAmt ->

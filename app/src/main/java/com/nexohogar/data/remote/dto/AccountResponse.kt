@@ -14,5 +14,7 @@ data class AccountResponse(
     @SerializedName("created_by") val createdBy: String?,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("is_savings") val isSavings: Boolean? = false,
-    @SerializedName("icon") val icon: String? = null           // 🆕 Custom icon
+    @SerializedName("is_liability") val isLiability: Boolean? = false, // 🆕 Feature 3
+    @SerializedName("icon") val icon: String? = null,           // 🆕 Custom icon
+    @SerializedName("credit_limit") val creditLimit: Double? = null // 🆕 Feature 4
 )

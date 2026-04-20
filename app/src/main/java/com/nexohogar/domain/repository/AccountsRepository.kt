@@ -16,7 +16,8 @@ interface AccountsRepository {
         ownerUserId: String? = null,
         initialBalanceCLP: Double? = null,
         isSavings: Boolean = false,    // 🆕 Feature 2
-        icon: String? = null           // 🆕 Custom icon
+        icon: String? = null,          // 🆕 Custom icon
+        creditLimit: Long? = null      // 🆕 Feature 4
     ): AppResult<Account>
     suspend fun deleteAccount(accountId: String): AppResult<Unit>
     suspend fun updateAccount(
@@ -24,7 +25,8 @@ interface AccountsRepository {
         name      : String,
         isSavings : Boolean,
         isShared  : Boolean,
-        icon      : String? = null     // 🆕 Custom icon
+        icon      : String? = null,    // 🆕 Custom icon
+        creditLimit: Long? = null      // 🆕 Feature 4
     ): AppResult<Unit>
     suspend fun hasPersonalAccounts(householdId: String, userId: String): AppResult<Boolean>
     suspend fun getPersonalAccountBalances(householdId: String, userId: String): AppResult<List<AccountBalance>>

@@ -24,7 +24,7 @@ interface DashboardApi {
     @GET("account_balances")
     suspend fun getAccountBalances(
         @Query("household_id") householdId: String,
-        @Query("select")       select: String = "account_id,name,account_type,balance_clp",
+        @Query("select")       select: String = "account_id,name,account_type,balance_clp,is_shared,owner_user_id,is_savings,is_liability,icon,credit_limit",
         @Query("order")        order: String  = "name.asc"
     ): Response<List<AccountBalanceViewDto>>
 }

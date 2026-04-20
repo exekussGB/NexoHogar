@@ -1,7 +1,6 @@
 package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
-import com.nexohogar.data.local.SessionManager
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.remote.dto.CreateAccountRequest
 import com.nexohogar.data.remote.dto.toDomain
@@ -12,8 +11,7 @@ import com.nexohogar.data.remote.dto.SoftDeleteAccountRequest
 import com.nexohogar.data.remote.dto.UpdateAccountRequest
 
 class AccountsRepositoryImpl(
-    private val accountsApi   : AccountsApi,
-    private val sessionManager: SessionManager
+    private val accountsApi   : AccountsApi
 ) : AccountsRepository {
 
     override suspend fun getAccountBalances(
@@ -56,8 +54,10 @@ class AccountsRepositoryImpl(
                         householdId = householdId,
                         isShared    = dto.isShared,
                         ownerUserId = dto.ownerUserId,
-                        isSavings   = dto.isSavings,    // 🆕 Feature 2
-                        icon        = dto.icon           // 🆕 Custom icon
+                        isSavings   = dto.isSavings,
+                        isLiability = dto.isLiability,
+                        icon        = dto.icon,
+                        creditLimit = dto.creditLimit?.toLong()
                     )
                 }
             AppResult.Success(accounts)
@@ -74,7 +74,7 @@ class AccountsRepositoryImpl(
             val balances = accountsApi.getBalances(
                 householdId = "eq.$householdId"
             )
-            val hasPersonal = balances.any { it.isShared == false && it.ownerUserId == userId }
+            val hasPersonal = balances.any { !it.isShared && it.ownerUserId == userId }
             AppResult.Success(hasPersonal)
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Error al verificar cuentas personales")
@@ -90,7 +90,7 @@ class AccountsRepositoryImpl(
                 householdId = "eq.$householdId"
             )
             val personal = balances
-                .filter { it.isShared == false && it.ownerUserId == userId }
+                .filter { !it.isShared && it.ownerUserId == userId }
                 .map { it.toDomain() }
             AppResult.Success(personal)
         } catch (e: Exception) {
@@ -107,7 +107,8 @@ class AccountsRepositoryImpl(
         ownerUserId   : String?,
         initialBalanceCLP: Double?,
         isSavings     : Boolean,    // 🆕 Feature 2
-        icon          : String?     // 🆕 Custom icon
+        icon          : String?,    // 🆕 Custom icon
+        creditLimit   : Long?       // 🆕 Feature 4
     ): AppResult<Account> {
         return try {
             val request = CreateAccountRequest(
@@ -120,7 +121,8 @@ class AccountsRepositoryImpl(
                 ownerUserId   = ownerUserId,
                 initialBalanceCLP = initialBalanceCLP,
                 isSavings     = isSavings,    // 🆕 Feature 2
-                icon          = icon           // 🆕 Custom icon
+                icon          = icon,         // 🆕 Custom icon
+                creditLimit   = creditLimit?.toDouble()
             )
             val response = accountsApi.createAccount(request)
             val created  = response.firstOrNull()
@@ -134,7 +136,9 @@ class AccountsRepositoryImpl(
                     balance     = created.balance?.toLong() ?: 0L,
                     householdId = householdId,
                     isSavings   = created.isSavings ?: false,    // 🆕 Feature 2
-                    icon        = created.icon                    // 🆕 Custom icon
+                    isLiability = created.isLiability ?: false,  // 🆕 Feature 3
+                    icon        = created.icon,                   // 🆕 Custom icon
+                    creditLimit = created.creditLimit?.toLong()
                 )
             )
         } catch (e: Exception) {
@@ -163,7 +167,8 @@ class AccountsRepositoryImpl(
         name      : String,
         isSavings : Boolean,
         isShared  : Boolean,
-        icon      : String?     // 🆕 Custom icon
+        icon      : String?,    // 🆕 Custom icon
+        creditLimit: Long?      // 🆕 Feature 4
     ): AppResult<Unit> {
         return try {
             val response = accountsApi.updateAccount(
@@ -172,7 +177,8 @@ class AccountsRepositoryImpl(
                     name      = name,
                     isSavings = isSavings,
                     isShared  = isShared,
-                    icon      = icon        // 🆕 Custom icon
+                    icon      = icon,        // 🆕 Custom icon
+                    creditLimit = creditLimit?.toDouble()
                 )
             )
             if (response.isSuccessful) {

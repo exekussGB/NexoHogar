@@ -17,8 +17,10 @@ data class AccountBalanceViewDto(
     @SerializedName("balance_clp")   val balanceClp:   Double,
     @SerializedName("is_shared")     val isShared:     Boolean = true,
     @SerializedName("owner_user_id") val ownerUserId:  String? = null,
-    @SerializedName("is_savings")    val isSavings:    Boolean = false,    // 🆕 Feature 2
-    @SerializedName("icon")          val icon:         String? = null      // 🆕 Custom icon
+    @SerializedName("is_savings")    val isSavings:    Boolean = false,
+    @SerializedName("is_liability")  val isLiability:  Boolean = false,
+    @SerializedName("icon")          val icon:         String? = null,
+    @SerializedName("credit_limit")  val creditLimit:  Double? = null
 )
 
 fun AccountBalanceViewDto.toDomain() = AccountBalance(
@@ -28,8 +30,10 @@ fun AccountBalanceViewDto.toDomain() = AccountBalance(
     movementBalance = balanceClp.toLong(),
     isShared        = isShared,
     ownerUserId     = ownerUserId,
-    isSavings       = isSavings,    // 🆕 Feature 2
-    icon            = icon          // 🆕 Custom icon
+    isSavings       = isSavings,
+    isLiability     = isLiability,
+    icon            = icon,
+    creditLimit     = creditLimit?.toLong()
 )
 
 fun List<AccountBalanceViewDto>.toDomain() = map { it.toDomain() }

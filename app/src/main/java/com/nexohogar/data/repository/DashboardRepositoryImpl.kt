@@ -70,14 +70,7 @@ class DashboardRepositoryImpl(
             if (response.isSuccessful) {
                 val balances = response.body()
                     ?.filter { !it.accountName.lowercase().contains("system") }
-                    ?.map { dto ->
-                        AccountBalance(
-                            accountId       = dto.accountId,
-                            accountName     = dto.accountName,
-                            accountType     = dto.accountType,
-                            movementBalance = dto.balanceClp.toLong()
-                        )
-                    } ?: emptyList()
+                    ?.toDomain() ?: emptyList()
                 AppResult.Success(balances)
             } else {
                 AppResult.Error("Error saldos de cuentas: ${response.code()}")

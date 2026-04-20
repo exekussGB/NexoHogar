@@ -8,5 +8,7 @@ data class AccountBalance(
     val isShared: Boolean = true,
     val ownerUserId: String? = null,
     val isSavings: Boolean = false,    // 🆕 Feature 2
-    val icon: String? = null           // 🆕 Custom icon
+    val isLiability: Boolean = false,  // 🆕 Feature 3: Deudas/Pasivos
+    val icon: String? = null,          // 🆕 Custom icon
+    val creditLimit: Long? = null      // 🆕 Feature 4: Cupo total para TC
 )

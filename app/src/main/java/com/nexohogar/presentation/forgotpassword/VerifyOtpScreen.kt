@@ -8,6 +8,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +35,21 @@ fun VerifyOtpScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var code by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+
+    // UX: Auto-focus al entrar
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    // UX: Auto-verificación al completar los 8 dígitos
+    LaunchedEffect(code) {
+        if (code.length == 8) {
+            focusManager.clearFocus()
+            viewModel.verifyOtp(email, code)
+        }
+    }
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
@@ -104,7 +122,9 @@ fun VerifyOtpScreen(
                 placeholder = { Text("00000000") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
                 textStyle = LocalTextStyle.current.copy(
                     textAlign = TextAlign.Center,
                     fontSize = 24.sp,
@@ -138,6 +158,20 @@ fun VerifyOtpScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text("Verificar código")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // UX: Temporizador de reenvío
+            TextButton(
+                onClick = { viewModel.resendOtp(email) },
+                enabled = state.canResend && !state.isLoading
+            ) {
+                if (state.canResend) {
+                    Text("Reenviar código")
+                } else {
+                    Text("Reenviar código en ${state.resendTimer}s")
+                }
             }
         }
     }

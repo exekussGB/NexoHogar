@@ -192,7 +192,7 @@ object ServiceLocator {
     }
 
     val accountsRepository: AccountsRepository by lazy {
-        AccountsRepositoryImpl(accountsApi, sessionManager)
+        AccountsRepositoryImpl(accountsApi)
     }
 
     val transactionsRepository: TransactionsRepository by lazy {

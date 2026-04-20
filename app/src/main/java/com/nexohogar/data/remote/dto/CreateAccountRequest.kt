@@ -12,5 +12,6 @@ data class CreateAccountRequest(
     @SerializedName("owner_user_id") val ownerUserId: String? = null,
     @SerializedName("initial_balance_clp") val initialBalanceCLP: Double? = null,
     @SerializedName("is_savings") val isSavings: Boolean = false,    // 🆕 Feature 2
-    @SerializedName("icon") val icon: String? = null                 // 🆕 Custom icon
+    @SerializedName("icon") val icon: String? = null,                // 🆕 Custom icon
+    @SerializedName("credit_limit") val creditLimit: Double? = null   // 🆕 Feature 4
 )

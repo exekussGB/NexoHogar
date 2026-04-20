@@ -14,6 +14,8 @@ import com.nexohogar.domain.model.RecurringBill
 import com.nexohogar.domain.repository.AccountsRepository
 import com.nexohogar.domain.repository.CategoriesRepository
 import com.nexohogar.domain.repository.RecurringBillsRepository
+import com.nexohogar.core.util.ReceiptScanner
+import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +46,9 @@ data class RecurringBillsUiState(
     // Diálogo de pago mejorado
     val billToPay: RecurringBillWithStatusDto?       = null,
     val isPayingBill: Boolean                        = false,
+    val isScanningReceipt: Boolean                   = false,
+    val anomalyWarning: String?                      = null,
+    val recentAverageAmount: Double?                 = null,
 
     // Historial de pagos
     val showHistoryFor: RecurringBillWithStatusDto?   = null,
@@ -262,11 +267,71 @@ class RecurringBillsViewModel(
     // ── Pagar con popup (monto editable) ────────────────────────────────────
 
     fun showPayDialog(bill: RecurringBillWithStatusDto) {
-        _uiState.update { it.copy(billToPay = bill) }
+        _uiState.update { it.copy(billToPay = bill, anomalyWarning = null) }
+        checkAnomaly(bill)
+    }
+
+    private fun checkAnomaly(bill: RecurringBillWithStatusDto) {
+        val householdId = tenantContext.getCurrentHouseholdId() ?: return
+        viewModelScope.launch {
+            val historyResult = repository.getBillHistory(bill.id, householdId)
+            if (historyResult is AppResult.Success) {
+                val payments = historyResult.data
+                if (payments.isNotEmpty()) {
+                    val lastPayments = payments.take(3)
+                    val avg = lastPayments.map { it.amountClp }.average()
+                    
+                    _uiState.update { it.copy(recentAverageAmount = avg) }
+                    
+                    val currentAmount = bill.amountClp
+                    if (avg > 0 && currentAmount > avg * 1.15) { // 15% de incremento
+                        val diff = currentAmount - avg
+                        val percent = ((diff / avg) * 100).toInt()
+                        _uiState.update { it.copy(
+                            anomalyWarning = "Monto $percent% superior al promedio ($${avg.toInt()})"
+                        )}
+                    }
+                }
+            }
+        }
+    }
+
+    fun onAmountChangedInPayDialog(newAmount: Long) {
+        val avg = _uiState.value.recentAverageAmount ?: return
+        if (newAmount > avg * 1.15) {
+            val diff = newAmount - avg
+            val percent = ((diff / avg) * 100).toInt()
+            _uiState.update { it.copy(
+                anomalyWarning = "Monto $percent% superior al promedio ($${avg.toInt()})"
+            )}
+        } else {
+            _uiState.update { it.copy(anomalyWarning = null) }
+        }
     }
 
     fun dismissPayDialog() {
-        _uiState.update { it.copy(billToPay = null) }
+        _uiState.update { it.copy(billToPay = null, anomalyWarning = null, isScanningReceipt = false) }
+    }
+
+    fun scanReceipt(uri: Uri, scanner: ReceiptScanner) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isScanningReceipt = true) }
+            val amount = scanner.scanReceipt(uri)
+            if (amount != null) {
+                // Actualizamos el monto en el billToPay si existe
+                _uiState.update { state ->
+                    state.billToPay?.let { bill ->
+                        state.copy(
+                            billToPay = bill.copy(amountClp = amount),
+                            isScanningReceipt = false
+                        )
+                    } ?: state.copy(isScanningReceipt = false)
+                }
+                onAmountChangedInPayDialog(amount)
+            } else {
+                _uiState.update { it.copy(isScanningReceipt = false) }
+            }
+        }
     }
 
     fun payBill(amountClp: Long, accountId: String?, notes: String?) {

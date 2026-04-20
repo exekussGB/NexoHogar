@@ -362,6 +362,27 @@ val dashboardTutorialSteps = listOf(
         iconBgColor = Color(0xFFE3F2FD)
     ),
     TutorialStep(
+        title = "Liquidez Real 💧",
+        description = "¡Nuevo! Ahora calculamos cuánto dinero tienes disponible realmente después de descontar tus cuentas pendientes del mes. No te lleves sorpresas al final de mes.",
+        icon = Icons.Default.AccountBalanceWallet,
+        iconColor = Color(0xFF0288D1),
+        iconBgColor = Color(0xFFE1F5FE)
+    ),
+    TutorialStep(
+        title = "Detección de Anomalías ⚠️",
+        description = "NexoHogar te avisará si un gasto recurrente (como la luz o el agua) sube más de un 15% respecto a tu promedio de 3 meses. ¡Mantén tus gastos bajo control!",
+        icon = Icons.Default.Warning,
+        iconColor = Color(0xFFF57F17),
+        iconBgColor = Color(0xFFFFF8E1)
+    ),
+    TutorialStep(
+        title = "Segregación de Ahorros y Deudas",
+        description = "Tus ahorros ahora se muestran aparte y no afectan tu balance operativo diario. También verás tu \"Carga Financiera\" para tener claridad sobre tus deudas.",
+        icon = Icons.Default.CreditCard,
+        iconColor = Color(0xFFE65100),
+        iconBgColor = Color(0xFFFFF3E0)
+    ),
+    TutorialStep(
         title = "Balance en tiempo real 💰",
         description = "El balance total ahora se calcula sumando los saldos reales de todas tus cuentas. Se actualiza automáticamente cada vez que registras un movimiento.",
         icon = Icons.Default.AccountBalanceWallet,
@@ -395,6 +416,20 @@ val accountsTutorialSteps = listOf(
         icon = Icons.Default.AccountBalance,
         iconColor = Color(0xFF1565C0),
         iconBgColor = Color(0xFFE3F2FD)
+    ),
+    TutorialStep(
+        title = "Cupos de Crédito 💳",
+        description = "¡Nuevo! Para tus tarjetas de crédito, ahora puedes definir un límite o cupo. La app te mostrará cuánto tienes disponible y el porcentaje de uso actual.",
+        icon = Icons.Default.CreditCard,
+        iconColor = Color(0xFFE91E63),
+        iconBgColor = Color(0xFFFCE4EC)
+    ),
+    TutorialStep(
+        title = "Ahorros vs Operativas",
+        description = "Marca tus cuentas como \"Ahorro\" para que su saldo se sume al ahorro total del hogar y no se mezcle con tu dinero del día a día.",
+        icon = Icons.Default.Savings,
+        iconColor = Color(0xFF6A1B9A),
+        iconBgColor = Color(0xFFF3E5F5)
     ),
     TutorialStep(
         title = "Íconos por tipo",
@@ -507,6 +542,13 @@ val recurringBillsTutorialSteps = listOf(
         icon = Icons.Default.EventRepeat,
         iconColor = Color(0xFF1565C0),
         iconBgColor = Color(0xFFE3F2FD)
+    ),
+    TutorialStep(
+        title = "Escaneo con OCR 📸",
+        description = "¡Nuevo! Al pagar una cuenta, puedes usar la cámara para escanear el monto de tu boleta automáticamente mediante inteligencia artificial. ¡Ahorra tiempo!",
+        icon = Icons.Default.CameraAlt,
+        iconColor = Color(0xFF00838F),
+        iconBgColor = Color(0xFFE0F7FA)
     ),
     TutorialStep(
         title = "Resumen mensual",

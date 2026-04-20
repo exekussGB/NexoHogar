@@ -34,8 +34,14 @@ data class AccountDto(
     @SerializedName("is_savings")
     val isSavings: Boolean? = false,    // 🆕 Feature 2
 
+    @SerializedName("is_liability")
+    val isLiability: Boolean? = false,  // 🆕 Feature 3: Deudas
+
     @SerializedName("icon")
-    val icon: String? = null            // 🆕 Custom icon
+    val icon: String? = null,           // 🆕 Custom icon
+
+    @SerializedName("credit_limit")
+    val creditLimit: Double? = null     // 🆕 Feature 4: Cupo
 )
 
 fun AccountDto.toDomain(): Account {
@@ -49,7 +55,9 @@ fun AccountDto.toDomain(): Account {
         isShared = isShared ?: true,
         ownerUserId = ownerUserId,
         isSavings = isSavings ?: false,    // 🆕 Feature 2
-        icon = icon                        // 🆕 Custom icon
+        isLiability = isLiability ?: false, // 🆕 Feature 3
+        icon = icon,                       // 🆕 Custom icon
+        creditLimit = creditLimit?.toLong()
     )
 }
 
