@@ -962,6 +962,7 @@ fun NavGraph(navController: NavHostController) {
                             @Suppress("UNCHECKED_CAST")
                             return PersonalDashboardViewModel(
                                 personalDashboardRepository,
+                                accountsRepository,
                                 tenantContext,
                                 sessionManager
                             ) as T

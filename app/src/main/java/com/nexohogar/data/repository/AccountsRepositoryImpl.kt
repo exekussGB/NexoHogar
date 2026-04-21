@@ -24,7 +24,8 @@ class AccountsRepositoryImpl(
             val domain = balances
                 .filter { dto ->
                     !dto.accountName.lowercase().contains("system") &&
-                            !dto.accountName.startsWith("_")
+                            !dto.accountName.startsWith("_") &&
+                            dto.isShared // 🛡️ Solo cuentas compartidas en el dashboard general
                 }
                 .map { it.toDomain() }
             AppResult.Success(domain)

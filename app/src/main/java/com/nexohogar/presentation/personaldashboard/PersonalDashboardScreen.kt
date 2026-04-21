@@ -13,14 +13,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.presentation.components.LoadingOverlay
-import com.nexohogar.presentation.dashboard.BalanceCard
+import com.nexohogar.presentation.dashboard.BalanceCardWithInsights
+import com.nexohogar.presentation.dashboard.CreditCardsCard
 import com.nexohogar.presentation.dashboard.MonthlyChart
 import com.nexohogar.presentation.dashboard.RecentTransactionsList
+import com.nexohogar.presentation.dashboard.SavingsCard
+import com.nexohogar.presentation.dashboard.DashboardUiState
 import java.text.NumberFormat
 import java.util.*
 
@@ -31,8 +34,8 @@ fun PersonalDashboardScreen(
     onTransactionClick: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val clpFormat = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    val uiState   by viewModel.uiState.collectAsState()
+    val clpFormat  = remember { NumberFormat.getCurrencyInstance(Locale("es", "CL")) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -48,8 +51,8 @@ fun PersonalDashboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Resumen Financiero Personal",
-                        style = MaterialTheme.typography.titleLarge,
+                        "Resumen Personal",
+                        style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -61,65 +64,84 @@ fun PersonalDashboardScreen(
             )
         }
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (uiState.isLoading) {
                 LoadingOverlay()
-            } else if (!uiState.hasPersonalAccounts && uiState.summary != null) {
-                // Estado vacío: sin cuentas personales
+            } else if (!uiState.hasPersonalAccounts) {
                 EmptyPersonalAccountsState()
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                    modifier        = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp)
+                    contentPadding  = PaddingValues(vertical = 16.dp)
                 ) {
-                    item {
-                        // Chip de contexto personal
-                        PersonalContextChip()
-                    }
+                    // ── Chip de contexto ──────────────────────────────────
+                    item { PersonalContextChip() }
 
+                    // ── Balance personal ──────────────────────────────────
                     item {
                         uiState.summary?.let { summary ->
-                            // Reutilizamos BalanceCard del dashboard pero con un DashboardSummary mapeado
-                            val dashboardSummary = com.nexohogar.domain.model.DashboardSummary(
+                            val dashboardSummary = DashboardSummary(
                                 householdId       = "",
-                                totalBalance      = summary.totalBalance,
+                                totalBalance      = uiState.computedTotalBalance ?: summary.totalBalance,
                                 totalIncome       = summary.totalIncome,
                                 totalExpense      = summary.totalExpense,
                                 accountsCount     = summary.accountsCount,
                                 transactionsCount = summary.transactionsCount
                             )
-                            BalanceCard(summary = dashboardSummary, format = clpFormat)
+                            // Reutilizamos BalanceCardWithInsights con un DashboardUiState mínimo
+                            BalanceCardWithInsights(
+                                summary = dashboardSummary,
+                                format  = clpFormat,
+                                uiState = DashboardUiState(
+                                    computedTotalBalance = uiState.computedTotalBalance,
+                                    actualLiquidity      = null,
+                                    pendingBillsTotal    = 0L
+                                )
+                            )
                         }
                     }
 
-                    item {
-                        MonthlyChart(monthlyData = uiState.monthlyBalance)
+                    // ── Tarjetas de crédito personales ────────────────────
+                    if (uiState.creditCards.isNotEmpty()) {
+                        item {
+                            CreditCardsCard(
+                                cards  = uiState.creditCards,
+                                format = clpFormat
+                            )
+                        }
                     }
 
+                    // ── Gráfico de tendencia ──────────────────────────────
+                    item { MonthlyChart(monthlyData = uiState.monthlyBalance) }
+
+                    // ── Ahorro personal ───────────────────────────────────
+                    if (uiState.totalSavings != 0L) {
+                        item {
+                            SavingsCard(
+                                totalSavings = uiState.totalSavings,
+                                format       = clpFormat
+                            )
+                        }
+                    }
+
+                    // ── Últimos movimientos personales ────────────────────
                     item {
                         RecentTransactionsList(
                             transactions       = uiState.recentTransactions,
                             format             = clpFormat,
                             onTransactionClick = onTransactionClick,
-                            onSeeAllClick      = { /* personal transactions list — futuro */ }
+                            onSeeAllClick      = { }
                         )
                     }
+
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Chip que indica el contexto personal
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PersonalContextChip() {
     Surface(
@@ -127,8 +149,8 @@ private fun PersonalContextChip() {
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier              = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
@@ -138,28 +160,22 @@ private fun PersonalContextChip() {
                 modifier           = Modifier.size(16.dp)
             )
             Text(
-                text  = "Cuentas personales",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                text       = "Cuentas personales",
+                style      = MaterialTheme.typography.labelMedium,
+                color      = MaterialTheme.colorScheme.onSecondaryContainer,
                 fontWeight = FontWeight.SemiBold
             )
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Estado vacío sin cuentas personales
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun EmptyPersonalAccountsState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
+            modifier            = Modifier.padding(32.dp)
         ) {
             Icon(
                 imageVector        = Icons.Default.AccountCircle,

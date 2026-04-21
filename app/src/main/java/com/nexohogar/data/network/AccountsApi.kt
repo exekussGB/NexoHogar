@@ -20,7 +20,7 @@ interface AccountsApi {
     @GET("account_balances")
     suspend fun getBalances(
         @Query("household_id") householdId: String,
-        @Query("select")       select: String = "account_id,name,account_type,balance_clp,is_shared,owner_user_id,is_savings,icon",
+        @Query("select")       select: String = "account_id,name,account_type,account_subtype,balance_clp,is_shared,owner_user_id,is_savings,is_liability,icon,credit_limit",
         @Query("order")        order: String  = "name.asc"
     ): List<AccountBalanceViewDto>
 

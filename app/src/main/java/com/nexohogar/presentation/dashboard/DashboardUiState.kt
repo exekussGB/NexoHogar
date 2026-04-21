@@ -14,6 +14,7 @@ data class DashboardUiState(
     val totalSavings: Long = 0L,
     val totalLiabilities: Long = 0L,                   // 🆕 Feature 3: Deudas totales
     val totalCreditLimit: Long = 0L,                   // 🆕 Feature 4: Cupo total de TCs
+    val creditCards: List<com.nexohogar.domain.model.AccountBalance> = emptyList(),
     val upcomingBills: List<RecurringBill> = emptyList(), // 🆕 Integración con Cuentas Recurrentes
     val pendingBillsTotal: Long = 0L,                   // 🆕 Monto total comprometido este mes
     val actualLiquidity: Double? = null,                // 🆕 Balance - Presupuesto Comprometido
