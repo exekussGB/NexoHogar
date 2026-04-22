@@ -31,6 +31,7 @@ import com.nexohogar.core.tutorial.TutorialManager
 import com.nexohogar.data.local.ThemePreferences
 import com.nexohogar.data.local.NotificationPreferences
 import com.nexohogar.core.biometric.BiometricHelper
+import com.nexohogar.data.local.room.AppDatabase
 import com.nexohogar.presentation.membership.MembershipViewModel
 import com.nexohogar.presentation.premium.PremiumLimitsViewModel
 
@@ -49,6 +50,10 @@ object ServiceLocator {
         get() = databaseContext ?: throw IllegalStateException("ServiceLocator must be initialized with context")
 
     // ── Core & Local ──────────────────────────────────────────────────────────
+
+    val database: AppDatabase by lazy {
+        AppDatabase.getDatabase(context)
+    }
 
     val sessionManager: SessionManager by lazy {
         SessionManager(context)
@@ -199,7 +204,9 @@ object ServiceLocator {
         TransactionsRepositoryImpl(
             api            = transactionsApi,
             accountsApi    = accountsApi,
-            sessionManager = sessionManager
+            sessionManager = sessionManager,
+            transactionDao = database.transactionDao(),
+            accountDao     = database.accountDao()
         )
     }
 

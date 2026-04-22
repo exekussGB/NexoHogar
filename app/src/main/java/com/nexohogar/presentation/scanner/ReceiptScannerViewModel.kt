@@ -24,14 +24,20 @@ import com.nexohogar.core.result.getOrThrow
 import com.nexohogar.core.util.AppLogger
 
 enum class ScannerStep { CAMERA, PROCESSING, REVIEW, IMPORTING, DONE, ERROR }
+enum class ScannerMode { INVENTORY, TRANSACTION }
 
 data class ReceiptScannerUiState(
     val step: ScannerStep = ScannerStep.CAMERA,
+    val mode: ScannerMode = ScannerMode.INVENTORY,
     val ocrText: String = "",
     val store: String = "",
     val receiptDate: String = LocalDate.now().toString(),
     val items: List<ScannedReceiptItem> = emptyList(),
     val detectedTotal: Double? = null,
+    val issuerRut: String? = null,
+    val documentNumber: String? = null,
+    val documentType: String? = null,
+    val suggestedCategory: String? = null,
     val selectedAccountId: String? = null,
     val isProcessing: Boolean = false,
     val error: String? = null,
@@ -135,6 +141,10 @@ class ReceiptScannerViewModel(
 
     fun setAccount(accountId: String) {
         _uiState.update { it.copy(selectedAccountId = accountId) }
+    }
+
+    fun setMode(mode: ScannerMode) {
+        _uiState.update { it.copy(mode = mode) }
     }
 
     /**
@@ -289,6 +299,10 @@ class ReceiptScannerViewModel(
                                 store = aiResult.store ?: "",
                                 items = matchedItems,
                                 detectedTotal = aiResult.total,
+                                issuerRut = aiResult.rut,
+                                documentNumber = aiResult.documentNumber,
+                                documentType = aiResult.documentType,
+                                suggestedCategory = aiResult.suggestedCategory,
                                 isProcessing = false,
                                 parsedWithAi = true,
                                 receiptDate = aiResult.date ?: LocalDate.now().toString()
@@ -320,6 +334,7 @@ class ReceiptScannerViewModel(
                         store = parseResult.store ?: "",
                         items = parseResult.items,
                         detectedTotal = parseResult.total,
+                        issuerRut = parseResult.rut,
                         isProcessing = false,
                         parsedWithAi = false,
                         receiptDate = parseResult.date ?: LocalDate.now().toString()

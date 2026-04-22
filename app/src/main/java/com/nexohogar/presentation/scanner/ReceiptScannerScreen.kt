@@ -6,13 +6,11 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import com.nexohogar.core.util.AppLogger
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,7 +48,8 @@ private const val TAG = "ReceiptScanner"
 @Composable
 fun ReceiptScannerScreen(
     viewModel: ReceiptScannerViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onResult: (String?, Double?, String?, String?) -> Unit = { _, _, _, _ -> }
 ) {
     // Cuentas y categorías se cargan desde el ViewModel
     val accounts = viewModel.accounts.collectAsState().value
@@ -88,7 +87,8 @@ fun ReceiptScannerScreen(
                     onUpdateDate = viewModel::updateDate,
                     onSetAccount = viewModel::setAccount,
                     onConfirmImport = viewModel::confirmImport,
-                    onRetakePhoto = viewModel::retakePhoto
+                    onRetakePhoto = viewModel::retakePhoto,
+                    onResult = onResult
                 )
                 ScannerStep.IMPORTING -> ImportingStep(
                     itemCount = uiState.items.count { it.isSelected }
@@ -114,186 +114,64 @@ private fun CameraStep(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val activity = context as? android.app.Activity
 
-    var hasCameraPermission by remember { mutableStateOf(false) }
-    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasCameraPermission = granted
+    // Configuración del Document Scanner de Google
+    val options = remember {
+        GmsDocumentScannerOptions.Builder()
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .setPageLimit(1) // Solo una boleta a la vez
+            .setGalleryImportAllowed(true)
+            .build()
     }
 
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val inputStream = context.contentResolver.openInputStream(it)
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-                inputStream?.close()
-                if (bitmap != null) {
-                    onImageCaptured(bitmap)
+    val scanner = remember {
+        GmsDocumentScanning.getClient(options)
+    }
+
+    val scannerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            if (data != null) {
+                val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(data)
+                val pages = scanResult?.pages
+                if (pages != null && pages.isNotEmpty()) {
+                    val page = pages[0]
+                    val uri = page.imageUri
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        if (bitmap != null) {
+                            onImageCaptured(bitmap)
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e("Scanner", "Error cargando imagen escaneada", e)
+                    }
                 }
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Error loading image from gallery", e)
             }
+        } else {
+            onNavigateBack()
         }
     }
 
     LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (activity != null) {
+            scanner.getStartScanIntent(activity)
+                .addOnSuccessListener { intentSender ->
+                    val request = IntentSenderRequest.Builder(intentSender).build()
+                    scannerLauncher.launch(request)
+                }
+                .addOnFailureListener { e ->
+                    AppLogger.e("Scanner", "Fallo al iniciar scanner nativo", e)
+                }
+        }
     }
 
-    if (hasCameraPermission) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Camera preview
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx)
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-
-                        val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
-
-                        val capture = ImageCapture.Builder()
-                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                            .build()
-                        imageCapture = capture
-
-                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                cameraSelector,
-                                preview,
-                                capture
-                            )
-                        } catch (e: Exception) {
-                            AppLogger.e(TAG, "Camera bind failed", e)
-                        }
-                    }, ContextCompat.getMainExecutor(ctx))
-
-                    previewView
-                }
-            )
-
-            // Instruction overlay
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                    )
-                ) {
-                    Text(
-                        text = "📸 Tomar foto de la boleta",
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-
-            // Bottom controls
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Capture button
-                IconButton(
-                    onClick = {
-                        val capture = imageCapture ?: return@IconButton
-                        val file = File(context.cacheDir, "receipt_${System.currentTimeMillis()}.jpg")
-                        val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
-
-                        capture.takePicture(
-                            outputOptions,
-                            ContextCompat.getMainExecutor(context),
-                            object : ImageCapture.OnImageSavedCallback {
-                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                                    if (bitmap != null) {
-                                        onImageCaptured(bitmap)
-                                    }
-                                    file.delete()
-                                }
-
-                                override fun onError(exception: ImageCaptureException) {
-                                    AppLogger.e(TAG, "Photo capture failed", exception)
-                                }
-                            }
-                        )
-                    },
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(
-                        Icons.Default.CameraAlt,
-                        contentDescription = "Tomar foto",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                // Gallery button
-                OutlinedButton(
-                    onClick = { galleryLauncher.launch("image/*") }
-                ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Seleccionar de galería")
-                }
-            }
-        }
-    } else {
-        // No camera permission
-        Column(
-            modifier = Modifier.fillMaxSize().padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                Icons.Default.CameraAlt,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "Se necesita permiso de cámara para escanear boletas",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                Text("Dar permiso")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { galleryLauncher.launch("image/*") }) {
-                Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Seleccionar de galería")
-            }
-        }
+    // Mientras se abre el scanner nativo, mostramos un indicador de carga
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
     }
 }
 
@@ -333,7 +211,8 @@ private fun ReviewStep(
     onUpdateDate: (String) -> Unit,
     onSetAccount: (String) -> Unit,
     onConfirmImport: () -> Unit,
-    onRetakePhoto: () -> Unit
+    onRetakePhoto: () -> Unit,
+    onResult: (String?, Double?, String?, String?) -> Unit
 ) {
     val clpFormat = remember {
         NumberFormat.getNumberInstance(Locale("es", "CL")).apply {
@@ -419,13 +298,30 @@ private fun ReviewStep(
                             Text("Retomar")
                         }
                         Button(
-                            onClick = onConfirmImport,
+                            onClick = {
+                                if (uiState.mode == ScannerMode.TRANSACTION) {
+                                    onResult(
+                                        uiState.store,
+                                        uiState.detectedTotal ?: calculatedTotal,
+                                        uiState.receiptDate,
+                                        uiState.suggestedCategory
+                                    )
+                                } else {
+                                    onConfirmImport()
+                                }
+                            },
                             modifier = Modifier.weight(2f),
-                            enabled = selectedItems.isNotEmpty() && uiState.selectedAccountId != null
+                            enabled = (uiState.mode == ScannerMode.TRANSACTION && (uiState.detectedTotal != null || calculatedTotal > 0)) ||
+                                    (selectedItems.isNotEmpty() && uiState.selectedAccountId != null)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = null)
+                            Icon(
+                                if (uiState.mode == ScannerMode.TRANSACTION) Icons.Default.Done else Icons.Default.Check,
+                                contentDescription = null
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("Confirmar e importar")
+                            Text(
+                                if (uiState.mode == ScannerMode.TRANSACTION) "Usar estos datos" else "Confirmar e importar"
+                            )
                         }
                     }
                 }
@@ -439,27 +335,100 @@ private fun ReviewStep(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Store & date header
+            // ── Información del Documento (Enfoque Inteligente) ──────────
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "📄 Información del Documento",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         OutlinedTextField(
                             value = uiState.store,
                             onValueChange = onUpdateStore,
-                            label = { Text("Tienda") },
+                            label = { Text("Comercio / Tienda") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
+                            colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
                         )
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = uiState.receiptDate,
-                            onValueChange = onUpdateDate,
-                            label = { Text("Fecha (YYYY-MM-DD)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) }
-                        )
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = uiState.receiptDate,
+                                onValueChange = onUpdateDate,
+                                label = { Text("Fecha") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+                                colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
+                            )
+                            
+                            if (uiState.issuerRut != null) {
+                                OutlinedTextField(
+                                    value = uiState.issuerRut,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("RUT Emisor") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) },
+                                    colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
+                                )
+                            }
+                        }
+
+                        if (uiState.documentNumber != null || uiState.documentType != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (uiState.documentType != null) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    ) {
+                                        Text(uiState.documentType, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                    }
+                                }
+                                if (uiState.documentNumber != null) {
+                                    Text(
+                                        "N°: ${uiState.documentNumber}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.align(Alignment.CenterVertically)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        if (uiState.suggestedCategory != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = Color(0xFF673AB7),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Categoría sugerida: ${uiState.suggestedCategory}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF673AB7),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }

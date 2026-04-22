@@ -140,6 +140,57 @@ class AddMovementViewModel(
     fun onDescriptionChange(description: String) { _uiState.update { it.copy(description = description) } }
 
     /**
+     * Procesa los datos extraídos por el OCR para autocompletar el formulario.
+     */
+    fun onReceiptScanned(merchant: String?, amount: Double?, date: String? = null, suggestedCategory: String? = null) {
+        _uiState.update { state ->
+            // 1. Actualizar monto si se detectó
+            val newAmount = amount?.toInt()?.toString() ?: state.amount
+            
+            // 2. Intentar encontrar una cuenta recurrente que coincida con el comercio
+            val matchedBill = if (!merchant.isNullOrBlank()) {
+                state.recurringBills.find { bill ->
+                    val normalizedBill = bill.name.lowercase().removeAccents()
+                    val normalizedMerchant = merchant.lowercase().removeAccents()
+                    normalizedBill.contains(normalizedMerchant) || normalizedMerchant.contains(normalizedBill)
+                }
+            } else null
+
+            // 3. Definir la nueva descripción
+            val newDescription = when {
+                matchedBill != null -> matchedBill.name
+                !merchant.isNullOrBlank() -> merchant
+                else -> state.description
+            }
+
+            // 4. Intentar pre-seleccionar categoría si Gemini la sugirió
+            val autoCategory = if (suggestedCategory != null) {
+                _categories.value.find { it.name.contains(suggestedCategory, ignoreCase = true) || suggestedCategory.contains(it.name, ignoreCase = true) }
+            } else null
+
+            state.copy(
+                amount = newAmount,
+                description = newDescription,
+                linkedRecurringBill = matchedBill ?: state.linkedRecurringBill,
+                selectedCategory = autoCategory ?: state.selectedCategory
+                // Nota: Podríamos agregar 'date' al estado si AddMovementUiState lo soportara,
+                // pero actualmente parece que usa LocalDate.now() al guardar.
+            )
+        }
+    }
+
+    // Extensión simple para normalizar texto (quitar tildes)
+    private fun String.removeAccents(): String {
+        val accents = "áéíóúüñ"
+        val noAccents = "aeiouun"
+        var result = this
+        accents.forEachIndexed { index, char ->
+            result = result.replace(char, noAccents[index])
+        }
+        return result
+    }
+
+    /**
      * Vincula una cuenta recurrente a este gasto.
      * Si la descripción está vacía, la rellena automáticamente con el nombre de la cuenta.
      */

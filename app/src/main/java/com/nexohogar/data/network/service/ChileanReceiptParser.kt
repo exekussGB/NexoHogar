@@ -6,7 +6,8 @@ data class ParsedReceipt(
     val store: String?,
     val date: String?,
     val items: List<ScannedReceiptItem>,
-    val total: Double?
+    val total: Double?,
+    val rut: String? = null
 )
 
 class ChileanReceiptParser {
@@ -93,6 +94,7 @@ class ChileanReceiptParser {
         val store = detectStore(rawLines)
         val date = detectDate(rawLines)
         val total = detectTotal(rawLines)
+        val rut = detectRut(rawLines)
 
         // Phase 1: Reconstruct fragmented OCR lines into complete product lines
         val mergedLines = reconstructLines(rawLines)
@@ -103,7 +105,8 @@ class ChileanReceiptParser {
             store = store,
             date = date,
             items = items,
-            total = total
+            total = total,
+            rut = rut
         )
     }
 
@@ -315,6 +318,15 @@ class ChileanReceiptParser {
             if (match != null) {
                 return parseChileanPrice(match.groupValues[1])
             }
+        }
+        return null
+    }
+
+    private fun detectRut(lines: List<String>): String? {
+        val rutRegex = Regex("""\d{1,2}\.\d{3}\.\d{3}-[\dkK]""")
+        for (line in lines.take(20)) {
+            val match = rutRegex.find(line)
+            if (match != null) return match.value
         }
         return null
     }

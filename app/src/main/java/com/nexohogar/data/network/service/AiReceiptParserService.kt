@@ -24,7 +24,11 @@ data class AiParsedReceipt(
     val store: String?,
     val date: String?,
     val items: List<ScannedReceiptItem>,
-    val total: Double?
+    val total: Double?,
+    val rut: String? = null,
+    val documentNumber: String? = null,
+    val documentType: String? = null,
+    val suggestedCategory: String? = null
 )
 
 /**
@@ -152,6 +156,10 @@ class AiReceiptParserService(
             val store = json.optString("store", "").ifBlank { null }
             val date = json.optString("date", "").ifBlank { null }
             val total = if (json.has("total") && !json.isNull("total")) json.optDouble("total") else null
+            val rut = json.optString("rut", "").ifBlank { null }
+            val documentNumber = json.optString("document_number", "").ifBlank { null }
+            val documentType = json.optString("document_type", "").ifBlank { null }
+            val suggestedCategory = json.optString("suggested_category", "").ifBlank { null }
 
             val itemsArray = json.optJSONArray("items") ?: return null
             val items = mutableListOf<ScannedReceiptItem>()
@@ -192,7 +200,11 @@ class AiReceiptParserService(
                 store = store,
                 date = date,
                 items = items,
-                total = total
+                total = total,
+                rut = rut,
+                documentNumber = documentNumber,
+                documentType = documentType,
+                suggestedCategory = suggestedCategory
             )
 
         } catch (e: Exception) {

@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 // ── SEC-01: Leer API Key desde local.properties ──────────────────────────────
@@ -130,6 +131,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     // ML Kit Text Recognition (OCR offline)
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // ML Kit Document Scanner
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
 
     // CameraX
     implementation("androidx.camera:camera-core:1.4.1")
@@ -159,4 +162,10 @@ dependencies {
     // Kotlinx serialization runtime (serialización de UserSession en DataStore)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("androidx.compose.material:material-icons-extended")
+
+    // ── Room Database ──
+    val roomVersion = "2.8.4"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
 }

@@ -2,6 +2,8 @@ package com.nexohogar.data.repository
 
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.data.local.SessionManager
+import com.nexohogar.data.local.room.dao.AccountDao
+import com.nexohogar.data.local.room.dao.TransactionDao
 import com.nexohogar.data.network.AccountsApi
 import com.nexohogar.data.network.TransactionsApi
 import com.nexohogar.data.remote.dto.TransactionResponse
@@ -18,6 +20,8 @@ class TransactionsRepositoryImplTest {
     private lateinit var api: TransactionsApi
     private lateinit var accountsApi: AccountsApi
     private lateinit var sessionManager: SessionManager
+    private lateinit var transactionDao: TransactionDao
+    private lateinit var accountDao: AccountDao
     private lateinit var repository: TransactionsRepositoryImpl
 
     private val fakeTransactions = listOf(
@@ -48,7 +52,9 @@ class TransactionsRepositoryImplTest {
         api = mockk()
         accountsApi = mockk()
         sessionManager = mockk(relaxed = true)
-        repository = TransactionsRepositoryImpl(api, accountsApi, sessionManager)
+        transactionDao = mockk(relaxed = true)
+        accountDao = mockk(relaxed = true)
+        repository = TransactionsRepositoryImpl(api, accountsApi, sessionManager, transactionDao, accountDao)
     }
 
     @Test

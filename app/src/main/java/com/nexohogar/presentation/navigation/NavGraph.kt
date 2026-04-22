@@ -680,6 +680,16 @@ fun NavGraph(navController: NavHostController) {
                         }
                     }
                 )
+
+                val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) hubVm.load()
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+
                 val hubAlerts by hubVm.alerts.collectAsState()
 
                 HubScreen(
@@ -698,7 +708,9 @@ fun NavGraph(navController: NavHostController) {
                     overdueCount = hubAlerts.overdueCount,
                     budgetAlertCount = hubAlerts.budgetAlertCount,
                     lowStockCount = hubAlerts.lowStockCount,
-                    wishlistHighCount = hubAlerts.wishlistAffordCount
+                    wishlistHighCount = hubAlerts.wishlistAffordCount,
+                    actualLiquidity = hubAlerts.actualLiquidity,
+                    pendingBillsTotal = hubAlerts.pendingBillsTotal
                 )
             }
 
@@ -787,10 +799,32 @@ fun NavGraph(navController: NavHostController) {
                         }
                     }
                 )
+
+                // Observamos el resultado del scanner
+                val savedStateHandle = backStackEntry.savedStateHandle
+                val scannedStore = savedStateHandle.get<String?>("scanned_store")
+                val scannedAmount = savedStateHandle.get<Double?>("scanned_amount")
+                val scannedDate = savedStateHandle.get<String?>("scanned_date")
+                val scannedCategory = savedStateHandle.get<String?>("scanned_category")
+
+                LaunchedEffect(scannedStore, scannedAmount, scannedDate, scannedCategory) {
+                    if (scannedStore != null || scannedAmount != null || scannedDate != null || scannedCategory != null) {
+                        vm.onReceiptScanned(scannedStore, scannedAmount, scannedDate, scannedCategory)
+                        // Limpiamos los datos para que no se vuelvan a aplicar si se vuelve a entrar
+                        savedStateHandle.remove<String?>("scanned_store")
+                        savedStateHandle.remove<Double?>("scanned_amount")
+                        savedStateHandle.remove<String?>("scanned_date")
+                        savedStateHandle.remove<String?>("scanned_category")
+                    }
+                }
+
                 AddTransactionScreen(
                     transactionType = type,
                     viewModel = vm,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToScanner = {
+                        navController.navigate("receipt_scanner?mode=TRANSACTION")
+                    }
                 )
             }
 
@@ -899,7 +933,7 @@ fun NavGraph(navController: NavHostController) {
                 )
             }
 
-// ── Inventory ──────────────────────────────────────────────────────
+            // ── Inventory ──────────────────────────────────────────────────────
             composable(Screen.Inventory.route) {
                 val vm: InventoryViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
@@ -917,7 +951,9 @@ fun NavGraph(navController: NavHostController) {
                     tutorialManager = tutorialManager,
                     membershipViewModel = ServiceLocator.membershipViewModel,
                     onBack = { navController.popBackStack() },
-                    onNavigateToScanner = { navController.navigate("receipt_scanner") }
+                    onNavigateToScanner = {
+                        navController.navigate("receipt_scanner?mode=INVENTORY")
+                    }
                 )
             }
 
@@ -977,7 +1013,22 @@ fun NavGraph(navController: NavHostController) {
             }
 
             // ── Receipt Scanner ────────────────────────────────────────────────
-            composable("receipt_scanner") {
+            composable(
+                route = "receipt_scanner?mode={mode}",
+                arguments = listOf(
+                    navArgument("mode") {
+                        type = NavType.StringType
+                        defaultValue = "INVENTORY"
+                    }
+                )
+            ) { backStackEntry ->
+                val modeStr = backStackEntry.arguments?.getString("mode") ?: "INVENTORY"
+                val mode = try {
+                    com.nexohogar.presentation.scanner.ScannerMode.valueOf(modeStr)
+                } catch (e: Exception) {
+                    com.nexohogar.presentation.scanner.ScannerMode.INVENTORY
+                }
+
                 val vm: ReceiptScannerViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -990,9 +1041,23 @@ fun NavGraph(navController: NavHostController) {
                         }
                     }
                 )
+
+                LaunchedEffect(mode) {
+                    vm.setMode(mode)
+                }
+
                 ReceiptScannerScreen(
                     viewModel = vm,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onResult = { store, amount, date, category ->
+                        navController.previousBackStackEntry?.savedStateHandle?.let {
+                            it["scanned_store"] = store
+                            it["scanned_amount"] = amount
+                            it["scanned_date"] = date
+                            it["scanned_category"] = category
+                        }
+                        navController.popBackStack()
+                    }
                 )
             }
 

@@ -21,7 +21,9 @@ data class HubAlertsState(
     val overdueCount        : Int = 0,  // RecurringBills OVERDUE o DUE_SOON
     val budgetAlertCount    : Int = 0,  // Presupuestos >= 80% consumido
     val lowStockCount       : Int = 0,  // Productos por debajo del stock mínimo
-    val wishlistAffordCount : Int = 0   // Ítems de wishlist que el hogar puede pagar
+    val wishlistAffordCount : Int = 0,  // Ítems de wishlist que el hogar puede pagar
+    val actualLiquidity     : Double? = null,
+    val pendingBillsTotal   : Long = 0L
 )
 
 class HubViewModel(
@@ -48,9 +50,28 @@ class HubViewModel(
             val wishlistDeferred  = async { wishlistRepository.getWishlistItems(householdId) }
             val accountsDeferred  = async { accountsRepository.getAccounts(householdId) }
 
+            // ── Balance total del hogar ─────────────────────────────────────
+            val accountsResult = accountsDeferred.await()
+            val totalBalance = when (accountsResult) {
+                is AppResult.Success -> accountsResult.data
+                    .filter { it.type == "ASSET" && !it.isSavings }
+                    .sumOf { it.balance.toDouble() }
+                else -> 0.0
+            }
+
+            // ── Liquidez Real ──────────────────────────────────────────────
+            val billsResult = billsDeferred.await()
+            val pendingBillsTotal = when (billsResult) {
+                is AppResult.Success -> billsResult.data
+                    .filter { it.isActive && it.status() != RecurringBillStatus.PAID }
+                    .sumOf { it.amountClp }
+                else -> 0L
+            }
+            val actualLiquidity = totalBalance - pendingBillsTotal
+
             // ── Recurrentes: OVERDUE o DUE_SOON ────────────────────────────
-            val overdueCount = when (val r = billsDeferred.await()) {
-                is AppResult.Success -> r.data.count { bill ->
+            val overdueCount = when (billsResult) {
+                is AppResult.Success -> billsResult.data.count { bill ->
                     bill.isActive && (
                             bill.status() == RecurringBillStatus.OVERDUE ||
                                     bill.status() == RecurringBillStatus.DUE_SOON
@@ -73,12 +94,6 @@ class HubViewModel(
                 else -> 0
             }
 
-            // ── Balance total del hogar ─────────────────────────────────────
-            val totalBalance = when (val r = accountsDeferred.await()) {
-                is AppResult.Success -> r.data.sumOf { it.balance.toDouble() }
-                else -> 0.0
-            }
-
             // ── Wishlist: ítems no comprados que el hogar puede pagar ───────
             val wishlistAffordCount = when (val r = wishlistDeferred.await()) {
                 is AppResult.Success -> r.data.count { item ->
@@ -95,7 +110,9 @@ class HubViewModel(
                     overdueCount        = overdueCount,
                     budgetAlertCount    = budgetAlertCount,
                     lowStockCount       = lowStockCount,
-                    wishlistAffordCount = wishlistAffordCount
+                    wishlistAffordCount = wishlistAffordCount,
+                    actualLiquidity     = actualLiquidity,
+                    pendingBillsTotal   = pendingBillsTotal
                 )
             }
         }

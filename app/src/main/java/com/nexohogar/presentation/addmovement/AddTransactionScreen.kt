@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,11 +33,16 @@ import kotlinx.coroutines.delay
 fun AddTransactionScreen(
     transactionType: String,
     viewModel: AddMovementViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToScanner: () -> Unit
 ) {
     val uiState    by viewModel.uiState.collectAsState()
     val categories by viewModel.filteredCategories.collectAsState()
     val context    = LocalContext.current
+
+    // Observar resultado del scanner (si vuelve con datos)
+    // NOTA: Como AddTransactionScreen se usa dentro de NavGraph,
+    // el ViewModel ya recibe los datos del scanner vía savedStateHandle en el NavGraph.
 
     // Auto-focus on amount field
     val amountFocusRequester = remember { FocusRequester() }
@@ -199,13 +205,23 @@ fun AddTransactionScreen(
                     OutlinedTextField(
                         value         = uiState.amount,
                         onValueChange = { newValue ->
-                            // Validate decimal format: digits, optional dot, up to 2 decimals
                             if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
                                 viewModel.onAmountChange(newValue)
                             }
                         },
                         label         = { Text("Monto") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        trailingIcon = {
+                            if (uiState.type == TransactionType.EXPENSE) {
+                                IconButton(onClick = onNavigateToScanner) {
+                                    Icon(
+                                        imageVector = Icons.Default.PhotoCamera,
+                                        contentDescription = "Escanear boleta",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
                         modifier      = Modifier
                             .fillMaxWidth()
                             .focusRequester(amountFocusRequester)

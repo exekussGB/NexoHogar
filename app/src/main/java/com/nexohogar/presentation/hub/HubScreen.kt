@@ -50,13 +50,17 @@ fun HubScreen(
     onNavigateToInventory     : () -> Unit = {},
     onNavigateToOptions       : () -> Unit,
     onNavigateToWishlist      : () -> Unit,
-    onNavigateToMembership    : () -> Unit = {}, // ═══ NUEVO ═══
+    onNavigateToMembership    : () -> Unit = {},
     overdueCount              : Int = 0,
     budgetAlertCount          : Int = 0,
     lowStockCount             : Int = 0,
     wishlistHighCount         : Int = 0,
-    hubAlertCount             : Int = 0
+    hubAlertCount             : Int = 0,
+    actualLiquidity           : Double? = null,
+    pendingBillsTotal         : Long = 0L
 ) {
+    val clpFormat = remember { java.text.NumberFormat.getCurrencyInstance(java.util.Locale("es", "CL")) }
+
     // Todos los módulos de la app
     val actions = listOf(
         HubAction(
