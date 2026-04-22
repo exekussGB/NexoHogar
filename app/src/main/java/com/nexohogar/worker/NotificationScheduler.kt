@@ -20,6 +20,7 @@ object NotificationScheduler {
 
     private const val WORK_NAME = "RecurringBillsNotification"
     private const val RECURRING_BILL_CHECK_WORK_NAME = "recurring_bill_check"
+    private const val SCANNER_NUDGE_WORK_NAME = "scanner_nudge"
 
     /**
      * Programa la verificación de cuentas recurrentes cada 24 horas.
@@ -92,6 +93,21 @@ object NotificationScheduler {
             .build()
 
         WorkManager.getInstance(context).enqueue(oneTimeRequest)
+    }
+
+    /**
+     * Programa un recordatorio para escanear boletas cada 3 días.
+     */
+    fun scheduleScannerNudge(context: Context) {
+        val workRequest = PeriodicWorkRequestBuilder<ScannerNudgeWorker>(
+            3, TimeUnit.DAYS
+        ).build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            SCANNER_NUDGE_WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
     private fun calculateInitialDelay(): Long {

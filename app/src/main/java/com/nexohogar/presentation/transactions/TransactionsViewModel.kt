@@ -230,6 +230,48 @@ class TransactionsViewModel(
             }
         }
     }
+
+    /**
+     * Exporta la lista actual de transacciones a un archivo CSV y abre el selector de compartir.
+     */
+    fun exportToCsv(context: android.content.Context) {
+        val transactions = _allTransactions
+        if (transactions.isEmpty()) return
+
+        viewModelScope.launch {
+            try {
+                val csvContent = StringBuilder()
+                // Header (puedes traducir los nombres si prefieres)
+                csvContent.append("Fecha,Descripcion,Monto,Tipo,Creado por\n")
+                
+                transactions.forEach { tx ->
+                    val date = tx.createdAt.take(10)
+                    // Escapar comas en la descripción
+                    val desc = tx.description?.replace(",", ";") ?: "Sin descripcion"
+                    csvContent.append("$date,$desc,${tx.amount},${tx.type},${tx.createdByName ?: ""}\n")
+                }
+
+                val fileName = "nexohogar_movimientos_${System.currentTimeMillis()}.csv"
+                val file = java.io.File(context.cacheDir, fileName)
+                file.writeText(csvContent.toString())
+
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "com.nexohogar.fileprovider",
+                    file
+                )
+
+                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(android.content.Intent.createChooser(intent, "Exportar Movimientos"))
+            } catch (e: Exception) {
+                com.nexohogar.core.util.AppLogger.e("TransactionsViewModel", "Error al exportar CSV", e)
+            }
+        }
+    }
 }
 
 sealed interface TransactionsUiState {

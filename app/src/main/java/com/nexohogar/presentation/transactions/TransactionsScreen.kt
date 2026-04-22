@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ fun TransactionsScreen(
     tutorialManager: TutorialManager,
     onTransactionClick: (Transaction) -> Unit,
     onAddTransactionClick: () -> Unit,
+    isGuest: Boolean = false,
     isSuperUser: Boolean = false,
     onEditTransaction: (Transaction) -> Unit = {},
     onNavigateBack: () -> Unit = {}
@@ -57,6 +59,7 @@ fun TransactionsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val dateRange by viewModel.dateRange.collectAsState()
+    val context = LocalContext.current
 
     // Refrescar al volver a la pantalla
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -115,6 +118,11 @@ fun TransactionsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.exportToCsv(context) }) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = "Exportar CSV")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

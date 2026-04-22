@@ -25,6 +25,7 @@ class NexoHogarApp : Application() {
 
         // Programar verificación diaria de cuentas recurrentes (local)
         NotificationScheduler.schedule(this)
+        NotificationScheduler.scheduleScannerNudge(this)
 
         // Registrar token FCM si hay sesión activa
         if (ServiceLocator.sessionManager.fetchSession() != null) {
