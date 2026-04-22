@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nexohogar.core.result.AppResult
 import com.nexohogar.core.tenant.TenantContext
 import com.nexohogar.data.local.SessionManager
@@ -139,10 +140,12 @@ fun SettingsScreen(
 
             // ── Sección: Cuenta ──────────────────────────────────────────────
             if (session != null) {
+                val isGuest = session.isGuest
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = if (isGuest) MaterialTheme.colorScheme.tertiaryContainer 
+                                         else MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
                     Row(
@@ -152,30 +155,42 @@ fun SettingsScreen(
                     ) {
                         Surface(
                             shape = MaterialTheme.shapes.large,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = if (isGuest) MaterialTheme.colorScheme.tertiary 
+                                    else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(52.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = session.email.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary
                                 )
                             }
                         }
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Cuenta activa",
+                                text = if (isGuest) "Modo Invitado" else "Cuenta activa",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                color = (if (isGuest) MaterialTheme.colorScheme.onTertiaryContainer 
+                                         else MaterialTheme.colorScheme.onPrimaryContainer).copy(alpha = 0.7f)
                             )
                             Text(
-                                text = session.email,
+                                text = if (isGuest) "Datos guardados solo localmente" else session.email,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = if (isGuest) MaterialTheme.colorScheme.onTertiaryContainer 
+                                        else MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                        
+                        if (isGuest) {
+                            Button(
+                                onClick = onLogout, // Reutilizamos logout para que vuelva a login/register
+                                contentPadding = PaddingValues(horizontal = 12.dp),
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text("Registrarse", fontSize = 12.sp)
+                            }
                         }
                     }
                 }

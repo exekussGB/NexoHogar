@@ -233,8 +233,13 @@ fun InventoryScreen(
             }
 
             when {
-                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryBlue)
+                uiState.isLoading -> Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(6) {
+                        com.nexohogar.presentation.components.SkeletonItem(
+                            modifier = Modifier.fillMaxWidth().height(80.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
                 uiState.error != null -> ErrorState(uiState.error!!) { viewModel.loadData() }
                 else -> when (selectedTab) {

@@ -490,10 +490,14 @@ fun NavGraph(navController: NavHostController) {
                     onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                     onNavigateToForgotPassword = { navController.navigate(Screen.ForgotPassword.route) },
                     onLoginSuccess = {
-                        if (biometricHelper.isBiometricAvailable() && !sessionManager.isBiometricEnabled()) {
+                        val session = sessionManager.fetchSession()
+                        val isGuest = session?.isGuest == true
+                        val destination = if (isGuest) Screen.Hub.route else Screen.Household.route
+
+                        if (!isGuest && biometricHelper.isBiometricAvailable() && !sessionManager.isBiometricEnabled()) {
                             showBiometricDialog = true
                         } else {
-                            navController.navigate(Screen.Household.route) {
+                            navController.navigate(destination) {
                                 popUpTo(Screen.Login.route) { inclusive = true }
                             }
                         }

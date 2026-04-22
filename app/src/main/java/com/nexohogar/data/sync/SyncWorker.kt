@@ -23,6 +23,11 @@ class SyncWorker(
 
         var hasError = false
         pending.forEach { entity ->
+            // No sincronizar si es un hogar de invitado (ID empieza con guest_)
+            if (entity.householdId.startsWith("guest_")) {
+                return@forEach
+            }
+
             try {
                 val request = CreateTransactionRequest(
                     pHouseholdId = entity.householdId,

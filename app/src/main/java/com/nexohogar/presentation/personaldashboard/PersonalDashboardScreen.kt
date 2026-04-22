@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nexohogar.domain.model.DashboardSummary
 import com.nexohogar.presentation.components.LoadingOverlay
+import com.nexohogar.presentation.components.TransactionSkeleton
 import com.nexohogar.presentation.dashboard.BalanceCardWithInsights
 import com.nexohogar.presentation.dashboard.CreditCardsCard
 import com.nexohogar.presentation.dashboard.MonthlyChart
@@ -66,7 +67,14 @@ fun PersonalDashboardScreen(
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (uiState.isLoading) {
-                LoadingOverlay()
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Simular tarjetas de arriba
+                    com.nexohogar.presentation.components.SkeletonItem(
+                        modifier = Modifier.fillMaxWidth().height(160.dp).padding(16.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    )
+                    TransactionSkeleton()
+                }
             } else if (!uiState.hasPersonalAccounts) {
                 EmptyPersonalAccountsState()
             } else {

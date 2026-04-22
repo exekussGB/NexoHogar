@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -129,6 +131,8 @@ private fun CameraStep(
         GmsDocumentScanning.getClient(options)
     }
 
+    val haptic = LocalHapticFeedback.current
+
     val scannerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -144,6 +148,7 @@ private fun CameraStep(
                         val inputStream = context.contentResolver.openInputStream(uri)
                         val bitmap = BitmapFactory.decodeStream(inputStream)
                         if (bitmap != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onImageCaptured(bitmap)
                         }
                     } catch (e: Exception) {
@@ -518,6 +523,8 @@ private fun ReceiptItemCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
+    val haptic = LocalHapticFeedback.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -534,7 +541,10 @@ private fun ReceiptItemCard(
             ) {
                 Checkbox(
                     checked = item.isSelected,
-                    onCheckedChange = { onToggle() }
+                    onCheckedChange = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle() 
+                    }
                 )
 
                 Column(modifier = Modifier.weight(1f)) {

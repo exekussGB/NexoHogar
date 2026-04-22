@@ -20,6 +20,7 @@ class SessionManager(context: Context) {
         private const val USER_ID = "user_id"
         private const val USER_EMAIL = "user_email"
         private const val EXPIRES_AT_STR = "expires_at_str"
+        private const val IS_GUEST = "is_guest"
         private const val SELECTED_HOUSEHOLD_ID = "selected_household_id"
         private const val EXPIRY_MARGIN_MS = 5 * 60 * 1000L
         private const val BIOMETRIC_ENABLED = "biometric_enabled"
@@ -71,6 +72,7 @@ class SessionManager(context: Context) {
                 putString(USER_ID, session.userId)
                 putString(USER_EMAIL, session.email)
                 putString(EXPIRES_AT_STR, session.expiresAt.toString())
+                putBoolean(IS_GUEST, session.isGuest)
             }.commit()
         } catch (e: Exception) {
             Log.e(TAG, "❌ EncryptedPrefs commit threw: ${e.message}")
@@ -97,15 +99,16 @@ class SessionManager(context: Context) {
         // Try EncryptedSharedPreferences first
         val fromPrefs = try {
             val token = prefs.getString(ACCESS_TOKEN, null)
-            if (token == null) {
-                Log.d(TAG, "fetchSession: no access_token in prefs")
+            if (token == null && !prefs.getBoolean(IS_GUEST, false)) {
+                Log.d(TAG, "fetchSession: no access_token and not guest")
                 null
             } else {
                 val refresh = prefs.getString(REFRESH_TOKEN, "") ?: ""
                 val id = prefs.getString(USER_ID, "") ?: ""
                 val email = prefs.getString(USER_EMAIL, "") ?: ""
                 val expires = prefs.getString(EXPIRES_AT_STR, null)?.toLongOrNull() ?: 0L
-                UserSession(token, refresh, id, email, expires)
+                val guest = prefs.getBoolean(IS_GUEST, false)
+                UserSession(token ?: "", refresh, id, email, expires, guest)
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ fetchSession from prefs threw: ${e.message}")

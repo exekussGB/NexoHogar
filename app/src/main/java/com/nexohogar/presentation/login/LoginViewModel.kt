@@ -33,33 +33,33 @@ class LoginViewModel(
             return
         }
 
-        if (trimmedEmail.length > 254) {
-            _loginState.value = LoginState.Error("El correo es demasiado largo")
-            return
-        }
-
-        if (pass.length > 128) {
-            _loginState.value = LoginState.Error("La contraseña es demasiado larga")
-            return
-        }
-
         _loginState.value = LoginState.Loading
         viewModelScope.launch {
-            AppLogger.d("LoginViewModel", "Iniciando intento de login")
-
             when (val result = repository.login(trimmedEmail, pass)) {
                 is AppResult.Success -> {
-                    AppLogger.d("LoginViewModel", "Login exitoso, guardando sesión")
                     sessionManager.saveSession(result.data)
                     _loginState.value = LoginState.Success
                 }
                 is AppResult.Error -> {
-                    AppLogger.e("LoginViewModel", "Error en login: ${result.message}")
                     _loginState.value = LoginState.Error(result.message)
                 }
-                is AppResult.Loading -> { }
+                else -> {}
             }
         }
+    }
+
+    fun continueAsGuest() {
+        val guestSession = com.nexohogar.domain.model.UserSession(
+            accessToken = "guest_token",
+            refreshToken = "guest_refresh",
+            userId = "guest_${java.util.UUID.randomUUID()}",
+            email = "invitado@nexohogar.local",
+            expiresAt = Long.MAX_VALUE,
+            isGuest = true
+        )
+        sessionManager.saveSession(guestSession)
+        sessionManager.saveSelectedHouseholdId("guest_household_${java.util.UUID.randomUUID()}")
+        _loginState.value = LoginState.Success
     }
 }
 

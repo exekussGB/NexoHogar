@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -64,8 +66,11 @@ fun AddTransactionScreen(
         } catch (_: Exception) { }
     }
 
+    val haptic     = LocalHapticFeedback.current
+
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             Toast.makeText(context, "Movimiento guardado con éxito", Toast.LENGTH_SHORT).show()
             onNavigateBack()
         }

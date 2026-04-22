@@ -155,6 +155,20 @@ fun LoginScreen(
                 Text("¿No tienes cuenta? Regístrate")
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { viewModel.continueAsGuest() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(Icons.Default.Lock, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Probar ahora (sin cuenta)")
+            }
+
             TextButton(onClick = onNavigateToForgotPassword, modifier = Modifier.fillMaxWidth()) {
                 Text("¿Olvidaste tu contraseña?")
             }

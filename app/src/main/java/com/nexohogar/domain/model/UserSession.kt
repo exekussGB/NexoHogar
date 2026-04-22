@@ -9,5 +9,6 @@ data class UserSession(
     val refreshToken: String,
     val userId: String,
     val email: String,
-    val expiresAt: Long
+    val expiresAt: Long,
+    val isGuest: Boolean = false
 )
